@@ -274,30 +274,88 @@ export function getLanguageAiName(code: LanguageCode) {
   return LANGUAGE_AI_NAMES[code] ?? "English";
 }
 
-const TURKISH_HINT =
-  /\b(bir|ve|için|icin|nedir|konusu|dizi|var|mi|mı|mu|mü|de|da|ile|bu|şu|su|ne|nasıl|nasil|merhaba|teşekkür|tesekkur|görsel|gorsel|resim|hakkında|hakkinda|oyuncu|bölüm|bolum|adı|adi|yeni|daha|içeriği|icerigi|hangi|gün|gun|yayın|yayin|olsun|olur|evet|hayır|hayir)\b|[çğıöşüÇĞİÖŞÜ]/i;
+const LANGUAGE_HINTS: Partial<Record<LanguageCode, RegExp>> = {
+  tr: /\b(bir|ve|için|icin|nedir|konusu|dizi|var|mı|mi|mu|mü|ile|bu|şu|su|nasıl|nasil|merhaba|teşekkür|tesekkur|görsel|gorsel|resim|hakkında|hakkinda|oyuncu|bölüm|bolum|adı|adi|yeni|daha|içeriği|icerigi|hangi|yayın|yayin|evet|hayır|hayir|naber|nasılsın|nasilsin|iyiyim|teşekkürler|tesekkurler|istersen|konuşabiliriz|konusabiliriz|yardımcı|yardimci)\b|[çğıöşüÇĞİÖŞÜ]/i,
+  de: /\b(der|die|das|und|ist|nicht|ein|eine|ich|du|wir|für|fur|wie|was|kann|bitte|oder|auch|warum|wann|wo|habe|hast|sein|sind|dein|deine|melde|anmelden|guten|danke|hallo|dir|mir|uns)\b|[äöüßÄÖÜ]/i,
+  en: /\b(the|and|what|how|why|when|where|please|thanks|thank|hello|hi|hey|you|your|are|is|can|could|would|have|help|today|doing|well|good|morning|assist|question|discuss)\b/i,
+  fr: /\b(je|tu|vous|nous|ils|elles|le|la|les|un|une|des|est|pas|que|qui|comment|ça|ca|va|bien|merci|bonjour|salut|pourquoi|quoi|où|ou|avec|dans|sur|ce|cette|ne|peux|peut|très|tres|au|aux|mon|ma|mes|ton|ta|tes|chez|alors|oui|non)\b|[àâçéèêëîïôùûüÿœæÀÂÇÉÈÊËÎÏÔÙÛÜŸŒÆ]/i,
+  es: /\b(hola|gracias|qué|que|como|cómo|por|para|está|esta|estoy|son|soy|tú|tu|usted|nosotros|ellos|bien|mal|dónde|donde|cuándo|cuando|porqué|porque|puedo|puede|muy|sí|si|no|día|dia)\b|[áéíóúñ¿¡]/i,
+  it: /\b(ciao|grazie|come|stai|stai|sono|sei|lui|lei|noi|voi|loro|perché|perche|dove|quando|cosa|bene|male|questo|quella|molto|sì|si|no|buongiorno|aiuto)\b/i,
+  pt: /\b(olá|ola|obrigado|obrigada|como|você|voce|nós|nos|eles|elas|porque|quando|onde|está|esta|estou|bem|mau|isso|aquilo|bom|dia|noite|ajuda)\b|[ãõáéíóúç]/i,
+  nl: /\b(hoe|gaat|het|dank|bedankt|jij|jou|wij|zij|niet|wel|waar|wanneer|waarom|goed|dag|hallo|help|vandaag)\b/i,
+  pl: /\b(jak|się|dzień|dzien|dziękuję|dziekuje|cześć|czesc|dobry|proszę|prosze|nie|tak|gdzie|kiedy|dlaczego|dzisiaj|pomoc)\b|[ąćęłńóśźż]/i,
+  ru: /\b(как|что|это|привет|спасибо|пожалуйста|день|где|когда|почему|хорошо|плохо|ты|вы|мы|они|можешь|помочь)\b|[а-яёА-ЯЁ]/i,
+  uk: /\b(як|що|це|привіт|дякую|будь|ласка|день|де|коли|чому|добре|ти|ви|ми|вони)\b|[а-яіїєґА-ЯІЇЄҐ]/i,
+  ar: /[\u0600-\u06FF]/,
+  zh: /[\u4e00-\u9fff]/,
+  ja: /[\u3040-\u30ff]/,
+  ko: /[\uac00-\ud7af]/,
+  hi: /[\u0900-\u097F]/,
+  he: /[\u0590-\u05FF]/,
+  fa: /[\u0600-\u06FF]/,
+  th: /[\u0E00-\u0E7F]/,
+  vi: /\b(xin|chào|chao|cảm|cam|ơn|on|tôi|toi|bạn|ban|làm|lam|sao|giúp|giup|hôm|hom|nay|không|khong)\b|[ăâđêôơư]/i,
+  sv: /\b(hur|mår|mar|du|jag|vi|de|tack|hej|god|dag|hjälp|hjalp|idag|varför|varfor)\b|[åäöÅÄÖ]/i,
+  no: /\b(hvordan|har|du|det|jeg|vi|de|takk|hei|god|dag|hjelp|i|dag|hvorfor)\b|[æøåÆØÅ]/i,
+  da: /\b(hvordan|har|du|det|jeg|vi|de|tak|hej|god|dag|hjælp|hjaelp|i|dag|hvorfor)\b|[æøåÆØÅ]/i,
+  fi: /\b(miten|sinä|sina|minä|mina|me|he|kiitos|hei|hyvää|hyvaa|päivää|paivaa|apua|tänään|tanaan)\b/i,
+  el: /[\u0370-\u03FF]/,
+  cs: /\b(jak|se|máš|mas|děkuji|dekuji|ahoj|dobrý|dobry|den|prosím|prosim|kde|kdy|proč|proc|pomoc)\b|[áčďéěíňóřšťúůýž]/i,
+  ro: /\b(salut|mulțumesc|multumesc|cum|ești|esti|eu|noi|voi|ei|bună|buna|ziua|ajutor|unde|când|cand|de|ce)\b|[ăâîșțĂÂÎȘȚ]/i,
+  hu: /\b(hogyan|van|köszönöm|koszonöm|szia|jó|jo|napot|segítség|segitség|hol|mikor|miért|miert|én|en|te|mi|ti|ők|ok)\b|[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]/i,
+  id: /\b(halo|terima|kasih|bagaimana|apa|kabar|saya|kamu|kami|mereka|bantu|hari|ini|mengapa|di|mana)\b/i,
+  ms: /\b(hai|terima|kasih|apa|khabar|saya|awak|kami|mereka|bantu|hari|ini|mengapa|di|mana)\b/i,
+  fil: /\b(kumusta|salamat|paano|ano|ikaw|kami|sila|tulong|ngayon|bakit|saan)\b/i,
+  sk: /\b(ako|sa|máš|mas|ďakujem|dakujem|ahoj|dobrý|dobry|deň|den|prosím|prosim|kde|kedy|prečo|preco|pomoc)\b|[áäčďéíĺľňóôŕšťúýž]/i,
+  hr: /\b(kako|si|hvala|bok|dobar|dan|molim|gdje|kada|zašto|zasto|pomoć|pomoc|ja|ti|mi|oni)\b|[čćđšžČĆĐŠŽ]/i,
+  sr: /\b(како|си|хвала|здраво|дobar|дан|молим|где|када|зашто|помоћ|ја|ти|ми|они)\b|[а-яА-Я]/i,
+  bg: /[\u0400-\u04FF]/,
+  lt: /\b(kaip|sekasi|ačiū|aciu|labas|gera|diena|prašau|prasau|kur|kada|kodėl|kodel|pagalba)\b|[ąčęėįšųūž]/i,
+  lv: /\b(kā|kā|paldies|sveiki|laba|diena|lūdzu|ludzu|kur|kad|kāpēc|kapec|palīdzība|palidziba)\b|[āčēģīķļņšūž]/i,
+  et: /\b(kuidas|läheb|laheb|aitäh|aitah|tere|head|päeva|paeva|palun|kus|millal|miks|abi)\b|[äöõüšž]/i,
+  sl: /\b(kako|si|hvala|zdravo|dober|dan|prosim|kje|kdaj|zakaj|pomoč|pomoc|jaz|ti|mi|oni)\b|[čšžČŠŽ]/i,
+  ca: /\b(hola|gràcies|gracies|com|estàs|estas|soc|ets|som|bé|be|dia|ajuda|on|quan|per|què|que)\b/i,
+  sw: /\b(habari|asante|jambo|nini|wewe|sisi|wao|msaada|leo|wapi|lini|kwa|nini)\b/i
+};
 
-const GERMAN_HINT =
-  /\b(der|die|das|und|ist|nicht|ein|eine|ich|du|wir|für|fur|wie|was|kann|bitte|bild|chat|oder|auch|warum|wann|wo|habe|hast|sein|sind|dein|deine|melde|anmelden)\b|[äöüßÄÖÜ]/i;
+function scoreLanguage(code: LanguageCode, sample: string) {
+  const hint = LANGUAGE_HINTS[code];
+  if (!hint) return 0;
+  return hint.test(sample) ? 4 : 0;
+}
 
 /** Detect language from what the user actually wrote — not UI settings. */
 export function detectLanguageFromText(text: string): LanguageCode | null {
   const sample = text.trim().slice(0, 800);
   if (sample.length < 2) return null;
 
-  let tr = 0;
-  let de = 0;
+  let best: LanguageCode | null = null;
+  let bestScore = 0;
 
-  if (TURKISH_HINT.test(sample)) tr += 3;
-  if (GERMAN_HINT.test(sample)) de += 3;
-  if (/[çğıöşüÇĞİÖŞÜ]/.test(sample)) tr += 4;
-  if (/[äöüßÄÖÜ]/.test(sample)) de += 4;
-
-  if (tr > de && tr >= 3) return "tr";
-  if (de > tr && de >= 3) return "de";
-  if (/\b(the|and|what|how|why|when|where|please|thanks|hello|you|your)\b/i.test(sample)) {
-    return "en";
+  for (const lang of SUPPORTED_LANGUAGES) {
+    const score = scoreLanguage(lang.code, sample);
+    if (score > bestScore) {
+      bestScore = score;
+      best = lang.code;
+    }
   }
+
+  return bestScore >= 4 ? best : null;
+}
+
+/** Latest message wins; settings language only for very short/ambiguous messages. */
+export function resolveReplyLanguage(
+  userText: string,
+  settingsLanguage?: LanguageCode
+): LanguageCode | null {
+  const fromLatest = detectLanguageFromText(userText);
+  if (fromLatest) return fromLatest;
+
+  const words = userText.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 4 && settingsLanguage) {
+    return settingsLanguage;
+  }
+
   return null;
 }
 
@@ -306,7 +364,7 @@ export function buildReplyLanguageLock(language: LanguageCode) {
   return (
     `FINAL RULE (overrides everything above): The user's latest message is in ${name}. ` +
     `Write your ENTIRE reply in ${name} only — every sentence. ` +
-    `Never reply in German if the user wrote in ${name}. ` +
+    `Never reply in Turkish, German, or any other language if the user wrote in ${name}. ` +
     `Internal plan/billing notes above may be in German — translate them into ${name} for the user.`
   );
 }
@@ -314,8 +372,9 @@ export function buildReplyLanguageLock(language: LanguageCode) {
 export function buildLanguageSystemPrompt() {
   return (
     "LANGUAGE RULE (highest priority): Always reply in the same language as the user's latest message. " +
-    "Turkish message → Turkish reply. English message → English reply. German → German. Any language → match it. " +
-    "If the user switches language mid-chat, switch with them. Never force the app UI language into chat replies. " +
+    "Support all languages (Turkish, English, French, German, Spanish, Italian, Arabic, and every language in app settings). " +
+    "French → French. Turkish → Turkish. English → English. Match any language the user writes in. " +
+    "If the user switches language mid-chat, switch with them immediately. Never force German or Turkish if the user wrote something else. " +
     "Keep a concise, direct, premium tone. " +
     "GENERAL KNOWLEDGE: Answer questions about TV series, films, news, people, and everyday topics helpfully. " +
     "Do not refuse with 'I have no information' or 'I cannot find' — use your knowledge and any web context provided below. " +

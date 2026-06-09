@@ -172,6 +172,19 @@ export async function POST(req: Request) {
         break;
       }
 
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId =
+          typeof invoice.subscription === "string"
+            ? invoice.subscription
+            : invoice.subscription?.id;
+        if (!subscriptionId) break;
+
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await syncSubscription(admin, stripe, subscription);
+        break;
+      }
+
       default:
         break;
     }

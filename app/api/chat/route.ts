@@ -34,7 +34,8 @@ import {
   buildImageAnalysisLanguagePrompt,
   buildLanguageSystemPrompt,
   buildReplyLanguageLock,
-  detectLanguageFromText
+  detectLanguageFromText,
+  resolveReplyLanguage
 } from "@/lib/languages";
 import { resolveUserLanguage } from "@/lib/user-language";
 import {
@@ -178,15 +179,7 @@ export async function POST(req: Request) {
   const planRules = buildPlanSystemPrompt(planState, chatLimitState);
   const hasImageInLastMessage = Boolean(lastUserMessage?.images?.length);
   const userText = lastUserMessage?.content?.trim() ?? "";
-  const replyLanguage =
-    detectLanguageFromText(userText) ??
-    detectLanguageFromText(
-      messages
-        .filter((m) => m.role === "user")
-        .slice(-3)
-        .map((m) => m.content)
-        .join(" ")
-    );
+  const replyLanguage = resolveReplyLanguage(userText, userLanguage);
   const willGenerateImage =
     !lastUserMessage?.images?.length &&
     (detectImageRequest(userText) || clientGenerateImage === true);

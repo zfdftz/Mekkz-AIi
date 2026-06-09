@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
-
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(req: Request) {
+  const admin = createAdminClient();
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
   if (!userId) return NextResponse.json({ conversations: [] });
@@ -30,6 +26,7 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const admin = createAdminClient();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
@@ -50,6 +47,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  const admin = createAdminClient();
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
   const conversationId = searchParams.get("conversationId");

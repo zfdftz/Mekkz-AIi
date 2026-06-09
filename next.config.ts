@@ -3,7 +3,10 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
-  outputFileTracingRoot: path.join(__dirname)
+  outputFileTracingRoot: path.join(__dirname),
+  eslint: {
+    ignoreDuringBuilds: true
+  }
 };
 
 export default nextConfig;

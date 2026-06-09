@@ -3,3 +3,10 @@ node_modules
 .env.local
 .vercel
 dist
+
+.vercel
+.env.vercel.tmp
+tsconfig.tsbuildinfo
+test-*.bin
+test-*.jpg
+git-status.txt

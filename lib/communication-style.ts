@@ -342,9 +342,9 @@ export function analyzeCommunicationStyle(texts: string[]) {
   }
 
   const lines = [
-    "Passe Sprache und Tonfall an diesen Nutzer an:",
-    "- Antworte auf Deutsch, aber im Stil des Nutzers.",
-    "- Merke dir nur Slang, Jugendsprache und spezielle Wörter – keine normalen Alltagswörter nachahmen."
+    "Match the user's tone and wording style:",
+    "- Reply in whatever language the user writes in, using their style when possible.",
+    "- Remember slang and special words only — not everyday words like “image” or “chat”."
   ];
 
   if (slangTerms.length) {
@@ -465,7 +465,10 @@ export async function getCommunicationStylePrompt(
 ) {
   const profile = await getUserCommunicationStyle(admin, userId);
   if (!profile?.enabled || !profile.stylePrompt.trim()) return "";
-  return profile.stylePrompt;
+  return (
+    `${profile.stylePrompt}\n` +
+    "- Match the user's writing language in every reply (Turkish, English, German, etc.)."
+  );
 }
 
 export async function setCommunicationStyleEnabled(

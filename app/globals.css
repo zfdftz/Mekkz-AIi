@@ -388,6 +388,24 @@ body > * { position: relative; z-index: 1; }
 
 .animate-fade-up { animation: fade-up 0.7s ease-out both; }
 
+/* Mobil/Tablet: kompakter Chat, Desktop (lg+) unveraendert */
+@media (max-width: 1023px) {
+  .chat-mobile-shell {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .chat-mobile-input-tools button {
+    padding: 0.625rem;
+  }
+
+  .chat-mobile-input-tools svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
 .landing-title {
   background: linear-gradient(to bottom, var(--bubble-ai-text), hsl(var(--primary)));
   -webkit-background-clip: text;

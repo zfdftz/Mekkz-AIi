@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateAIResponse } from "@/lib/ai";
 import { insertConversationMessage, messagesForAI } from "@/lib/chat-storage";
-import { extractImagePrompt, generateImage, wantsImageGeneration } from "@/lib/image-gen";
+import { extractImagePrompt, generateImage } from "@/lib/image-gen";
+import { wantsImageGeneration as detectImageRequest } from "@/lib/image-intent";
+import { buildPollinationsImageProxyPath } from "@/lib/pollinations-url";
 import {
   categorizeGeneratedPrompt,
   categorizeUploadedImage,
@@ -15,15 +17,27 @@ import {
 } from "@/lib/communication-style";
 import { sleep } from "@/lib/plans";
 import {
-  assertCanGenerateImage,
   assertCanSendChatMessage,
-  assertCanSendImage,
+  buildPlanSystemPrompt,
+  consumeImageCreateSlot,
+  consumeUploadSlot,
   getConversationLimitState,
   getUserPlanState,
-  incrementImageUsage,
-  incrementUploadUsage
+  tryGetUserPlanState
 } from "@/lib/user-plans";
-import { createClient } from "@supabase/supabase-js";
+import { isGuestUser } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { isStripeConfigured } from "@/lib/stripe";
+import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
+import {
+  buildImageAnalysisLanguagePrompt,
+  buildLanguageSystemPrompt
+} from "@/lib/languages";
+import { resolveUserLanguage } from "@/lib/user-language";
+
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -37,20 +51,31 @@ const messageSchema = z.object({
 const payloadSchema = z.object({
   userId: z.string().uuid(),
   conversationId: z.string().uuid().nullish(),
-  messages: z.array(messageSchema).min(1)
+  messages: z.array(messageSchema).min(1),
+  language: z.string().min(2).max(8).optional(),
+  generateImage: z.boolean().optional()
 });
-
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 function buildTitle(text: string) {
   const clean = text.trim().replace(/\s+/g, " ");
   return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean || "Neuer Chat";
 }
 
+function normalizeGeneratedImageForClient(
+  image: string | undefined,
+  prompt?: string
+) {
+  if (!image || !prompt) return image;
+  if (image.startsWith("/api/pollinations-image")) return image;
+  if (image.startsWith("http") && /pollinations\.ai/i.test(image)) {
+    return buildPollinationsImageProxyPath(prompt);
+  }
+  return image;
+}
+
 export async function POST(req: Request) {
+  try {
+  const admin = createAdminClient();
   const body = await req.json();
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) {
@@ -60,8 +85,27 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userId, messages: rawMessages } = parsed.data;
+  const { userId, messages: rawMessages, language: requestedLanguage, generateImage: clientGenerateImage } =
+    parsed.data;
   let { conversationId } = parsed.data;
+
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user || user.id !== userId) {
+    return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
+  }
+
+  if (!isGuestUser(user) && isStripeConfigured() && user.email) {
+    try {
+      await syncUserPlanFromStripe(admin, user.id, user.email);
+    } catch {
+      // Plan sync is best-effort before applying limits.
+    }
+  }
+
   const messages = rawMessages.filter(
     (m) => m.content.trim().length > 0 || (m.images && m.images.length > 0)
   );
@@ -101,7 +145,10 @@ export async function POST(req: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Chat-Limit erreicht.";
-    return NextResponse.json({ error: message }, { status: 429 });
+    return NextResponse.json(
+      { error: message, plan: await tryGetUserPlanState(admin, userId) },
+      { status: 429 }
+    );
   }
 
   const { data: memoryRows } = await admin
@@ -112,19 +159,51 @@ export async function POST(req: Request) {
     .limit(5);
 
   const memoryText = (memoryRows ?? []).map((x) => `- ${x.memory}`).join("\n");
+  const userLanguage = await resolveUserLanguage(admin, userId, req, requestedLanguage);
   const stylePrompt = await getCommunicationStylePrompt(admin, userId);
+  const planState = await getUserPlanState(admin, userId);
+  const chatLimitState = await getConversationLimitState(
+    admin,
+    userId,
+    conversationId,
+    planState.plan
+  );
+  const planRules = buildPlanSystemPrompt(planState, chatLimitState);
   const hasImageInLastMessage = Boolean(lastUserMessage?.images?.length);
+  const userText = lastUserMessage?.content?.trim() ?? "";
+  const willGenerateImage =
+    !lastUserMessage?.images?.length &&
+    (detectImageRequest(userText) || clientGenerateImage === true);
+
+  if (isGuestUser(user) && (willGenerateImage || hasImageInLastMessage)) {
+    return NextResponse.json(
+      {
+        error:
+          "Melde dich zuerst an, um Bilder zu erstellen oder zu senden.",
+        code: "AUTH_REQUIRED"
+      },
+      { status: 403 }
+    );
+  }
+
+  let systemContent =
+    "You are MEKKZ AI — the assistant of this app (not ChatGPT, Claude, Groq, or any other product). " +
+    buildLanguageSystemPrompt() +
+    " ";
+
+  if (hasImageInLastMessage) {
+    systemContent += buildImageAnalysisLanguagePrompt() + " ";
+  } else {
+    systemContent +=
+      "Never fake generated images: no [Bild:...], [Image:...], markdown image syntax, or detailed visual descriptions pretending an image was created. " +
+      "If the user wants a new image, reply in one short sentence that real image generation happens in the app — do not describe the scene.";
+  }
+
   const system = {
     role: "system" as const,
     content:
-      "You are mekkz AI. Reply in German. Be concise, direct, and premium in tone. " +
-      "For normal text questions, prefer short answers (about 2-5 sentences) unless the user asks for detail. " +
-      "When the user sends an image, analyze it in German using EXACTLY these sections:\n" +
-      "**Kategorie:** (choose one: Landschaft, Person, Tier, Essen, Dokument, Screenshot, Kunst, Objekt, Sonstiges)\n" +
-      "**Hauptinhalt:** (what is visible)\n" +
-      "**Farben & Stil:** (colors, mood, style)\n" +
-      "**Details:** (important small details)\n" +
-      "For image creation, users can write e.g. 'Mach ein Bild von ...', 'Erstelle ein Bild von ...' or '/bild ...'.\n" +
+      systemContent +
+      `${planRules}\n` +
       (stylePrompt ? `${stylePrompt}\n` : "") +
       "User memory:\n" +
       (memoryText || "No memory yet.")
@@ -132,7 +211,9 @@ export async function POST(req: Request) {
 
   let reply = "";
   let generatedImage: string | undefined;
+  let imageGenPrompt: string | undefined;
   let imageCategory: string | undefined;
+  let latestPlanState = planState;
 
   if (lastUserMessage?.images?.length) {
     imageCategory = categorizeUploadedImage(
@@ -142,52 +223,65 @@ export async function POST(req: Request) {
   }
 
   try {
-    const userText = lastUserMessage?.content?.trim() ?? "";
-    const shouldGenerateImage =
-      wantsImageGeneration(userText) && !lastUserMessage?.images?.length;
+    const shouldGenerateImage = willGenerateImage;
 
     if (lastUserMessage?.images?.length) {
       try {
-        await assertCanSendImage(admin, userId);
+        latestPlanState = await consumeUploadSlot(admin, userId);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Upload-Limit erreicht.";
-        return NextResponse.json({ error: message }, { status: 429 });
+        return NextResponse.json(
+          { error: message, plan: await tryGetUserPlanState(admin, userId) },
+          { status: 429 }
+        );
       }
     }
 
     if (shouldGenerateImage) {
-      let planState;
+      let imagePlanState;
       try {
-        planState = await assertCanGenerateImage(admin, userId);
+        imagePlanState = await consumeImageCreateSlot(admin, userId);
+        latestPlanState = imagePlanState;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Bild-Limit erreicht.";
-        return NextResponse.json({ error: message }, { status: 429 });
+        return NextResponse.json(
+          { error: message, plan: await tryGetUserPlanState(admin, userId) },
+          { status: 429 }
+        );
       }
 
       const prompt = extractImagePrompt(userText);
+
+      imageGenPrompt = prompt;
+
+      if (imagePlanState.imageReadyDelayMs > 0) {
+        await sleep(imagePlanState.imageReadyDelayMs);
+      }
+
+      const imageTimeoutMs = 58000;
       const result = await Promise.race([
         generateImage(prompt),
         new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error("Timeout: Bild-Erstellung dauert zu lange.")),
-            180000
+            imageTimeoutMs
           )
         )
       ]);
       generatedImage = result.image;
+
       imageCategory = categorizeGeneratedPrompt(prompt);
       reply = "";
-
-      if (planState.imageReadyDelayMs > 0) {
-        await sleep(planState.imageReadyDelayMs);
+    } else {
+      const textPlanState = await getUserPlanState(admin, userId);
+      if (textPlanState.textReadyDelayMs > 0) {
+        await sleep(textPlanState.textReadyDelayMs);
       }
 
-      await incrementImageUsage(admin, userId);
-    } else {
       reply = await Promise.race([
-        generateAIResponse([system, ...messagesForAI(messages)], "ollama"),
+        generateAIResponse([system, ...messagesForAI(messages)], { language: userLanguage }),
         new Promise<string>((_, reject) =>
           setTimeout(
             () =>
@@ -203,11 +297,6 @@ export async function POST(req: Request) {
 
       const parsedCategory = parseCategoryFromAnalysis(reply);
       if (parsedCategory) imageCategory = parsedCategory;
-
-      const planState = await getUserPlanState(admin, userId);
-      if (planState.textReadyDelayMs > 0) {
-        await sleep(planState.textReadyDelayMs);
-      }
     }
   } catch (error) {
     const message =
@@ -234,7 +323,9 @@ export async function POST(req: Request) {
     );
   }
 
-  if (storedAssistantImage) {
+  if (storedAssistantImage && !storedAssistantImage.startsWith("http")) {
+    // Base64/db: sofort zurückgeben — kein langsamer Storage-Upload vor der Antwort.
+  } else if (storedAssistantImage) {
     storedAssistantImage = await persistChatImage(
       admin,
       userId,
@@ -244,6 +335,11 @@ export async function POST(req: Request) {
     );
   }
 
+  const responseImage = normalizeGeneratedImageForClient(
+    generatedImage ?? storedAssistantImage ?? undefined,
+    imageGenPrompt
+  );
+
   const { error: insertError } = await insertConversationMessage(admin, {
     user_id: userId,
     conversation_id: conversationId,
@@ -251,20 +347,30 @@ export async function POST(req: Request) {
     assistant_message: reply,
     user_image: storedUserImage,
     image_name: lastUserMessage?.imageName ?? null,
-    assistant_image: storedAssistantImage,
+    assistant_image: generatedImage ?? storedAssistantImage,
     user_image_category: lastUserMessage?.images?.length ? imageCategory ?? null : null,
     assistant_image_category: generatedImage ? imageCategory ?? null : null
   });
 
   if (insertError) {
+    if (generatedImage) {
+      return NextResponse.json({
+        reply,
+        generatedImage: responseImage ?? generatedImage,
+        imageCategory,
+        imageGenPrompt,
+        conversationId,
+        userImage: storedUserImage,
+        plan: await getUserPlanState(admin, userId),
+        conversationLimit: await getConversationLimitState(admin, userId, conversationId),
+        warning: "Bild erstellt, Chat-Verlauf konnte nicht vollständig gespeichert werden."
+      });
+    }
+
     return NextResponse.json(
       { error: insertError.message || "Chat konnte nicht gespeichert werden." },
       { status: 500 }
     );
-  }
-
-  if (lastUserMessage?.images?.length) {
-    await incrementUploadUsage(admin, userId);
   }
 
   if (storedUserText) {
@@ -299,11 +405,19 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     reply,
-    generatedImage: storedAssistantImage ?? undefined,
+    generatedImage: responseImage ?? undefined,
+    imageGenPrompt,
     userImage: storedUserImage ?? undefined,
     imageCategory,
     conversationId,
-    plan: await getUserPlanState(admin, userId),
+    plan: latestPlanState,
     conversationLimit: await getConversationLimitState(admin, userId, conversationId)
   });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Anfrage konnte nicht verarbeitet werden.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -4,8 +4,10 @@ import {
   getAppUrl,
   getStripe,
   isActiveSubscriptionStatus,
+  planFromCheckoutSession,
   subscriptionPlan
 } from "@/lib/stripe";
+import { subscriptionPeriodEnd, trySubscriptionPeriodEnd } from "@/lib/stripe-billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   downgradeUserToFree,
@@ -14,10 +16,34 @@ import {
 
 export const runtime = "nodejs";
 
+async function findAuthUserIdByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string
+) {
+  const normalized = email.trim().toLowerCase();
+  let page = 1;
+
+  while (page <= 10) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw new Error(error.message);
+
+    const match = data.users.find(
+      (user) => user.email?.trim().toLowerCase() === normalized
+    );
+    if (match) return match.id;
+
+    if (data.users.length < 200) break;
+    page += 1;
+  }
+
+  return null;
+}
+
 async function resolveUserId(
   admin: ReturnType<typeof createAdminClient>,
+  stripe: Stripe,
   subscription: Stripe.Subscription,
-  session?: Stripe.Checkout.Session
+  session?: Stripe.Checkout.Session | null
 ) {
   const metadataUserId = subscription.metadata.userId || session?.metadata?.userId;
   if (metadataUserId) return metadataUserId;
@@ -38,15 +64,27 @@ async function resolveUserId(
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
-  return data?.user_id ?? null;
+  if (data?.user_id) return data.user_id;
+
+  const customer =
+    typeof subscription.customer === "string"
+      ? await stripe.customers.retrieve(subscription.customer)
+      : subscription.customer;
+
+  if (customer && !("deleted" in customer && customer.deleted) && customer.email) {
+    return findAuthUserIdByEmail(admin, customer.email);
+  }
+
+  return null;
 }
 
 async function syncSubscription(
   admin: ReturnType<typeof createAdminClient>,
+  stripe: Stripe,
   subscription: Stripe.Subscription,
-  session?: Stripe.Checkout.Session
+  session?: Stripe.Checkout.Session | null
 ) {
-  const userId = await resolveUserId(admin, subscription, session);
+  const userId = await resolveUserId(admin, stripe, subscription, session);
   if (!userId) return;
 
   const customerId =
@@ -61,13 +99,16 @@ async function syncSubscription(
     return;
   }
 
-  const plan = subscriptionPlan(subscription);
+  const plan = session
+    ? planFromCheckoutSession(session, subscription) ?? subscriptionPlan(subscription)
+    : subscriptionPlan(subscription);
   if (!plan) return;
 
   await setUserPlanFromStripe(admin, userId, plan, {
     customerId,
     subscriptionId: subscription.id,
-    subscriptionStatus: subscription.status
+    subscriptionStatus: subscription.status,
+    periodEnd: trySubscriptionPeriodEnd(subscription)
   });
 }
 
@@ -111,19 +152,19 @@ export async function POST(req: Request) {
         if (!subscriptionId) break;
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await syncSubscription(admin, subscription, session);
+        await syncSubscription(admin, stripe, subscription, session);
         break;
       }
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        await syncSubscription(admin, subscription);
+        await syncSubscription(admin, stripe, subscription);
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = await resolveUserId(admin, subscription);
+        const userId = await resolveUserId(admin, stripe, subscription);
 
         if (userId) {
           await downgradeUserToFree(admin, userId);

@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isGuestUser } from "@/lib/auth/session";
 import { PLANS, PlanId } from "@/lib/plans";
 import { isStripeConfigured } from "@/lib/stripe";
+import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { getUserPlanState, setUserPlan } from "@/lib/user-plans";
 
-const admin = createAdminClient();
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 
@@ -15,8 +23,29 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "userId fehlt." }, { status: 400 });
   }
 
+  if (!user || user.id !== userId) {
+    return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+
+  if (!isGuestUser(user) && isStripeConfigured() && user.email) {
+    try {
+      await syncUserPlanFromStripe(admin, user.id, user.email);
+    } catch {
+      // Plan sync is best-effort before returning plan state.
+    }
+  }
+
   const state = await getUserPlanState(admin, userId);
-  return NextResponse.json({ plan: state, plans: PLANS });
+  return NextResponse.json(
+    { plan: state, plans: PLANS },
+    {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate"
+      }
+    }
+  );
 }
 
 const upgradeSchema = z.object({
@@ -25,6 +54,8 @@ const upgradeSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const admin = createAdminClient();
+
   if (isStripeConfigured() && process.env.ALLOW_DEMO_PLAN_UPGRADE !== "true") {
     return NextResponse.json(
       {
@@ -50,6 +81,6 @@ export async function POST(req: Request) {
     message:
       plan === "pro"
         ? "Pro aktiviert. Schnelleres Bild erstellen ist jetzt aktiv."
-        : "Ultra aktiviert. Unbegrenzte Bilder sind jetzt aktiv."
+        : `Ultra aktiviert. ${PLANS.ultra.dailyImageLimit} Bilder pro Tag sind jetzt aktiv.`
   });
 }

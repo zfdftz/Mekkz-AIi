@@ -4,6 +4,7 @@ export type ChatMessage = {
   images?: string[];
   imageName?: string;
   generatedImage?: string;
+  imageGenPrompt?: string;
   imageCategory?: string;
 };
 

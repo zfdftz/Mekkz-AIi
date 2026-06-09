@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:bump": "node scripts/apply-bump-migration.mjs",
+    "migrate:bump:check": "node scripts/check-bump-rpc.mjs",
+    "brand:assets": "node scripts/generate-brand-assets.mjs",
+    "image-worker": "node workers/mekkz-image-server.mjs",
+    "bild-server": "powershell -ExecutionPolicy Bypass -File scripts/start-bild-server.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
@@ -25,13 +30,17 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.2",
+    "pg": "^8.21.0",
     "postcss": "^8.5.3",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vercel": "^54.7.1"
   }
 }

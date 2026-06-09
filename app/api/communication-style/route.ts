@@ -5,12 +5,7 @@ import {
   refreshUserCommunicationStyle,
   setCommunicationStyleEnabled
 } from "@/lib/communication-style";
-import { createClient } from "@supabase/supabase-js";
-
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function publicProfile(profile: Awaited<ReturnType<typeof getUserCommunicationStyle>>) {
   return {
@@ -19,6 +14,7 @@ function publicProfile(profile: Awaited<ReturnType<typeof getUserCommunicationSt
 }
 
 export async function GET(req: Request) {
+  const admin = createAdminClient();
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 
@@ -39,6 +35,7 @@ const updateSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const admin = createAdminClient();
   const body = await req.json();
   const parsed = updateSchema.safeParse(body);
 

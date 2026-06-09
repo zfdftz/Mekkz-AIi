@@ -3,6 +3,16 @@ export type PlanId = "free" | "pro" | "ultra";
 /** ChatGPT-style limit per conversation (user message pairs). */
 export const CHATGPT_MESSAGES_PER_CHAT = 40;
 
+/** Monatspreise in Cent (Stripe / Abrechnung). */
+export const PLAN_MONTHLY_CENTS: Record<Exclude<PlanId, "free">, number> = {
+  pro: 1000,
+  ultra: 2900
+};
+
+export function planUpgradeDifferenceCents() {
+  return PLAN_MONTHLY_CENTS.ultra - PLAN_MONTHLY_CENTS.pro;
+}
+
 export type PlanInfo = {
   id: PlanId;
   label: string;
@@ -32,22 +42,22 @@ export const PLANS: Record<PlanId, PlanInfo> = {
     label: "Pro",
     priceLabel: "10 € / Monat",
     dailyImageLimit: 20,
-    dailyUploadLimit: 15,
+    dailyUploadLimit: 20,
     messagesPerChatLimit: CHATGPT_MESSAGES_PER_CHAT * 2,
     imageReadyDelayMs: 3000,
     textReadyDelayMs: 1000,
-    description: "Schnellere Bildgenerierung, 20 Bilder erstellen, 15 Bilder senden pro Tag."
+    description: "Schnellere Bildgenerierung, 20 Bilder erstellen, 20 Bilder senden pro Tag."
   },
   ultra: {
     id: "ultra",
     label: "Ultra",
     priceLabel: "29 € / Monat",
-    dailyImageLimit: null,
-    dailyUploadLimit: null,
+    dailyImageLimit: 35,
+    dailyUploadLimit: 40,
     messagesPerChatLimit: null,
     imageReadyDelayMs: 0,
     textReadyDelayMs: 0,
-    description: "Noch schnellere Bildgenerierung, unbegrenzt erstellen und senden."
+    description: "Noch schnellere Bildgenerierung, 35 Bilder erstellen, 40 Bilder senden pro Tag."
   }
 };
 

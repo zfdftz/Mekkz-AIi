@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Moon, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/components/language-provider";
 import {
   applyAppearance,
   COLOR_THEMES,
@@ -10,12 +11,15 @@ import {
   type ColorTheme,
   type ThemeMode
 } from "@/lib/theme-config";
+import type { LanguageCode } from "@/lib/languages";
 
 type SettingsPanelProps = {
   open: boolean;
   onClose: () => void;
   userId?: string;
   userEmail?: string;
+  isGuest?: boolean;
+  onLogin?: () => void;
   onLogout?: () => void;
 };
 
@@ -28,12 +32,18 @@ export function SettingsPanel({
   onClose,
   userId,
   userEmail,
+  isGuest = false,
+  onLogin,
   onLogout
 }: SettingsPanelProps) {
+  const { language, languages, setLanguage, t } = useLanguage();
   const [mode, setMode] = useState<ThemeMode>("dark");
   const [color, setColor] = useState<ColorTheme>("violet");
   const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
   const [styleLoading, setStyleLoading] = useState(false);
+  const [languageSaving, setLanguageSaving] = useState(false);
+
+  const styleLearningEnabled = styleProfile?.enabled ?? true;
 
   useEffect(() => {
     if (!open) return;
@@ -86,9 +96,18 @@ export function SettingsPanel({
   }
 
   function handleLogoutClick() {
-    const shouldLogout = window.confirm("Wirklich abmelden?");
+    const shouldLogout = window.confirm(t("settings.logoutConfirm"));
     if (!shouldLogout || !onLogout) return;
     onLogout();
+  }
+
+  async function handleLanguageChange(next: LanguageCode) {
+    setLanguageSaving(true);
+    try {
+      await setLanguage(next);
+    } finally {
+      setLanguageSaving(false);
+    }
   }
 
   return (
@@ -96,7 +115,7 @@ export function SettingsPanel({
       {open ? (
         <>
           <motion.button
-            aria-label="Einstellungen schließen"
+            aria-label={t("settings.close")}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -111,15 +130,97 @@ export function SettingsPanel({
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
           >
             <header className="flex items-center justify-between border-b border-white/10 p-5">
-              <h2 className="text-xl font-semibold">Einstellungen</h2>
+              <div>
+                <h2 className="text-xl font-semibold">{t("settings.title")}</h2>
+                <p className="mt-1 text-xs text-muted">
+                  {t("settings.communication")} · {t("settings.language")} · {t("settings.appearance")}
+                </p>
+              </div>
               <button onClick={onClose} className="rounded-xl bg-white/10 p-2">
                 <X size={18} />
               </button>
             </header>
 
             <div className="flex-1 space-y-6 overflow-y-auto p-5">
+              <section className="space-y-3 rounded-2xl border-2 border-primary/40 bg-primary/10 p-4 shadow-glow">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      {t("settings.communication")}
+                    </p>
+                    <h3 className="text-base font-semibold">{t("settings.communicationStyle")}</h3>
+                    <p className="text-sm text-muted">{t("settings.communicationStyleHint")}</p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                      styleLearningEnabled
+                        ? "bg-emerald-500/20 text-emerald-100"
+                        : "bg-white/10 text-muted"
+                    }`}
+                  >
+                    {styleLearningEnabled
+                      ? t("settings.styleActive")
+                      : t("settings.styleInactive")}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!userId || styleLoading}
+                    onClick={() => void toggleStyleLearning(true)}
+                    className={`rounded-xl px-3 py-3 text-sm font-medium transition disabled:opacity-50 ${
+                      styleLearningEnabled
+                        ? "bg-primary text-white shadow-glow"
+                        : "bg-white/10 hover:bg-white/15"
+                    }`}
+                  >
+                    {styleLoading && styleLearningEnabled
+                      ? t("settings.styleLoading")
+                      : t("settings.styleActive")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!userId || styleLoading}
+                    onClick={() => void toggleStyleLearning(false)}
+                    className={`rounded-xl px-3 py-3 text-sm font-medium transition disabled:opacity-50 ${
+                      !styleLearningEnabled
+                        ? "bg-primary text-white shadow-glow"
+                        : "bg-white/10 hover:bg-white/15"
+                    }`}
+                  >
+                    {styleLoading && !styleLearningEnabled
+                      ? t("settings.styleLoading")
+                      : t("settings.styleInactive")}
+                  </button>
+                </div>
+              </section>
+
+              <section className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  {t("settings.language")}
+                </h3>
+                <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">
+                  {t("settings.languageHint")}
+                </p>
+                <select
+                  value={language}
+                  disabled={languageSaving}
+                  onChange={(event) => void handleLanguageChange(event.target.value as LanguageCode)}
+                  className="w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm outline-none transition focus:border-primary/50 disabled:opacity-50"
+                >
+                  {languages.map((option) => (
+                    <option key={option.code} value={option.code} className="bg-neutral-900">
+                      {option.nativeLabel} ({option.label})
+                    </option>
+                  ))}
+                </select>
+              </section>
+
               <section className="space-y-3">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">Darstellung</h3>
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  {t("settings.appearance")}
+                </h3>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setThemeMode("dark")}
@@ -127,7 +228,7 @@ export function SettingsPanel({
                       mode === "dark" ? "bg-primary text-white" : "bg-white/10"
                     }`}
                   >
-                    <Moon size={16} /> Dunkel
+                    <Moon size={16} /> {t("settings.dark")}
                   </button>
                   <button
                     onClick={() => setThemeMode("light")}
@@ -135,14 +236,16 @@ export function SettingsPanel({
                       mode === "light" ? "bg-primary text-white" : "bg-white/10"
                     }`}
                   >
-                    <Sun size={16} /> Hell
+                    <Sun size={16} /> {t("settings.light")}
                   </button>
                 </div>
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">Farb-Theme</h3>
-                <div className="grid grid-cols-2 gap-2">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  {t("settings.colorTheme")}
+                </h3>
+                <div className="grid grid-cols-3 gap-2 lg:grid-cols-2">
                   {COLOR_THEMES.map((preset) => (
                     <button
                       key={preset.id}
@@ -171,51 +274,38 @@ export function SettingsPanel({
 
               <section className="space-y-3">
                 <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                  Kommunikationsstil
+                  {t("settings.chatHistory")}
                 </h3>
                 <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">
-                  mekkz AI merkt sich nur Slang, Jugendsprache und spezielle Wörter
-                  — keine normalen Alltagswörter wie „Bild“ oder „Chat“.
+                  {t("settings.chatHistoryHint")}
                 </p>
-                <button
-                  type="button"
-                  disabled={!userId || styleLoading}
-                  onClick={() => void toggleStyleLearning(!(styleProfile?.enabled ?? true))}
-                  className={`w-full rounded-xl px-3 py-2.5 text-sm transition disabled:opacity-50 ${
-                    styleProfile?.enabled ?? true
-                      ? "bg-primary text-white"
-                      : "bg-white/10 hover:bg-white/15"
-                  }`}
-                >
-                  {styleLoading
-                    ? "Lade..."
-                    : styleProfile?.enabled ?? true
-                      ? "Stil-Lernen aktiv"
-                      : "Stil-Lernen aus"}
-                </button>
               </section>
 
               <section className="space-y-3">
                 <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                  Chat-Verlauf
+                  {t("settings.account")}
                 </h3>
-                <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">
-                  Chats links mit dem X-Symbol löschen. Gelöschte Unterhaltungen
-                  können nicht wiederhergestellt werden.
-                </p>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">Konto</h3>
-                {userEmail ? (
+                {isGuest ? (
+                  <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">
+                    {t("settings.guestHint")}
+                  </p>
+                ) : userEmail ? (
                   <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">{userEmail}</p>
                 ) : null}
-                {onLogout ? (
+                {isGuest && onLogin ? (
+                  <button
+                    onClick={onLogin}
+                    className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    {t("settings.login")}
+                  </button>
+                ) : null}
+                {!isGuest && onLogout ? (
                   <button
                     onClick={handleLogoutClick}
                     className="w-full rounded-xl bg-white/10 px-3 py-2.5 text-sm transition hover:bg-white/15"
                   >
-                    Abmelden
+                    {t("settings.logout")}
                   </button>
                 ) : null}
               </section>

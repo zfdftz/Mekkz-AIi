@@ -1,4 +1,4 @@
-export async function compressImageToBase64(file: File, maxSize = 1024): Promise<string> {
+export async function compressImageToBase64(file: File, maxSize = 768): Promise<string> {
   const dataUrl = await readFileAsDataUrl(file);
   const img = await loadImage(dataUrl);
 

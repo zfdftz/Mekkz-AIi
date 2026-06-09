@@ -6,6 +6,13 @@ function isHttpUrl(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
 }
 
+function shouldKeepImageRefAsIs(value: string) {
+  return (
+    (isHttpUrl(value) && /pollinations\.ai/i.test(value)) ||
+    value.startsWith("/api/pollinations-image")
+  );
+}
+
 function extensionFromContentType(contentType: string) {
   if (contentType.includes("png")) return "png";
   if (contentType.includes("webp")) return "webp";
@@ -41,6 +48,11 @@ export async function persistChatImage(
   kind: "user" | "assistant"
 ) {
   if (!source) return null;
+
+  // Gratis-Pollinations: URL bleibt direkt — kein Server-Download (Vercel-IP-Warteschlange).
+  if (shouldKeepImageRefAsIs(source)) {
+    return source;
+  }
 
   try {
     const { buffer, contentType } = await loadImageBuffer(source);

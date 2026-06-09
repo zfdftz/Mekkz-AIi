@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
 import { ChatUI } from "@/components/chat-ui";
+import { isGuestUser } from "@/lib/auth/session";
+import { isStripeConfigured } from "@/lib/stripe";
+import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ChatPage() {
@@ -8,5 +12,20 @@ export default async function ChatPage() {
 
   if (!data.user) redirect("/auth/login");
 
-  return <ChatUI userId={data.user.id} userEmail={data.user.email ?? ""} />;
+  if (!isGuestUser(data.user) && isStripeConfigured() && data.user.email) {
+    try {
+      const admin = createAdminClient();
+      await syncUserPlanFromStripe(admin, data.user.id, data.user.email);
+    } catch {
+      // Plan sync is best-effort on page load.
+    }
+  }
+
+  return (
+    <ChatUI
+      userId={data.user.id}
+      userEmail={data.user.email ?? ""}
+      isGuest={isGuestUser(data.user)}
+    />
+  );
 }

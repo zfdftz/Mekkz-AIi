@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { getAppUrl, getStripe, isStripeConfigured } from "@/lib/stripe";
+import { getAppUrl, getStripe, isStripeConfigured, stripeConfigErrorMessage } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getUserStripeBilling } from "@/lib/user-plans";
 
 export async function POST() {
   if (!isStripeConfigured()) {
-    return NextResponse.json(
-      { error: "Stripe ist noch nicht konfiguriert." },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: stripeConfigErrorMessage() }, { status: 503 });
   }
 
   const supabase = await createClient();
@@ -27,7 +24,13 @@ export async function POST() {
   }
 
   const admin = createAdminClient();
-  const billing = await getUserStripeBilling(admin, user.id);
+  let billing = await getUserStripeBilling(admin, user.id);
+
+  if (!billing.stripeCustomerId && user.email) {
+    const { syncUserPlanFromStripe } = await import("@/lib/stripe-sync");
+    await syncUserPlanFromStripe(admin, user.id, user.email);
+    billing = await getUserStripeBilling(admin, user.id);
+  }
 
   if (!billing.stripeCustomerId) {
     return NextResponse.json(

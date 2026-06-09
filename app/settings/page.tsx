@@ -1,13 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SettingsPanel } from "@/components/settings-panel";
 import { WavyBackground } from "@/components/wavy-background";
 import { Settings } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
   const [open, setOpen] = useState(true);
+  const [userId, setUserId] = useState<string | undefined>();
+  const [userEmail, setUserEmail] = useState<string | undefined>();
+  const router = useRouter();
+  const supabase = createClient();
+
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id);
+      setUserEmail(user?.email ?? undefined);
+    });
+  }, [supabase.auth]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/auth/login");
+  }
 
   return (
     <WavyBackground>
@@ -19,13 +37,19 @@ export default function SettingsPage() {
           </button>
         </div>
         <p className="text-sm text-muted">
-          Öffne das Einstellungs-Panel für Theme, Farben und Konto.
+          Sprache, Kommunikation (Stil-Lernen), Theme, Farben und Konto.
         </p>
         <Link href="/chat" className="btn-primary mt-6 inline-flex w-fit rounded-xl px-4 py-2">
           Zurück zum Chat
         </Link>
       </main>
-      <SettingsPanel open={open} onClose={() => setOpen(false)} />
+      <SettingsPanel
+        open={open}
+        onClose={() => setOpen(false)}
+        userId={userId}
+        userEmail={userEmail}
+        onLogout={() => void handleLogout()}
+      />
     </WavyBackground>
   );
 }

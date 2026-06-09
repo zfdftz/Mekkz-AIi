@@ -1,54 +1,7 @@
-import OpenAI from "openai";
+﻿import OpenAI from "openai";
+import { extractImagePrompt, wantsImageGeneration } from "./image-intent";
 
-const IMAGE_VERB_PATTERN =
-  /\b(erstell(?:e|en)|generier(?:e|en)|zeichn(?:e|en)|mal(?:e|en)|erzeuge|mach(?:e|en)?|mache|create|generate|draw|paint|design(?:e|en)?)\b.{0,32}\b(bild|foto|image|picture|photo|zeichnung)\b/i;
-
-const IMAGE_NOUN_FIRST_PATTERN =
-  /\b(bild|foto|zeichnung)\s+(von|vom|über|ueber|mit|eines?|einer?|am|im|der|die|das)\b/i;
-
-const IMAGE_WANT_PATTERN =
-  /\b(will|würde|wuerde|brauch(?:e|en)?|möchte|moechte|hätte|haette|kannst du|könntest du|koenntest du|bitte).{0,45}\b(bild|foto|zeichnung)\b/i;
-
-const IMAGE_SHORT_PATTERN = /\b(mach\s+bild|bild\s+machen|bild\s+erstellen|foto\s+machen)\b/i;
-
-export function wantsImageGeneration(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) return false;
-  if (/^\/(?:bild|image|img)\s+.+/i.test(trimmed)) return true;
-
-  return (
-    IMAGE_VERB_PATTERN.test(trimmed) ||
-    IMAGE_NOUN_FIRST_PATTERN.test(trimmed) ||
-    IMAGE_WANT_PATTERN.test(trimmed) ||
-    IMAGE_SHORT_PATTERN.test(trimmed)
-  );
-}
-
-export function extractImagePrompt(text: string) {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("/bild ")) return trimmed.slice(6).trim();
-  if (trimmed.startsWith("/image ")) return trimmed.slice(7).trim();
-  if (trimmed.startsWith("/img ")) return trimmed.slice(5).trim();
-
-  const cleaned = trimmed
-    .replace(
-      /^(bitte\s+)?(erstell(?:e|en)|generier(?:e|en)|zeichn(?:e|en)|mal(?:e|en)|erzeuge|mach(?:e|en)?|mache|create|generate|draw|paint|design(?:e|en)?)\s+(mir\s+)?(ein\s+|a\s+|an\s+)?(bild|foto|image|picture|photo|zeichnung)\s*(von|vom|of|:|–|-)?\s*/i,
-      ""
-    )
-    .replace(
-      /^(bitte\s+)?(will|würde|wuerde|brauch(?:e|en)?|möchte|moechte|hätte|haette)\s+(mir\s+)?(ein\s+)?(bild|foto|zeichnung)\s*(von|vom|mit|:|–|-)?\s*/i,
-      ""
-    )
-    .replace(
-      /^(bitte\s+)?(kannst du|könntest du|koenntest du)\s+(mir\s+)?(ein\s+)?(bild|foto|zeichnung)\s*(von|vom|:|–|-)?\s*/i,
-      ""
-    )
-    .replace(/^(bild|foto|zeichnung)\s+(von|vom|über|ueber|mit)\s*/i, "")
-    .replace(/^(mach\s+bild|bild\s+machen|bild\s+erstellen|foto\s+machen)\s*(von|vom|:|–|-)?\s*/i, "")
-    .trim();
-
-  return cleaned || trimmed;
-}
+export { extractImagePrompt, wantsImageGeneration };
 
 function isMemoryError(message: string) {
   return /gib|memory|vram|insufficient|cuda|shared object/i.test(message);
@@ -148,7 +101,7 @@ async function generatePollinationsImage(prompt: string) {
 
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("image")) {
-    throw new Error("Kostenlose Bild-Erstellung lieferte kein gültiges Bild.");
+    throw new Error("Kostenlose Bild-Erstellung lieferte kein g├╝ltiges Bild.");
   }
 
   return {
@@ -204,8 +157,8 @@ function formatOpenAIError(error: unknown) {
 
   if (/billing hard limit|insufficient_quota|exceeded your current quota|payment/i.test(message)) {
     return (
-      "OpenAI Guthaben/Limit erreicht. Gehe zu platform.openai.com → Settings → Billing " +
-      "und erhöhe dein Limit oder lade Guthaben auf. Bilder kosten extra."
+      "OpenAI Guthaben/Limit erreicht. Gehe zu platform.openai.com ÔåÆ Settings ÔåÆ Billing " +
+      "und erh├Âhe dein Limit oder lade Guthaben auf. Bilder kosten extra."
     );
   }
 
@@ -239,7 +192,7 @@ async function generateOpenAIImage(prompt: string) {
     }
   }
 
-  throw lastError ?? new Error("Kein OpenAI Bild-Modell auf deinem Account verfügbar.");
+  throw lastError ?? new Error("Kein OpenAI Bild-Modell auf deinem Account verf├╝gbar.");
 }
 
 export async function generateImage(prompt: string) {

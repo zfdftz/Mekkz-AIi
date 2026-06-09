@@ -27,6 +27,17 @@ export function formatPlanChangeMessage(periodEndUnix: number, targetPlanLabel =
   return `Am Abo-Ende (${date}) geht dein Plan automatisch auf ${targetPlanLabel} weiter. Bis dahin bleibt Ultra aktiv. (30 Tage ab Kaufdatum — nicht Kalendermonatsende.)`;
 }
 
+export function subscriptionIdFromInvoice(invoice: Stripe.Invoice) {
+  const lineSub = invoice.lines?.data?.find((line) => line.subscription)?.subscription;
+  if (typeof lineSub === "string") return lineSub;
+  if (lineSub && typeof lineSub === "object" && "id" in lineSub) return lineSub.id;
+
+  const parentSub = invoice.parent?.subscription_details?.subscription;
+  if (typeof parentSub === "string") return parentSub;
+
+  return null;
+}
+
 /** Stripe v18+: Abrechnungszeitraum liegt am ersten Subscription-Item. */
 export function subscriptionPeriodEnd(subscription: Stripe.Subscription) {
   const end = subscription.items.data[0]?.current_period_end;

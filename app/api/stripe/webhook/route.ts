@@ -7,7 +7,7 @@ import {
   planFromCheckoutSession,
   subscriptionPlan
 } from "@/lib/stripe";
-import { subscriptionPeriodEnd, trySubscriptionPeriodEnd } from "@/lib/stripe-billing";
+import { subscriptionPeriodEnd, subscriptionIdFromInvoice, trySubscriptionPeriodEnd } from "@/lib/stripe-billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   downgradeUserToFree,
@@ -174,10 +174,7 @@ export async function POST(req: Request) {
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId =
-          typeof invoice.subscription === "string"
-            ? invoice.subscription
-            : invoice.subscription?.id;
+        const subscriptionId = subscriptionIdFromInvoice(invoice);
         if (!subscriptionId) break;
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);

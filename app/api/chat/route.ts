@@ -32,7 +32,9 @@ import { isStripeConfigured } from "@/lib/stripe";
 import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
 import {
   buildImageAnalysisLanguagePrompt,
-  buildLanguageSystemPrompt
+  buildLanguageSystemPrompt,
+  buildReplyLanguageLock,
+  detectLanguageFromText
 } from "@/lib/languages";
 import { resolveUserLanguage } from "@/lib/user-language";
 import {
@@ -176,6 +178,15 @@ export async function POST(req: Request) {
   const planRules = buildPlanSystemPrompt(planState, chatLimitState);
   const hasImageInLastMessage = Boolean(lastUserMessage?.images?.length);
   const userText = lastUserMessage?.content?.trim() ?? "";
+  const replyLanguage =
+    detectLanguageFromText(userText) ??
+    detectLanguageFromText(
+      messages
+        .filter((m) => m.role === "user")
+        .slice(-3)
+        .map((m) => m.content)
+        .join(" ")
+    );
   const willGenerateImage =
     !lastUserMessage?.images?.length &&
     (detectImageRequest(userText) || clientGenerateImage === true);
@@ -222,7 +233,8 @@ export async function POST(req: Request) {
       `${planRules}\n` +
       (stylePrompt ? `${stylePrompt}\n` : "") +
       "User memory:\n" +
-      (memoryText || "No memory yet.")
+      (memoryText || "No memory yet.") +
+      (replyLanguage ? `\n${buildReplyLanguageLock(replyLanguage)}` : "")
   };
 
   let reply = "";
@@ -297,7 +309,9 @@ export async function POST(req: Request) {
       }
 
       reply = await Promise.race([
-        generateAIResponse([system, ...messagesForAI(messages)], { language: userLanguage }),
+        generateAIResponse([system, ...messagesForAI(messages)], {
+          language: replyLanguage ?? userLanguage
+        }),
         new Promise<string>((_, reject) =>
           setTimeout(
             () =>

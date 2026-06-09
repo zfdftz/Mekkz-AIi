@@ -274,6 +274,43 @@ export function getLanguageAiName(code: LanguageCode) {
   return LANGUAGE_AI_NAMES[code] ?? "English";
 }
 
+const TURKISH_HINT =
+  /\b(bir|ve|için|icin|nedir|konusu|dizi|var|mi|mı|mu|mü|de|da|ile|bu|şu|su|ne|nasıl|nasil|merhaba|teşekkür|tesekkur|görsel|gorsel|resim|hakkında|hakkinda|oyuncu|bölüm|bolum|adı|adi|yeni|daha|içeriği|icerigi|hangi|gün|gun|yayın|yayin|olsun|olur|evet|hayır|hayir)\b|[çğıöşüÇĞİÖŞÜ]/i;
+
+const GERMAN_HINT =
+  /\b(der|die|das|und|ist|nicht|ein|eine|ich|du|wir|für|fur|wie|was|kann|bitte|bild|chat|oder|auch|warum|wann|wo|habe|hast|sein|sind|dein|deine|melde|anmelden)\b|[äöüßÄÖÜ]/i;
+
+/** Detect language from what the user actually wrote — not UI settings. */
+export function detectLanguageFromText(text: string): LanguageCode | null {
+  const sample = text.trim().slice(0, 800);
+  if (sample.length < 2) return null;
+
+  let tr = 0;
+  let de = 0;
+
+  if (TURKISH_HINT.test(sample)) tr += 3;
+  if (GERMAN_HINT.test(sample)) de += 3;
+  if (/[çğıöşüÇĞİÖŞÜ]/.test(sample)) tr += 4;
+  if (/[äöüßÄÖÜ]/.test(sample)) de += 4;
+
+  if (tr > de && tr >= 3) return "tr";
+  if (de > tr && de >= 3) return "de";
+  if (/\b(the|and|what|how|why|when|where|please|thanks|hello|you|your)\b/i.test(sample)) {
+    return "en";
+  }
+  return null;
+}
+
+export function buildReplyLanguageLock(language: LanguageCode) {
+  const name = getLanguageAiName(language);
+  return (
+    `FINAL RULE (overrides everything above): The user's latest message is in ${name}. ` +
+    `Write your ENTIRE reply in ${name} only — every sentence. ` +
+    `Never reply in German if the user wrote in ${name}. ` +
+    `Internal plan/billing notes above may be in German — translate them into ${name} for the user.`
+  );
+}
+
 export function buildLanguageSystemPrompt() {
   return (
     "LANGUAGE RULE (highest priority): Always reply in the same language as the user's latest message. " +

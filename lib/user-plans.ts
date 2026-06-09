@@ -133,7 +133,7 @@ export function buildPlanSystemPrompt(
     : "";
 
   return (
-    "OFFIZIELLE MEKKZ AI TARIF-REGELN (technisch erzwungen — niemals widersprechen oder Limits aufweichen):\n" +
+    "INTERNAL PLAN DATA (for limits only — explain to the user in THEIR message language, never in German by default):\n" +
     buildPlansLimitsReference() +
     "\n" +
     `Aktueller Plan des Nutzers: ${planState.planLabel} (${planState.plan}).\n` +

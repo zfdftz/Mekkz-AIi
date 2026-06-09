@@ -147,7 +147,7 @@ function formatSummary(summary: WikiSummary) {
   ].filter(Boolean);
   const url = summary.content_urls?.desktop?.page;
   const body = parts.join(" — ");
-  return url ? `${body}\nQuelle: ${url}` : body;
+  return url ? `${body}\nSource: ${url}` : body;
 }
 
 /** Best-effort Wikipedia lookup for TV shows, people, and general topics. */

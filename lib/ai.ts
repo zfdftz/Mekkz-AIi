@@ -271,7 +271,7 @@ export async function generateAIResponse(
       : process.env.GROQ_MODEL || "llama-3.1-8b-instant";
     const maxTokens = vision
       ? parseEnvInt("GROQ_VISION_MAX_TOKENS", 520)
-      : parseEnvInt("GROQ_MAX_TOKENS", 360);
+      : parseEnvInt("GROQ_MAX_TOKENS", 520);
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

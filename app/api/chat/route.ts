@@ -35,6 +35,11 @@ import {
   buildLanguageSystemPrompt
 } from "@/lib/languages";
 import { resolveUserLanguage } from "@/lib/user-language";
+import {
+  buildWebContextPrompt,
+  fetchWebContext,
+  needsWebLookup
+} from "@/lib/web-search";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -197,6 +202,17 @@ export async function POST(req: Request) {
     systemContent +=
       "Never fake generated images: no [Bild:...], [Image:...], markdown image syntax, or detailed visual descriptions pretending an image was created. " +
       "If the user wants a new image, reply in one short sentence that real image generation happens in the app — do not describe the scene.";
+  }
+
+  if (!willGenerateImage && !hasImageInLastMessage && needsWebLookup(userText)) {
+    try {
+      const webContext = await fetchWebContext(userText);
+      if (webContext) {
+        systemContent += buildWebContextPrompt(webContext) + " ";
+      }
+    } catch {
+      // Web lookup is best-effort.
+    }
   }
 
   const system = {

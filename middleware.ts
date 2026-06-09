@@ -16,45 +16,65 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  const response = NextResponse.next({ request });
-  const supabase = createServerClient(
-    normalizeSupabaseUrl(rawUrl),
-    anonKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        }
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(normalizeSupabaseUrl(rawUrl), anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options)
+        );
       }
     }
-  );
+  });
 
-  const { data } = await supabase.auth.getUser();
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
-  const isProtected = request.nextUrl.pathname.startsWith("/chat");
-  const authPath = request.nextUrl.pathname;
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  if (!data.user && isProtected) {
+  const pathname = request.nextUrl.pathname;
+  const isAuthRoute = pathname.startsWith("/auth");
+  const isProtected =
+    pathname.startsWith("/chat") || pathname.startsWith("/settings");
+
+  if (!user && isProtected) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  if (data.user && isAuthRoute) {
-    if (authPath.startsWith("/auth/callback") || authPath.startsWith("/auth/verify")) {
-      return response;
-    }
+  const isRegisteredUser = Boolean(user && !user.is_anonymous);
+
+  if (isRegisteredUser && (pathname === "/" || isAuthRoute)) {
     if (
-      data.user.is_anonymous &&
-      (authPath.startsWith("/auth/register") || authPath.startsWith("/auth/login"))
+      pathname.startsWith("/auth/callback") ||
+      pathname.startsWith("/auth/verify")
     ) {
       return response;
     }
-    if (!data.user.is_anonymous) {
+    if (
+      pathname.startsWith("/auth/register") ||
+      pathname.startsWith("/auth/login")
+    ) {
       return NextResponse.redirect(new URL("/chat", request.url));
+    }
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/chat", request.url));
+    }
+  }
+
+  if (user && isAuthRoute) {
+    if (pathname.startsWith("/auth/callback") || pathname.startsWith("/auth/verify")) {
+      return response;
+    }
+    if (
+      user.is_anonymous &&
+      (pathname.startsWith("/auth/register") || pathname.startsWith("/auth/login"))
+    ) {
+      return response;
     }
   }
 
@@ -62,5 +82,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/chat/:path*", "/auth/:path*"]
+  matcher: [
+    "/",
+    "/chat/:path*",
+    "/settings/:path*",
+    "/auth/:path*"
+  ]
 };

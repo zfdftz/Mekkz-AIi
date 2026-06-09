@@ -1,0 +1,52 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+/** Hält Session aktiv, synchronisiert Stripe-Plan nach Rückkehr, leitet eingeloggte Nutzer weiter. */
+export function AuthSessionBootstrap() {
+  const router = useRouter();
+  const syncedRef = useRef(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    async function bootstrap() {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user || user.is_anonymous) return;
+
+      const path = window.location.pathname;
+      if (path === "/" || path === "/auth/login" || path === "/auth/register") {
+        router.replace("/chat");
+      }
+
+      if (!syncedRef.current) {
+        syncedRef.current = true;
+        try {
+          await fetch("/api/stripe/sync", { method: "POST" });
+        } catch {
+          // Best-effort — Plan wird auch auf /chat synchronisiert.
+        }
+      }
+    }
+
+    void bootstrap();
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user && !session.user.is_anonymous) {
+        syncedRef.current = false;
+        void bootstrap();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
+
+  return null;
+}

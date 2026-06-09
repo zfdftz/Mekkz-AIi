@@ -133,7 +133,7 @@ export function SettingsPanel({
               <div>
                 <h2 className="text-xl font-semibold">{t("settings.title")}</h2>
                 <p className="mt-1 text-xs text-muted">
-                  {t("settings.communication")} · {t("settings.language")} · {t("settings.appearance")}
+                  {t("settings.appearance")} · {t("settings.colorTheme")} · {t("settings.communication")}
                 </p>
               </div>
               <button onClick={onClose} className="rounded-xl bg-white/10 p-2">
@@ -142,6 +142,61 @@ export function SettingsPanel({
             </header>
 
             <div className="flex-1 space-y-6 overflow-y-auto p-5">
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  {t("settings.appearance")}
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setThemeMode("dark")}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm transition ${
+                      mode === "dark" ? "bg-primary text-white" : "bg-white/10"
+                    }`}
+                  >
+                    <Moon size={16} /> {t("settings.dark")}
+                  </button>
+                  <button
+                    onClick={() => setThemeMode("light")}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm transition ${
+                      mode === "light" ? "bg-primary text-white" : "bg-white/10"
+                    }`}
+                  >
+                    <Sun size={16} /> {t("settings.light")}
+                  </button>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  {t("settings.colorTheme")}
+                </h3>
+                <div className="grid grid-cols-3 gap-2 lg:grid-cols-2">
+                  {COLOR_THEMES.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => setColorTheme(preset.id)}
+                      className={`rounded-xl border p-3 text-left transition ${
+                        color === preset.id
+                          ? "border-primary bg-primary/15"
+                          : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="mb-2 flex gap-1">
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ background: preset.swatch[0] }}
+                        />
+                        <span
+                          className="h-4 w-4 rounded-full"
+                          style={{ background: preset.swatch[1] }}
+                        />
+                      </div>
+                      <span className="text-sm">{preset.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
               <section className="space-y-3 rounded-2xl border-2 border-primary/40 bg-primary/10 p-4 shadow-glow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -149,7 +204,6 @@ export function SettingsPanel({
                       {t("settings.communication")}
                     </p>
                     <h3 className="text-base font-semibold">{t("settings.communicationStyle")}</h3>
-                    <p className="text-sm text-muted">{t("settings.communicationStyleHint")}</p>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
@@ -215,61 +269,6 @@ export function SettingsPanel({
                     </option>
                   ))}
                 </select>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                  {t("settings.appearance")}
-                </h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setThemeMode("dark")}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm transition ${
-                      mode === "dark" ? "bg-primary text-white" : "bg-white/10"
-                    }`}
-                  >
-                    <Moon size={16} /> {t("settings.dark")}
-                  </button>
-                  <button
-                    onClick={() => setThemeMode("light")}
-                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm transition ${
-                      mode === "light" ? "bg-primary text-white" : "bg-white/10"
-                    }`}
-                  >
-                    <Sun size={16} /> {t("settings.light")}
-                  </button>
-                </div>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                  {t("settings.colorTheme")}
-                </h3>
-                <div className="grid grid-cols-3 gap-2 lg:grid-cols-2">
-                  {COLOR_THEMES.map((preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => setColorTheme(preset.id)}
-                      className={`rounded-xl border p-3 text-left transition ${
-                        color === preset.id
-                          ? "border-primary bg-primary/15"
-                          : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <div className="mb-2 flex gap-1">
-                        <span
-                          className="h-4 w-4 rounded-full"
-                          style={{ background: preset.swatch[0] }}
-                        />
-                        <span
-                          className="h-4 w-4 rounded-full"
-                          style={{ background: preset.swatch[1] }}
-                        />
-                      </div>
-                      <span className="text-sm">{preset.label}</span>
-                    </button>
-                  ))}
-                </div>
               </section>
 
               <section className="space-y-3">

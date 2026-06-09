@@ -126,7 +126,7 @@ const en: MessageTable = {
   "settings.communication": "Communication",
   "settings.communicationStyle": "Style learning",
   "settings.communicationStyleHint":
-    "mekkz AI remembers slang and special words — not everyday words like “image” or “chat”.",
+    "mekkz AI adapts to your writing style.",
   "settings.styleActive": "Active",
   "settings.styleInactive": "Inactive",
   "settings.styleLearningOn": "Style learning on",
@@ -230,7 +230,7 @@ const de: MessageTable = {
   "settings.communication": "Kommunikation",
   "settings.communicationStyle": "Stil-Lernen",
   "settings.communicationStyleHint":
-    "mekkz AI merkt sich nur Slang, Jugendsprache und spezielle Wörter — keine normalen Alltagswörter wie „Bild“ oder „Chat“.",
+    "mekkz AI passt sich an deinen Schreibstil an.",
   "settings.styleActive": "Aktiv",
   "settings.styleInactive": "Inaktiv",
   "settings.styleLearningOn": "Stil-Lernen aktiv",
@@ -417,7 +417,7 @@ const tr: MessageTable = {
   "settings.communication": "İletişim",
   "settings.communicationStyle": "Stil öğrenme",
   "settings.communicationStyleHint":
-    "mekkz AI yalnızca argo ve özel kelimeleri hatırlar — “görsel” veya “sohbet” gibi günlük kelimeleri değil.",
+    "mekkz AI yazım stiline uyum sağlar.",
   "settings.styleActive": "Aktif",
   "settings.styleInactive": "Pasif",
   "settings.styleLearningOn": "Stil öğrenme açık",

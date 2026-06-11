@@ -7,7 +7,13 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "Your multilingual AI assistant: chat, create images, and analyze photos.",
     start_url: "/",
+    scope: "/",
+    id: "/",
     display: "standalone",
+    orientation: "portrait",
+    categories: ["productivity", "utilities"],
+    lang: "en",
+    dir: "ltr",
     background_color: "#050810",
     theme_color: "#059669",
     icons: [

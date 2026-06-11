@@ -60,13 +60,23 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true
-  }
+  },
+  appleWebApp: {
+    capable: true,
+    title: "mekkz AI",
+    statusBarStyle: "black-translucent"
+  },
+  manifest: "/manifest.webmanifest"
 };
 
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover"
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#050810" },
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" }
+  ]
 };
 
 export default function RootLayout({

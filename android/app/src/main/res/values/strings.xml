@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">mekkz AI</string>
+    <string name="title_activity_main">mekkz AI</string>
+    <string name="package_name">com.mekkzai.app</string>
+    <string name="custom_url_scheme">com.mekkzai.app</string>
+</resources>

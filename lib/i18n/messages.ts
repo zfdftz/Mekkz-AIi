@@ -4,6 +4,16 @@ export type TranslationKey =
   | "landing.tagline"
   | "landing.login"
   | "landing.register"
+  | "landing.installApp"
+  | "landing.googlePlay"
+  | "landing.appStore"
+  | "landing.installHint"
+  | "download.title"
+  | "download.subtitle"
+  | "download.storePending"
+  | "download.privacy"
+  | "download.backHome"
+  | "download.more"
   | "auth.login.title"
   | "auth.login.email"
   | "auth.login.password"
@@ -100,6 +110,19 @@ const en: MessageTable = {
     "Your AI assistant — chat, create images, and analyze photos.",
   "landing.login": "Sign in",
   "landing.register": "Register",
+  "landing.installApp": "Install app",
+  "landing.googlePlay": "Google Play",
+  "landing.appStore": "App Store",
+  "landing.installHint":
+    "Store listings are being submitted. You can install now via the button above or",
+  "download.title": "Get mekkz AI",
+  "download.subtitle":
+    "Install as an app on your phone — via Google Play, App Store, or directly in the browser.",
+  "download.storePending":
+    "Google Play and App Store builds are ready to upload. After approval, the buttons on the homepage will link directly to the stores.",
+  "download.privacy": "Privacy policy",
+  "download.backHome": "Back to homepage",
+  "download.more": "More install options",
   "auth.login.title": "Sign in",
   "auth.login.email": "Email",
   "auth.login.password": "Password",
@@ -205,6 +228,19 @@ const de: MessageTable = {
     "Dein KI-Assistent — chatten, Bilder erstellen und Fotos analysieren.",
   "landing.login": "Anmelden",
   "landing.register": "Registrieren",
+  "landing.installApp": "App installieren",
+  "landing.googlePlay": "Google Play",
+  "landing.appStore": "App Store",
+  "landing.installHint":
+    "Store-Einträge werden eingereicht. Du kannst die App schon jetzt installieren oder",
+  "download.title": "mekkz AI holen",
+  "download.subtitle":
+    "Als App auf dem Handy — über Google Play, App Store oder direkt im Browser.",
+  "download.storePending":
+    "Die Android- und iOS-Apps sind fertig zum Hochladen. Nach Freigabe verlinken die Buttons auf der Startseite direkt in die Stores.",
+  "download.privacy": "Datenschutz",
+  "download.backHome": "Zur Startseite",
+  "download.more": "Weitere Installationsoptionen",
   "auth.login.title": "Anmelden",
   "auth.login.password": "Passwort",
   "auth.login.submit": "Einloggen",

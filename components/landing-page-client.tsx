@@ -6,6 +6,7 @@ import { useLanguage } from "@/components/language-provider";
 import { MekkzLogo } from "@/components/mekkz-logo";
 import { WavyBackground } from "@/components/wavy-background";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileInstall } from "@/components/mobile-install";
 
 export function LandingPageClient() {
   const { t } = useLanguage();
@@ -43,6 +44,8 @@ export function LandingPageClient() {
           <div className="mt-5">
             <GuestEntryButton />
           </div>
+
+          <MobileInstall />
         </div>
       </main>
     </WavyBackground>

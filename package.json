@@ -11,10 +11,20 @@
     "migrate:bump:check": "node scripts/check-bump-rpc.mjs",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
     "image-worker": "node workers/mekkz-image-server.mjs",
-    "bild-server": "powershell -ExecutionPolicy Bypass -File scripts/start-bild-server.ps1"
+    "bild-server": "powershell -ExecutionPolicy Bypass -File scripts/start-bild-server.ps1",
+    "mobile:sync": "npx cap sync",
+    "mobile:android": "npx cap sync android && npx cap open android",
+    "mobile:ios": "npx cap sync ios && npx cap open ios",
+    "mobile:build:android": "cd android && gradlew.bat assembleRelease",
+    "mobile:build:aab": "node scripts/build-android-aab.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
+    "@capacitor/android": "^7.6.6",
+    "@capacitor/core": "^7.6.6",
+    "@capacitor/ios": "^7.6.6",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.8",
     "clsx": "^2.1.1",
@@ -29,6 +39,7 @@
     "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.6",
     "@types/node": "^22.15.21",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.1.6",

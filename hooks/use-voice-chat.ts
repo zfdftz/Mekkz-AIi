@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSpeechLocale, type LanguageCode } from "@/lib/languages";
+import { StreamingTTS } from "@/lib/voice/streaming-tts";
+import { normalizeVoiceGender, type VoiceGender } from "@/lib/voice/speech-voices";
 
 type UseVoiceChatOptions = {
   language: LanguageCode;
-  enabled: boolean;
-  voiceOutputEnabled: boolean;
-  autoSend: boolean;
+  voiceGender: VoiceGender;
+  voiceMode: boolean;
+  disabled?: boolean;
   onTranscript?: (text: string) => void;
   onAutoSend?: (text: string) => void;
-  disabled?: boolean;
 };
 
 export function getSpeechRecognitionCtor() {
@@ -22,70 +23,146 @@ export function getSpeechRecognitionCtor() {
   return w.webkitSpeechRecognition ?? w.SpeechRecognition ?? null;
 }
 
+async function requestMicrophoneAccess() {
+  if (!navigator.mediaDevices?.getUserMedia) return true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function useVoiceChat({
   language,
-  enabled,
-  voiceOutputEnabled,
-  autoSend,
+  voiceGender,
+  voiceMode,
+  disabled = false,
   onTranscript,
-  onAutoSend,
-  disabled = false
+  onAutoSend
 }: UseVoiceChatOptions) {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [interimText, setInterimText] = useState("");
   const [supported, setSupported] = useState(true);
+  const [micError, setMicError] = useState<string | null>(null);
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const shouldRestartRef = useRef(false);
+  const shouldListenRef = useRef(false);
   const finalBufferRef = useRef("");
+  const silenceTimerRef = useRef<number | null>(null);
+  const ttsRef = useRef<StreamingTTS | null>(null);
+  const processingRef = useRef(false);
 
   const speechLocale = getSpeechLocale(language);
+  const gender = normalizeVoiceGender(voiceGender);
 
   useEffect(() => {
     setSupported(Boolean(getSpeechRecognitionCtor()) && "speechSynthesis" in window);
+    ttsRef.current = new StreamingTTS();
+    return () => {
+      ttsRef.current?.stop();
+    };
   }, []);
 
+  useEffect(() => {
+    void ttsRef.current?.configure(speechLocale, gender);
+  }, [speechLocale, gender]);
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current != null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  const flushAndSend = useCallback(() => {
+    const text = finalBufferRef.current.trim();
+    if (!text || processingRef.current) return;
+    finalBufferRef.current = "";
+    setInterimText("");
+    clearSilenceTimer();
+    shouldListenRef.current = false;
+    recognitionRef.current?.stop();
+    onAutoSend?.(text);
+  }, [clearSilenceTimer, onAutoSend]);
+
+  const scheduleSilenceSend = useCallback(() => {
+    clearSilenceTimer();
+    silenceTimerRef.current = window.setTimeout(() => {
+      if (finalBufferRef.current.trim()) {
+        flushAndSend();
+      }
+    }, 1400);
+  }, [clearSilenceTimer, flushAndSend]);
+
   const stopSpeaking = useCallback(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    ttsRef.current?.stop();
     setSpeaking(false);
   }, []);
 
-  const speak = useCallback(
-    (text: string) => {
-      if (!voiceOutputEnabled || !text.trim()) return;
-      if (typeof window === "undefined" || !window.speechSynthesis) return;
+  const resetSpeech = useCallback(() => {
+    ttsRef.current?.reset();
+    setSpeaking(false);
+  }, []);
 
-      stopSpeaking();
-      const utterance = new SpeechSynthesisUtterance(text.trim());
-      utterance.lang = speechLocale;
-      utterance.rate = 1;
-      utterance.onstart = () => setSpeaking(true);
-      utterance.onend = () => setSpeaking(false);
-      utterance.onerror = () => setSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    },
-    [speechLocale, stopSpeaking, voiceOutputEnabled]
-  );
+  const waitUntilSpeechDone = useCallback(async () => {
+    while (ttsRef.current?.isActive) {
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+    }
+    setSpeaking(false);
+  }, []);
+
+  const feedAssistantText = useCallback((cumulativeText: string) => {
+    if (!voiceMode) return;
+    ttsRef.current?.feed(cumulativeText);
+    setSpeaking(true);
+    const check = () => {
+      if (!ttsRef.current?.isActive) {
+        setSpeaking(false);
+      } else {
+        window.setTimeout(check, 120);
+      }
+    };
+    window.setTimeout(check, 120);
+  }, [voiceMode]);
 
   const stopListening = useCallback(() => {
-    shouldRestartRef.current = false;
+    shouldListenRef.current = false;
+    clearSilenceTimer();
     recognitionRef.current?.stop();
     setListening(false);
     setInterimText("");
-  }, []);
+  }, [clearSilenceTimer]);
 
-  const startListening = useCallback(() => {
-    if (disabled || !enabled) return;
+  const startListening = useCallback(async () => {
+    if (disabled || !voiceMode || processingRef.current) return;
 
     const SR = getSpeechRecognitionCtor();
     if (!SR) {
       setSupported(false);
+      setMicError("Spracherkennung wird in diesem Browser nicht unterstützt.");
       return;
     }
 
+    const micOk = await requestMicrophoneAccess();
+    if (!micOk) {
+      setMicError("Mikrofon-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben.");
+      return;
+    }
+
+    setMicError(null);
     stopSpeaking();
     finalBufferRef.current = "";
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // ignore
+      }
+    }
 
     const recognition = new SR();
     recognition.lang = speechLocale;
@@ -94,24 +171,36 @@ export function useVoiceChat({
 
     recognition.onstart = () => {
       setListening(true);
-      shouldRestartRef.current = true;
+      shouldListenRef.current = true;
     };
 
     recognition.onend = () => {
       setListening(false);
-      setInterimText("");
-      if (shouldRestartRef.current && enabled && !disabled) {
-        try {
-          recognition.start();
-        } catch {
-          // Ignore restart races when recognition is already active.
-        }
+      if (shouldListenRef.current && voiceMode && !disabled && !processingRef.current) {
+        window.setTimeout(() => {
+          try {
+            recognition.start();
+          } catch {
+            // ignore restart race
+          }
+        }, 250);
       }
     };
 
-    recognition.onerror = () => {
-      setListening(false);
-      shouldRestartRef.current = false;
+    recognition.onerror = (event) => {
+      const code = (event as SpeechRecognitionErrorEvent).error;
+      if (code === "not-allowed") {
+        setMicError("Mikrofon blockiert — bitte Berechtigung erlauben.");
+        shouldListenRef.current = false;
+        setListening(false);
+        return;
+      }
+      if (code === "aborted") return;
+      if (code === "no-speech") {
+        scheduleSilenceSend();
+        return;
+      }
+      setMicError(`Sprachfehler: ${code}`);
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
@@ -128,63 +217,77 @@ export function useVoiceChat({
         }
       }
 
-      if (interim) {
-        setInterimText(interim.trim());
+      if (interim.trim()) {
+        setInterimText(`${finalBufferRef.current} ${interim}`.trim());
       }
 
       if (finalChunk.trim()) {
         finalBufferRef.current = `${finalBufferRef.current} ${finalChunk}`.trim();
         onTranscript?.(finalBufferRef.current);
-        setInterimText("");
-
-        if (autoSend && onAutoSend) {
-          const text = finalBufferRef.current;
-          finalBufferRef.current = "";
-          shouldRestartRef.current = false;
-          recognition.stop();
-          onAutoSend(text);
-        }
+        setInterimText(finalBufferRef.current);
+        scheduleSilenceSend();
       }
     };
 
     recognitionRef.current = recognition;
+    shouldListenRef.current = true;
 
     try {
       recognition.start();
     } catch {
-      setSupported(false);
+      setMicError("Mikrofon konnte nicht gestartet werden.");
     }
-  }, [autoSend, disabled, enabled, onAutoSend, onTranscript, speechLocale, stopSpeaking]);
+  }, [
+    disabled,
+    onTranscript,
+    scheduleSilenceSend,
+    speechLocale,
+    stopSpeaking,
+    voiceMode
+  ]);
 
-  const toggleVoiceMode = useCallback(
-    (next?: boolean) => {
-      const shouldListen = typeof next === "boolean" ? next : !listening;
-      if (shouldListen) {
-        startListening();
-      } else {
+  const setProcessing = useCallback(
+    (value: boolean) => {
+      processingRef.current = value;
+      if (value) {
         stopListening();
+      } else if (voiceMode && !disabled) {
+        void startListening();
       }
     },
-    [listening, startListening, stopListening]
+    [disabled, startListening, stopListening, voiceMode]
   );
 
   useEffect(() => {
-    return () => {
-      shouldRestartRef.current = false;
-      recognitionRef.current?.stop();
+    if (voiceMode && !disabled && !processingRef.current) {
+      void startListening();
+    } else if (!voiceMode) {
+      stopListening();
       stopSpeaking();
+    }
+  }, [voiceMode, disabled, startListening, stopListening, stopSpeaking]);
+
+  useEffect(() => {
+    return () => {
+      shouldListenRef.current = false;
+      clearSilenceTimer();
+      recognitionRef.current?.stop();
+      ttsRef.current?.stop();
     };
-  }, [stopSpeaking]);
+  }, [clearSilenceTimer]);
 
   return {
     supported,
     listening,
     speaking,
     interimText,
-    speak,
+    micError,
     stopSpeaking,
+    resetSpeech,
+    feedAssistantText,
+    waitUntilSpeechDone,
     startListening,
     stopListening,
-    toggleVoiceMode
+    setProcessing
   };
 }

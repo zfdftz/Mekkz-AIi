@@ -60,6 +60,9 @@ export type TranslationKey =
   | "voice.speaking"
   | "voice.stop"
   | "voice.unavailable"
+  | "voice.genderFemale"
+  | "voice.genderMale"
+  | "settings.voiceGender"
   | "auth.login.title"
   | "auth.login.email"
   | "auth.login.password"
@@ -217,6 +220,9 @@ const en: MessageTable = {
   "voice.speaking": "Speaking…",
   "voice.stop": "Stop",
   "voice.unavailable": "Voice not supported in this browser.",
+  "voice.genderFemale": "Female voice",
+  "voice.genderMale": "Male voice",
+  "settings.voiceGender": "AI voice",
   "auth.login.title": "Sign in",
   "auth.login.email": "Email",
   "auth.login.password": "Password",
@@ -383,6 +389,9 @@ const de: MessageTable = {
   "voice.speaking": "Spricht…",
   "voice.stop": "Stopp",
   "voice.unavailable": "Sprache wird in diesem Browser nicht unterstützt.",
+  "voice.genderFemale": "Frauenstimme",
+  "voice.genderMale": "Männerstimme",
+  "settings.voiceGender": "KI-Stimme",
   "auth.login.title": "Anmelden",
   "auth.login.password": "Passwort",
   "auth.login.submit": "Einloggen",

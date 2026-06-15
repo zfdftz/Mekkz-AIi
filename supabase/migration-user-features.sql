@@ -16,6 +16,7 @@ create table if not exists public.user_ai_preferences (
   tutor_level text not null default 'intermediate',
   voice_output_enabled boolean not null default false,
   voice_auto_send boolean not null default true,
+  voice_gender text not null default 'female',
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
@@ -44,3 +45,6 @@ create policy "Service role can manage memory rows"
 on public.user_memory for all
 using (true)
 with check (true);
+
+alter table public.user_ai_preferences
+  add column if not exists voice_gender text not null default 'female';

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Volume2, Wrench, X } from "lucide-react";
+import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
@@ -21,8 +21,7 @@ import { MekkzLogo } from "./mekkz-logo";
 import { PlanUpgrade, type PlanState } from "./plan-upgrade";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { useLanguage } from "@/components/language-provider";
-import { getSpeechRecognitionCtor, useVoiceChat } from "@/hooks/use-voice-chat";
-import { getSpeechLocale } from "@/lib/languages";
+import { useVoiceChat } from "@/hooks/use-voice-chat";
 import type { UserAiPreferences } from "@/lib/user-ai-preferences";
 
 type ChatApiResponse = {
@@ -107,7 +106,8 @@ export function ChatUI({
     tutorModeEnabled: false,
     tutorLevel: "intermediate",
     voiceOutputEnabled: false,
-    voiceAutoSend: true
+    voiceAutoSend: true,
+    voiceGender: "female"
   });
   const sendMessageRef = useRef<(textOverride?: string) => Promise<void>>(async () => {});
 
@@ -139,9 +139,8 @@ export function ChatUI({
 
   const voice = useVoiceChat({
     language,
-    enabled: voiceMode,
-    voiceOutputEnabled: voiceMode || aiPreferences.voiceOutputEnabled,
-    autoSend: aiPreferences.voiceAutoSend,
+    voiceGender: aiPreferences.voiceGender,
+    voiceMode,
     onTranscript: (text) => setInput(text),
     onAutoSend: (text) => {
       setInput(text);
@@ -313,14 +312,15 @@ export function ChatUI({
     fullText: string,
     generatedImage?: string,
     imageCategory?: string,
-    imageGenPrompt?: string
+    imageGenPrompt?: string,
+    options?: { wordByWord?: boolean; onPartial?: (text: string) => void }
   ) {
     if (!fullText && !generatedImage) return;
     setMessages((prev) => [
       ...prev,
       {
         role: "assistant",
-        content: fullText,
+        content: wordByWord ? "" : fullText,
         ...(generatedImage ? { generatedImage } : {}),
         ...(imageGenPrompt ? { imageGenPrompt } : {}),
         ...(imageCategory ? { imageCategory } : {})
@@ -328,6 +328,30 @@ export function ChatUI({
     ]);
 
     if (!fullText) return;
+
+    const wordByWord = options?.wordByWord ?? false;
+
+    if (wordByWord) {
+      const tokens = fullText.match(/\S+|\s+/g) ?? [fullText];
+      let built = "";
+      for (const token of tokens) {
+        built += token;
+        const partial = built;
+        setMessages((prev) => {
+          const copy = [...prev];
+          const last = copy[copy.length - 1];
+          if (last?.role === "assistant") {
+            copy[copy.length - 1] = { ...last, content: partial };
+          }
+          return copy;
+        });
+        if (/\S/.test(token)) {
+          options?.onPartial?.(partial.trim());
+          await new Promise((resolve) => window.setTimeout(resolve, 42));
+        }
+      }
+      return;
+    }
 
     if (fullText.length < 600) {
       setMessages((prev) => {
@@ -468,6 +492,7 @@ export function ChatUI({
       isImageGenRequest ? t("chat.creatingImage") : t("chat.aiWriting")
     );
     setIsLoading(true);
+    voice.setProcessing(true);
 
     const requestStartedAt = Date.now();
 
@@ -566,16 +591,19 @@ export function ChatUI({
         const aiContent =
           data.reply ??
           (data.generatedImage ? "" : "Keine Antwort erhalten.");
+        voice.resetSpeech();
         await streamAssistantMessage(
           aiContent,
           data.generatedImage,
           data.imageCategory,
-          data.imageGenPrompt
+          data.imageGenPrompt,
+          voiceMode
+            ? {
+                wordByWord: true,
+                onPartial: (partial) => voice.feedAssistantText(partial)
+              }
+            : undefined
         );
-
-        if ((voiceMode || aiPreferences.voiceOutputEnabled) && aiContent.trim()) {
-          voice.speak(aiContent);
-        }
 
         setMessages((prev) => {
           const copy = [...prev];
@@ -614,9 +642,10 @@ export function ChatUI({
       await streamAssistantMessage(`Fehler: ${message}`);
     } finally {
       setIsLoading(false);
-      if (voiceMode && !chatFull) {
-        voice.startListening();
+      if (voiceMode) {
+        await voice.waitUntilSpeechDone();
       }
+      voice.setProcessing(false);
     }
   }
 
@@ -624,27 +653,7 @@ export function ChatUI({
 
   function toggleVoiceMode() {
     if (!voice.supported) return;
-    const next = !voiceMode;
-    setVoiceMode(next);
-    if (next) {
-      voice.startListening();
-    } else {
-      voice.stopListening();
-      voice.stopSpeaking();
-    }
-  }
-
-  function dictationInput() {
-    if (!voice.supported || voiceMode) return;
-    const SR = getSpeechRecognitionCtor();
-    if (!SR) return;
-    const recognition = new SR();
-    recognition.lang = getSpeechLocale(language);
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? "";
-      setInput((prev) => `${prev} ${transcript}`.trim());
-    };
-    recognition.start();
+    setVoiceMode((prev) => !prev);
   }
 
   async function onFileSelected(file?: File) {
@@ -821,6 +830,9 @@ export function ChatUI({
               })}
             </AnimatePresence>
             {isLoading ? <p className="text-sm text-muted">{loadingHint}</p> : null}
+            {voice.micError ? (
+              <p className="text-sm text-red-200">{voice.micError}</p>
+            ) : null}
             {voiceMode && voice.listening ? (
               <p className="text-sm text-emerald-200">{t("voice.listening")}</p>
             ) : null}
@@ -883,20 +895,12 @@ export function ChatUI({
                 onClick={toggleVoiceMode}
                 disabled={!voice.supported}
                 className={`shrink-0 rounded-xl p-2.5 lg:p-3 ${
-                  voiceMode ? "bg-emerald-500/25 text-emerald-100" : "bg-white/10"
+                  voiceMode ? "bg-emerald-500/25 text-emerald-100 ring-2 ring-emerald-400/40" : "bg-white/10"
                 } disabled:opacity-40`}
                 aria-label={t("voice.mode")}
                 title={voice.supported ? t("voice.mode") : t("voice.unavailable")}
               >
                 {voiceMode ? <MicOff size={18} /> : <Mic size={18} />}
-              </button>
-              <button
-                onClick={dictationInput}
-                disabled={!voice.supported || voiceMode}
-                className="hidden shrink-0 rounded-xl bg-white/10 p-2.5 sm:inline-flex lg:p-3 disabled:opacity-40"
-                aria-label="Diktat"
-              >
-                <Volume2 size={18} />
               </button>
               {voice.speaking ? (
                 <button

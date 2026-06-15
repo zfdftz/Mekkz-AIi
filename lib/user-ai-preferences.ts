@@ -8,6 +8,7 @@ export type UserAiPreferences = {
   tutorLevel: TutorLevel;
   voiceOutputEnabled: boolean;
   voiceAutoSend: boolean;
+  voiceGender: "female" | "male";
 };
 
 const DEFAULT_PREFERENCES: UserAiPreferences = {
@@ -15,7 +16,8 @@ const DEFAULT_PREFERENCES: UserAiPreferences = {
   tutorModeEnabled: false,
   tutorLevel: "intermediate",
   voiceOutputEnabled: false,
-  voiceAutoSend: true
+  voiceAutoSend: true,
+  voiceGender: "female"
 };
 
 function isMissingTableError(message: string) {
@@ -29,7 +31,8 @@ function mapRow(row: Record<string, unknown> | null): UserAiPreferences {
     tutorModeEnabled: Boolean(row.tutor_mode_enabled),
     tutorLevel: normalizeTutorLevel(row.tutor_level),
     voiceOutputEnabled: Boolean(row.voice_output_enabled),
-    voiceAutoSend: row.voice_auto_send !== false
+    voiceAutoSend: row.voice_auto_send !== false,
+    voiceGender: row.voice_gender === "male" ? "male" : "female"
   };
 }
 
@@ -40,7 +43,7 @@ export async function getUserAiPreferences(
   const { data, error } = await admin
     .from("user_ai_preferences")
     .select(
-      "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send"
+      "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -68,6 +71,7 @@ export async function setUserAiPreferences(
     tutor_level: next.tutorLevel,
     voice_output_enabled: next.voiceOutputEnabled,
     voice_auto_send: next.voiceAutoSend,
+    voice_gender: next.voiceGender,
     updated_at: new Date().toISOString()
   };
 

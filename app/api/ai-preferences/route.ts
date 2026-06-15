@@ -46,7 +46,8 @@ const updateSchema = z.object({
   tutorModeEnabled: z.boolean().optional(),
   tutorLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
   voiceOutputEnabled: z.boolean().optional(),
-  voiceAutoSend: z.boolean().optional()
+  voiceAutoSend: z.boolean().optional(),
+  voiceGender: z.enum(["female", "male"]).optional()
 });
 
 export async function POST(req: Request) {
@@ -75,7 +76,8 @@ export async function POST(req: Request) {
     ...(typeof patch.voiceOutputEnabled === "boolean"
       ? { voiceOutputEnabled: patch.voiceOutputEnabled }
       : {}),
-    ...(typeof patch.voiceAutoSend === "boolean" ? { voiceAutoSend: patch.voiceAutoSend } : {})
+    ...(typeof patch.voiceAutoSend === "boolean" ? { voiceAutoSend: patch.voiceAutoSend } : {}),
+    ...(patch.voiceGender ? { voiceGender: patch.voiceGender } : {})
   });
 
   return NextResponse.json({ preferences });

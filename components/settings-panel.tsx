@@ -432,6 +432,37 @@ export function SettingsPanel({
                     className="h-4 w-4 accent-primary"
                   />
                 </label>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                    {t("settings.voiceGender")}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!userId || prefsLoading}
+                      onClick={() => void updateAiPreferences({ voiceGender: "female" })}
+                      className={`rounded-xl px-3 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
+                        (aiPreferences?.voiceGender ?? "female") === "female"
+                          ? "bg-primary text-white"
+                          : "bg-white/10 hover:bg-white/15"
+                      }`}
+                    >
+                      {t("voice.genderFemale")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!userId || prefsLoading}
+                      onClick={() => void updateAiPreferences({ voiceGender: "male" })}
+                      className={`rounded-xl px-3 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
+                        aiPreferences?.voiceGender === "male"
+                          ? "bg-primary text-white"
+                          : "bg-white/10 hover:bg-white/15"
+                      }`}
+                    >
+                      {t("voice.genderMale")}
+                    </button>
+                  </div>
+                </div>
               </section>
 
               <section className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
@@ -453,15 +484,6 @@ export function SettingsPanel({
                     </option>
                   ))}
                 </select>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                  {t("settings.chatHistory")}
-                </h3>
-                <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">
-                  {t("settings.chatHistoryHint")}
-                </p>
               </section>
 
               <section className="space-y-3">

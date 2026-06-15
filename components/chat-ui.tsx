@@ -316,6 +316,8 @@ export function ChatUI({
     options?: { wordByWord?: boolean; onPartial?: (text: string) => void }
   ) {
     if (!fullText && !generatedImage) return;
+    const wordByWord = options?.wordByWord ?? false;
+
     setMessages((prev) => [
       ...prev,
       {
@@ -328,8 +330,6 @@ export function ChatUI({
     ]);
 
     if (!fullText) return;
-
-    const wordByWord = options?.wordByWord ?? false;
 
     if (wordByWord) {
       const tokens = fullText.match(/\S+|\s+/g) ?? [fullText];

@@ -693,6 +693,7 @@ export async function downgradeUserToFree(admin: SupabaseClient, userId: string)
     images_today: current.imagesToday,
     uploads_today: current.uploadsToday,
     usage_day: today,
+    stripe_subscription_id: null,
     stripe_subscription_status: "canceled",
     stripe_period_end: null,
     scheduled_plan: null,

@@ -3,8 +3,9 @@ import Stripe from "stripe";
 import {
   getAppUrl,
   getStripe,
-  isActiveSubscriptionStatus,
+  isEntitledSubscriptionStatus,
   planFromCheckoutSession,
+  shouldDowngradeFromSubscription,
   subscriptionPlan
 } from "@/lib/stripe";
 import { subscriptionPeriodEnd, subscriptionIdFromInvoice, trySubscriptionPeriodEnd } from "@/lib/stripe-billing";
@@ -13,6 +14,7 @@ import {
   downgradeUserToFree,
   setUserPlanFromStripe
 } from "@/lib/user-plans";
+import { findActiveSubscriptionForUser } from "@/lib/stripe-sync";
 
 export const runtime = "nodejs";
 
@@ -94,22 +96,57 @@ async function syncSubscription(
 
   if (!customerId) return;
 
-  if (!isActiveSubscriptionStatus(subscription.status)) {
-    await downgradeUserToFree(admin, userId);
+  const customer =
+    typeof subscription.customer === "string"
+      ? await stripe.customers.retrieve(subscription.customer)
+      : subscription.customer;
+
+  const email =
+    customer && !("deleted" in customer && customer.deleted) ? customer.email : null;
+
+  if (isEntitledSubscriptionStatus(subscription.status)) {
+    const plan = session
+      ? planFromCheckoutSession(session, subscription) ?? subscriptionPlan(subscription)
+      : subscriptionPlan(subscription);
+
+    if (!plan) {
+      console.error(
+        "[stripe webhook] Active subscription but plan unknown:",
+        subscription.id,
+        subscription.items.data[0]?.price?.id
+      );
+      return;
+    }
+
+    await setUserPlanFromStripe(admin, userId, plan, {
+      customerId,
+      subscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+      periodEnd: trySubscriptionPeriodEnd(subscription)
+    });
     return;
   }
 
-  const plan = session
-    ? planFromCheckoutSession(session, subscription) ?? subscriptionPlan(subscription)
-    : subscriptionPlan(subscription);
-  if (!plan) return;
+  // Payment retry / grace — try to restore from any active subscription before downgrading.
+  const activeSub = await findActiveSubscriptionForUser(admin, userId, email);
+  if (activeSub) {
+    const plan = subscriptionPlan(activeSub);
+    if (plan) {
+      const activeCustomerId =
+        typeof activeSub.customer === "string" ? activeSub.customer : activeSub.customer.id;
+      await setUserPlanFromStripe(admin, userId, plan, {
+        customerId: activeCustomerId,
+        subscriptionId: activeSub.id,
+        subscriptionStatus: activeSub.status,
+        periodEnd: trySubscriptionPeriodEnd(activeSub)
+      });
+      return;
+    }
+  }
 
-  await setUserPlanFromStripe(admin, userId, plan, {
-    customerId,
-    subscriptionId: subscription.id,
-    subscriptionStatus: subscription.status,
-    periodEnd: trySubscriptionPeriodEnd(subscription)
-  });
+  if (shouldDowngradeFromSubscription(subscription)) {
+    await downgradeUserToFree(admin, userId);
+  }
 }
 
 export async function POST(req: Request) {
@@ -179,6 +216,19 @@ export async function POST(req: Request) {
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         await syncSubscription(admin, stripe, subscription);
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = subscriptionIdFromInvoice(invoice);
+        if (!subscriptionId) break;
+
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        // Do not downgrade on failed payment — Stripe retries; past_due still entitled.
+        if (isEntitledSubscriptionStatus(subscription.status)) {
+          await syncSubscription(admin, stripe, subscription);
+        }
         break;
       }
 

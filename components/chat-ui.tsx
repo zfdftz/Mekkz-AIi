@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Volume2, X } from "lucide-react";
+import Link from "next/link";
+import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Volume2, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
@@ -328,7 +329,7 @@ export function ChatUI({
 
     if (!fullText) return;
 
-    if (fullText.length < 280) {
+    if (fullText.length < 600) {
       setMessages((prev) => {
         const copy = [...prev];
         const last = copy[copy.length - 1];
@@ -341,7 +342,7 @@ export function ChatUI({
     }
 
     let cursor = 0;
-    const chunkSize = Math.max(2, Math.floor(fullText.length / 22));
+    const chunkSize = Math.max(4, Math.floor(fullText.length / 8));
 
     await new Promise<void>((resolve) => {
       const timer = setInterval(() => {
@@ -360,7 +361,7 @@ export function ChatUI({
           clearInterval(timer);
           resolve();
         }
-      }, 10);
+      }, 4);
     });
   }
 
@@ -994,11 +995,19 @@ function ChatSidebarPanel({
       <button
         type="button"
         onClick={onNewChat}
-        className="btn-primary mb-4 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition hover:opacity-90"
+        className="btn-primary mb-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition hover:opacity-90"
       >
         <MessageSquarePlus size={16} />
         {t("chat.newChat")}
       </button>
+
+      <Link
+        href="/tools"
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
+      >
+        <Wrench size={16} />
+        AI Tools
+      </Link>
 
       <p className="mb-2 text-xs uppercase tracking-wide text-muted">Gespeicherte Chats</p>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">

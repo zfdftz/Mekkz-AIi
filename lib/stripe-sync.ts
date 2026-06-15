@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PlanId } from "./plans";
 import {
   getStripe,
-  isActiveSubscriptionStatus,
+  isEntitledSubscriptionStatus,
   subscriptionPlan
 } from "./stripe";
 import {
@@ -29,7 +29,7 @@ function planRank(plan: PlanId) {
 
 function pickBestSubscription(subscriptions: Stripe.Subscription[]) {
   const active = subscriptions.filter((sub) =>
-    isActiveSubscriptionStatus(sub.status)
+    isEntitledSubscriptionStatus(sub.status)
   );
   if (active.length === 0) return null;
 
@@ -123,16 +123,13 @@ async function collectSubscriptionsForUser(
     customerIds.add(billing.stripeCustomerId);
   }
 
+  const subscriptions: Stripe.Subscription[] = [];
+
   if (billing.stripeSubscriptionId) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(billing.stripeSubscriptionId);
-      return {
-        billing,
-        customerIds,
-        subscriptions: [subscription]
-      };
+      subscriptions.push(await stripe.subscriptions.retrieve(billing.stripeSubscriptionId));
     } catch {
-      // Fall through to broader lookup.
+      // Stale subscription id — continue broader lookup.
     }
   }
 
@@ -143,9 +140,7 @@ async function collectSubscriptionsForUser(
     }
   }
 
-  const subscriptions: Stripe.Subscription[] = [
-    ...(await findSubscriptionsLinkedToUser(stripe, userId))
-  ];
+  subscriptions.push(...(await findSubscriptionsLinkedToUser(stripe, userId)));
 
   for (const customerId of customerIds) {
     const customerSubs = await listActiveSubscriptionsForCustomer(stripe, customerId);

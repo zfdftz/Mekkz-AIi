@@ -285,7 +285,7 @@ export async function generateAIResponse(
         max_tokens: maxTokens,
         messages: groqMessages
       }),
-      signal: AbortSignal.timeout(vision ? 45000 : 25000)
+      signal: AbortSignal.timeout(vision ? 35000 : 18000)
     });
 
     if (!res.ok) {

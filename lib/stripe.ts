@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { PlanId } from "./plans";
+import { trySubscriptionPeriodEnd } from "./stripe-billing";
 
 let stripeClient: Stripe | null = null;
 
@@ -87,6 +88,27 @@ export function planFromStripePriceId(priceId: string): Exclude<PlanId, "free"> 
 
 export function isActiveSubscriptionStatus(status: string | null | undefined) {
   return status === "active" || status === "trialing";
+}
+
+/** Includes grace/retry states where Stripe still expects access. */
+export function isEntitledSubscriptionStatus(status: string | null | undefined) {
+  return (
+    status === "active" ||
+    status === "trialing" ||
+    status === "past_due"
+  );
+}
+
+export function shouldDowngradeFromSubscription(subscription: Stripe.Subscription) {
+  const status = subscription.status;
+  if (isEntitledSubscriptionStatus(status)) return false;
+  if (status === "canceled" || status === "incomplete_expired") return true;
+  if (status === "unpaid") return true;
+
+  const periodEnd = trySubscriptionPeriodEnd(subscription);
+  if (periodEnd && periodEnd * 1000 > Date.now()) return false;
+
+  return status !== "incomplete";
 }
 
 function planFromSubscriptionAmount(subscription: Stripe.Subscription) {

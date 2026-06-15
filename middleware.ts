@@ -40,7 +40,9 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/auth");
   const isProtected =
-    pathname.startsWith("/chat") || pathname.startsWith("/settings");
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/tools");
 
   if (!user && isProtected) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
@@ -86,6 +88,7 @@ export const config = {
     "/",
     "/chat/:path*",
     "/settings/:path*",
+    "/tools/:path*",
     "/auth/:path*"
   ]
 };

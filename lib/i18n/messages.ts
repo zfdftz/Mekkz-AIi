@@ -14,6 +14,52 @@ export type TranslationKey =
   | "download.privacy"
   | "download.backHome"
   | "download.more"
+  | "settings.memory"
+  | "settings.memoryHint"
+  | "settings.personality"
+  | "settings.personalityHint"
+  | "settings.tutor"
+  | "settings.tutorHint"
+  | "settings.tutorLevel"
+  | "settings.tutorEnabled"
+  | "settings.tutorDisabled"
+  | "settings.voice"
+  | "settings.voiceHint"
+  | "settings.voiceOutput"
+  | "settings.voiceAutoSend"
+  | "personality.normal"
+  | "personality.normalDesc"
+  | "personality.gamer"
+  | "personality.gamerDesc"
+  | "personality.teacher"
+  | "personality.teacherDesc"
+  | "personality.business"
+  | "personality.businessDesc"
+  | "personality.swiss"
+  | "personality.swissDesc"
+  | "personality.genz"
+  | "personality.genzDesc"
+  | "tutor.beginner"
+  | "tutor.intermediate"
+  | "tutor.advanced"
+  | "memory.save"
+  | "memory.view"
+  | "memory.hide"
+  | "memory.delete"
+  | "memory.clearAll"
+  | "memory.empty"
+  | "memory.placeholder"
+  | "memory.clearConfirm"
+  | "memory.loadError"
+  | "memory.saveError"
+  | "memory.deleteError"
+  | "memory.clearError"
+  | "memory.loginRequired"
+  | "voice.mode"
+  | "voice.listening"
+  | "voice.speaking"
+  | "voice.stop"
+  | "voice.unavailable"
   | "auth.login.title"
   | "auth.login.email"
   | "auth.login.password"
@@ -123,6 +169,54 @@ const en: MessageTable = {
   "download.privacy": "Privacy policy",
   "download.backHome": "Back to homepage",
   "download.more": "More install options",
+  "settings.memory": "Long-term memory",
+  "settings.memoryHint":
+    "mekkz AI remembers preferences, interests, and facts you share. Manage saved memories below.",
+  "settings.personality": "Personality mode",
+  "settings.personalityHint": "Changes tone, vocabulary, and style of replies.",
+  "settings.tutor": "AI Tutor",
+  "settings.tutorHint":
+    "Step-by-step explanations, homework help, quizzes, and practice questions.",
+  "settings.tutorLevel": "Explanation level",
+  "settings.tutorEnabled": "Tutor on",
+  "settings.tutorDisabled": "Tutor off",
+  "settings.voice": "Voice chat",
+  "settings.voiceHint": "Speak to mekkz AI and hear replies aloud (browser speech APIs).",
+  "settings.voiceOutput": "Read replies aloud",
+  "settings.voiceAutoSend": "Auto-send after speaking",
+  "personality.normal": "Normal",
+  "personality.normalDesc": "Balanced, friendly assistant",
+  "personality.gamer": "Gamer",
+  "personality.gamerDesc": "Energetic, gaming metaphors",
+  "personality.teacher": "Teacher",
+  "personality.teacherDesc": "Patient, step-by-step",
+  "personality.business": "Business",
+  "personality.businessDesc": "Professional and concise",
+  "personality.swiss": "Swiss Dialect",
+  "personality.swissDesc": "Warm Swiss-German flavor",
+  "personality.genz": "Gen Z",
+  "personality.genzDesc": "Casual, modern internet tone",
+  "tutor.beginner": "Beginner",
+  "tutor.intermediate": "Intermediate",
+  "tutor.advanced": "Advanced",
+  "memory.save": "Save memory",
+  "memory.view": "View memories",
+  "memory.hide": "Hide",
+  "memory.delete": "Delete",
+  "memory.clearAll": "Clear all memories",
+  "memory.empty": "No memories saved yet.",
+  "memory.placeholder": "e.g. I prefer short answers",
+  "memory.clearConfirm": "Delete all saved memories? This cannot be undone.",
+  "memory.loadError": "Could not load memories.",
+  "memory.saveError": "Could not save memory.",
+  "memory.deleteError": "Could not delete memory.",
+  "memory.clearError": "Could not clear memories.",
+  "memory.loginRequired": "Sign in to use long-term memory.",
+  "voice.mode": "Voice mode",
+  "voice.listening": "Listening…",
+  "voice.speaking": "Speaking…",
+  "voice.stop": "Stop",
+  "voice.unavailable": "Voice not supported in this browser.",
   "auth.login.title": "Sign in",
   "auth.login.email": "Email",
   "auth.login.password": "Password",
@@ -241,6 +335,54 @@ const de: MessageTable = {
   "download.privacy": "Datenschutz",
   "download.backHome": "Zur Startseite",
   "download.more": "Weitere Installationsoptionen",
+  "settings.memory": "Langzeit-Gedächtnis",
+  "settings.memoryHint":
+    "mekkz AI merkt sich Präferenzen, Interessen und Fakten. Gespeicherte Erinnerungen kannst du unten verwalten.",
+  "settings.personality": "Persönlichkeitsmodus",
+  "settings.personalityHint": "Ändert Ton, Wortschatz und Stil der Antworten.",
+  "settings.tutor": "KI-Tutor",
+  "settings.tutorHint":
+    "Schritt-für-Schritt-Erklärungen, Hausaufgabenhilfe, Quiz und Übungsfragen.",
+  "settings.tutorLevel": "Erklärungsniveau",
+  "settings.tutorEnabled": "Tutor an",
+  "settings.tutorDisabled": "Tutor aus",
+  "settings.voice": "Sprach-Chat",
+  "settings.voiceHint": "Sprich mit mekkz AI und höre Antworten laut (Browser-Sprach-APIs).",
+  "settings.voiceOutput": "Antworten vorlesen",
+  "settings.voiceAutoSend": "Nach Sprechen automatisch senden",
+  "personality.normal": "Normal",
+  "personality.normalDesc": "Ausgewogener, freundlicher Assistent",
+  "personality.gamer": "Gamer",
+  "personality.gamerDesc": "Energiegeladen, Gaming-Metaphern",
+  "personality.teacher": "Lehrer",
+  "personality.teacherDesc": "Geduldig, Schritt für Schritt",
+  "personality.business": "Business",
+  "personality.businessDesc": "Professionell und prägnant",
+  "personality.swiss": "Schweizerdeutsch",
+  "personality.swissDesc": "Warmer Schweizerdeutsch-Touch",
+  "personality.genz": "Gen Z",
+  "personality.genzDesc": "Locker, moderner Internet-Ton",
+  "tutor.beginner": "Anfänger",
+  "tutor.intermediate": "Mittel",
+  "tutor.advanced": "Fortgeschritten",
+  "memory.save": "Speichern",
+  "memory.view": "Erinnerungen anzeigen",
+  "memory.hide": "Ausblenden",
+  "memory.delete": "Löschen",
+  "memory.clearAll": "Alle Erinnerungen löschen",
+  "memory.empty": "Noch keine Erinnerungen gespeichert.",
+  "memory.placeholder": "z.B. Ich bevorzuge kurze Antworten",
+  "memory.clearConfirm": "Alle gespeicherten Erinnerungen löschen? Das kann nicht rückgängig gemacht werden.",
+  "memory.loadError": "Erinnerungen konnten nicht geladen werden.",
+  "memory.saveError": "Erinnerung konnte nicht gespeichert werden.",
+  "memory.deleteError": "Erinnerung konnte nicht gelöscht werden.",
+  "memory.clearError": "Erinnerungen konnten nicht gelöscht werden.",
+  "memory.loginRequired": "Melde dich an, um Langzeit-Gedächtnis zu nutzen.",
+  "voice.mode": "Sprachmodus",
+  "voice.listening": "Hört zu…",
+  "voice.speaking": "Spricht…",
+  "voice.stop": "Stopp",
+  "voice.unavailable": "Sprache wird in diesem Browser nicht unterstützt.",
   "auth.login.title": "Anmelden",
   "auth.login.password": "Passwort",
   "auth.login.submit": "Einloggen",

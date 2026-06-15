@@ -43,6 +43,14 @@ import {
   fetchWebContext,
   needsWebLookup
 } from "@/lib/web-search";
+import {
+  autoSaveMemoriesFromMessage,
+  buildMemorySystemPrompt,
+  getMemoriesForPrompt
+} from "@/lib/memory";
+import { buildPersonalityPrompt } from "@/lib/personality";
+import { buildTutorSystemPrompt } from "@/lib/tutor";
+import { getUserAiPreferences } from "@/lib/user-ai-preferences";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -159,15 +167,9 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data: memoryRows } = await admin
-    .from("user_memory")
-    .select("memory")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  const memoryText = (memoryRows ?? []).map((x) => `- ${x.memory}`).join("\n");
+  const memoryText = await getMemoriesForPrompt(admin, userId);
   const userLanguage = await resolveUserLanguage(admin, userId, req, requestedLanguage);
+  const aiPreferences = await getUserAiPreferences(admin, userId);
   const stylePrompt = await getCommunicationStylePrompt(admin, userId);
   const planState = await getUserPlanState(admin, userId);
   const chatLimitState = await getConversationLimitState(
@@ -224,9 +226,12 @@ export async function POST(req: Request) {
     content:
       systemContent +
       `${planRules}\n` +
+      `${buildPersonalityPrompt(aiPreferences.personalityMode)}\n` +
+      (aiPreferences.tutorModeEnabled
+        ? `${buildTutorSystemPrompt(aiPreferences.tutorLevel)}\n`
+        : "") +
       (stylePrompt ? `${stylePrompt}\n` : "") +
-      "User memory:\n" +
-      (memoryText || "No memory yet.") +
+      `${buildMemorySystemPrompt(memoryText)}\n` +
       (replyLanguage ? `\n${buildReplyLanguageLock(replyLanguage)}` : "")
   };
 
@@ -397,10 +402,7 @@ export async function POST(req: Request) {
   }
 
   if (storedUserText) {
-    await admin.from("user_memory").insert({
-      user_id: userId,
-      memory: storedUserText.slice(0, 220)
-    });
+    await autoSaveMemoriesFromMessage(admin, userId, storedUserText);
 
     await refreshUserCommunicationStyle(admin, userId);
 

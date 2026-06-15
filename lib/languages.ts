@@ -396,3 +396,39 @@ export function buildImageAnalysisLanguagePrompt() {
 export function buildVisionFallbackPrompt() {
   return "Answer briefly and naturally in the same language as the user's message about their image.";
 }
+
+const SPEECH_LOCALES: Partial<Record<LanguageCode, string>> = {
+  de: "de-DE",
+  en: "en-US",
+  es: "es-ES",
+  fr: "fr-FR",
+  it: "it-IT",
+  pt: "pt-PT",
+  nl: "nl-NL",
+  pl: "pl-PL",
+  tr: "tr-TR",
+  ru: "ru-RU",
+  uk: "uk-UA",
+  ar: "ar-SA",
+  zh: "zh-CN",
+  ja: "ja-JP",
+  ko: "ko-KR",
+  hi: "hi-IN",
+  sv: "sv-SE",
+  no: "nb-NO",
+  da: "da-DK",
+  fi: "fi-FI",
+  el: "el-GR",
+  cs: "cs-CZ",
+  ro: "ro-RO",
+  hu: "hu-HU",
+  id: "id-ID",
+  th: "th-TH",
+  vi: "vi-VN",
+  he: "he-IL",
+  fa: "fa-IR"
+};
+
+export function getSpeechLocale(language: LanguageCode) {
+  return SPEECH_LOCALES[language] ?? "en-US";
+}

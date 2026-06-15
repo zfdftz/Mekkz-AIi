@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, X } from "lucide-react";
+import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Volume2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
@@ -20,6 +20,9 @@ import { MekkzLogo } from "./mekkz-logo";
 import { PlanUpgrade, type PlanState } from "./plan-upgrade";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { useLanguage } from "@/components/language-provider";
+import { getSpeechRecognitionCtor, useVoiceChat } from "@/hooks/use-voice-chat";
+import { getSpeechLocale } from "@/lib/languages";
+import type { UserAiPreferences } from "@/lib/user-ai-preferences";
 
 type ChatApiResponse = {
   error?: string;
@@ -97,12 +100,54 @@ export function ChatUI({
     null
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [aiPreferences, setAiPreferences] = useState<UserAiPreferences>({
+    personalityMode: "normal",
+    tutorModeEnabled: false,
+    tutorLevel: "intermediate",
+    voiceOutputEnabled: false,
+    voiceAutoSend: true
+  });
+  const sendMessageRef = useRef<(textOverride?: string) => Promise<void>>(async () => {});
 
   const chatFull = hasFiniteChatLimit(chatLimit) && chatLimit.remaining <= 0;
 
   useEffect(() => {
     setLoadingHint(t("chat.aiWriting"));
   }, [t]);
+
+  useEffect(() => {
+    async function loadPreferences() {
+      const res = await fetch(`/api/ai-preferences?userId=${userId}`);
+      const data = await readJsonResponse<{ preferences?: UserAiPreferences }>(res);
+      if (res.ok && data.preferences) {
+        setAiPreferences(data.preferences);
+      }
+    }
+
+    void loadPreferences();
+
+    function onPreferences(event: Event) {
+      const detail = (event as CustomEvent<UserAiPreferences>).detail;
+      if (detail) setAiPreferences(detail);
+    }
+
+    window.addEventListener("mekkz-ai-preferences", onPreferences);
+    return () => window.removeEventListener("mekkz-ai-preferences", onPreferences);
+  }, [userId]);
+
+  const voice = useVoiceChat({
+    language,
+    enabled: voiceMode,
+    voiceOutputEnabled: voiceMode || aiPreferences.voiceOutputEnabled,
+    autoSend: aiPreferences.voiceAutoSend,
+    onTranscript: (text) => setInput(text),
+    onAutoSend: (text) => {
+      setInput(text);
+      void sendMessageRef.current(text);
+    },
+    disabled: isLoading || chatFull
+  });
 
   const canSend = useMemo(
     () => (input.trim().length > 0 || pendingImage) && !isLoading && !chatFull,
@@ -324,8 +369,11 @@ export function ChatUI({
     setAuthModalOpen(true);
   }
 
-  async function sendMessage(extraContext?: string) {
-    if (!canSend && !extraContext) return;
+  async function sendMessage(extraContext?: string, textOverride?: string) {
+    const rawText = textOverride ?? (extraContext ? `${input}\n\n${extraContext}` : input.trim());
+    const canProceed =
+      (rawText.length > 0 || pendingImage) && !isLoading && !chatFull;
+    if (!canProceed && !extraContext && !textOverride) return;
 
     if (chatFull) {
       await streamAssistantMessage(
@@ -334,7 +382,7 @@ export function ChatUI({
       return;
     }
 
-    const text = extraContext ? `${input}\n\n${extraContext}` : input.trim();
+    const text = rawText;
     const content = text;
     const isImageGenRequest = wantsImageGeneration(content) && !pendingImage;
 
@@ -412,6 +460,9 @@ export function ChatUI({
     setInput("");
     setPendingImage(null);
     setShowWelcome(false);
+    if (voice.listening) {
+      voice.stopListening();
+    }
     setLoadingHint(
       isImageGenRequest ? t("chat.creatingImage") : t("chat.aiWriting")
     );
@@ -521,6 +572,10 @@ export function ChatUI({
           data.imageGenPrompt
         );
 
+        if ((voiceMode || aiPreferences.voiceOutputEnabled) && aiContent.trim()) {
+          voice.speak(aiContent);
+        }
+
         setMessages((prev) => {
           const copy = [...prev];
           const assistantIndex = copy.length - 1;
@@ -558,7 +613,37 @@ export function ChatUI({
       await streamAssistantMessage(`Fehler: ${message}`);
     } finally {
       setIsLoading(false);
+      if (voiceMode && !chatFull) {
+        voice.startListening();
+      }
     }
+  }
+
+  sendMessageRef.current = sendMessage;
+
+  function toggleVoiceMode() {
+    if (!voice.supported) return;
+    const next = !voiceMode;
+    setVoiceMode(next);
+    if (next) {
+      voice.startListening();
+    } else {
+      voice.stopListening();
+      voice.stopSpeaking();
+    }
+  }
+
+  function dictationInput() {
+    if (!voice.supported || voiceMode) return;
+    const SR = getSpeechRecognitionCtor();
+    if (!SR) return;
+    const recognition = new SR();
+    recognition.lang = getSpeechLocale(language);
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? "";
+      setInput((prev) => `${prev} ${transcript}`.trim());
+    };
+    recognition.start();
   }
 
   async function onFileSelected(file?: File) {
@@ -586,17 +671,6 @@ export function ChatUI({
 
     const text = await file.text();
     await sendMessage(`Dateikontext (${file.name}):\n${text.slice(0, 8000)}`);
-  }
-
-  function startVoiceInput() {
-    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    if (!SR) return;
-    const recognition = new SR();
-    recognition.lang = "de-DE";
-    recognition.onresult = (event: any) => {
-      setInput((prev) => `${prev} ${event.results[0][0].transcript}`.trim());
-    };
-    recognition.start();
   }
 
   async function handleLogout() {
@@ -746,6 +820,12 @@ export function ChatUI({
               })}
             </AnimatePresence>
             {isLoading ? <p className="text-sm text-muted">{loadingHint}</p> : null}
+            {voiceMode && voice.listening ? (
+              <p className="text-sm text-emerald-200">{t("voice.listening")}</p>
+            ) : null}
+            {voice.speaking ? (
+              <p className="text-sm text-violet-200">{t("voice.speaking")}</p>
+            ) : null}
             <div ref={bottomRef} />
           </div>
 
@@ -799,30 +879,55 @@ export function ChatUI({
                 <Paperclip size={18} />
               </button>
               <button
-                onClick={startVoiceInput}
-                className="shrink-0 rounded-xl bg-white/10 p-2.5 lg:p-3"
-                aria-label="Spracheingabe"
+                onClick={toggleVoiceMode}
+                disabled={!voice.supported}
+                className={`shrink-0 rounded-xl p-2.5 lg:p-3 ${
+                  voiceMode ? "bg-emerald-500/25 text-emerald-100" : "bg-white/10"
+                } disabled:opacity-40`}
+                aria-label={t("voice.mode")}
+                title={voice.supported ? t("voice.mode") : t("voice.unavailable")}
               >
-                <Mic size={18} />
+                {voiceMode ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
+              <button
+                onClick={dictationInput}
+                disabled={!voice.supported || voiceMode}
+                className="hidden shrink-0 rounded-xl bg-white/10 p-2.5 sm:inline-flex lg:p-3 disabled:opacity-40"
+                aria-label="Diktat"
+              >
+                <Volume2 size={18} />
+              </button>
+              {voice.speaking ? (
+                <button
+                  onClick={voice.stopSpeaking}
+                  className="shrink-0 rounded-xl bg-red-500/20 p-2.5 text-red-100 lg:p-3"
+                  aria-label={t("voice.stop")}
+                >
+                  <Square size={16} fill="currentColor" />
+                </button>
+              ) : null}
               <input
-                value={input}
+                value={voice.interimText || input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
                   isGuest ? t("chat.guestPlaceholder") : t("chat.messagePlaceholder")
                 }
                 className="min-w-0 flex-1 rounded-xl bg-white/10 p-2.5 text-sm placeholder:text-muted sm:p-3 sm:text-base"
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                readOnly={Boolean(voice.interimText)}
               />
               <button
                 onClick={() => sendMessage()}
-                disabled={!canSend}
+                disabled={!canSend && !voice.interimText}
                 className="shrink-0 rounded-xl btn-primary p-2.5 disabled:opacity-50 lg:p-3"
                 aria-label="Senden"
               >
                 <Send size={18} />
               </button>
             </div>
+            {!voice.supported ? (
+              <p className="mt-2 text-xs text-muted">{t("voice.unavailable")}</p>
+            ) : null}
             <input
               ref={fileRef}
               type="file"

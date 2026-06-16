@@ -6,11 +6,13 @@ import type {
   FeedPost,
   FriendMessage,
   FriendRequest,
+  FriendRequestResult,
   GroupChat,
   GroupMessage,
   RoomMessage
 } from "./types";
-import { usernamesByIds } from "./profile";
+import { getProfile, usernamesByIds } from "./profile";
+import { normalizeUsername, validateUsername } from "./profile-rules";
 
 function missing(msg: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(msg);
@@ -99,18 +101,106 @@ export async function listFriendRequests(admin: SupabaseClient, userId: string) 
     status: row.status,
     createdAt: row.created_at,
     fromUsername: names.get(row.from_user_id) ?? null,
-    toUsername: names.get(row.to_user_id) ?? null
+    toUsername: names.get(row.to_user_id) ?? null,
+    direction:
+      row.to_user_id === userId ? ("incoming" as const) : ("outgoing" as const)
   })) as FriendRequest[];
 }
 
-export async function sendFriendRequest(admin: SupabaseClient, fromUserId: string, toUsername: string) {
+export async function listIncomingFriendRequests(
+  admin: SupabaseClient,
+  userId: string
+): Promise<FriendRequest[]> {
+  const pending = (await listFriendRequests(admin, userId)).filter(
+    (r) => r.status === "pending" && r.toUserId === userId
+  );
+  const enriched: FriendRequest[] = [];
+  for (const req of pending) {
+    const profile = await getProfile(admin, req.fromUserId);
+    enriched.push({
+      ...req,
+      direction: "incoming",
+      profile: profile
+        ? {
+            username: profile.username,
+            bio: profile.bio,
+            avatarUrl: profile.avatarUrl,
+            isOnline: profile.isOnline,
+            postsCount: profile.postsCount,
+            xp: profile.xp
+          }
+        : undefined
+    });
+  }
+  return enriched;
+}
+
+export async function sendFriendRequest(
+  admin: SupabaseClient,
+  fromUserId: string,
+  toUsername: string
+): Promise<FriendRequestResult> {
+  const normalized = normalizeUsername(toUsername);
+  validateUsername(normalized);
+
   const { data: target } = await admin
     .from("user_profiles")
-    .select("user_id")
-    .eq("username", toUsername.trim())
+    .select("user_id, username")
+    .ilike("username", normalized)
     .maybeSingle();
-  if (!target?.user_id) throw new Error("Nutzer nicht gefunden.");
-  if (target.user_id === fromUserId) throw new Error("Du kannst dich nicht selbst adden.");
+  if (!target?.user_id) {
+    throw new Error("USER_NOT_FOUND");
+  }
+  if (target.user_id === fromUserId) {
+    throw new Error("SELF_ADD");
+  }
+
+  const { data: existingFriend } = await admin
+    .from("friendships")
+    .select("friend_id")
+    .eq("user_id", fromUserId)
+    .eq("friend_id", target.user_id)
+    .maybeSingle();
+  if (existingFriend) {
+    return {
+      status: "already_friends",
+      message: "Ihr seid bereits Freunde.",
+      friendUserId: target.user_id,
+      targetUsername: target.username
+    };
+  }
+
+  const { data: incoming } = await admin
+    .from("friend_requests")
+    .select("id")
+    .eq("from_user_id", target.user_id)
+    .eq("to_user_id", fromUserId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (incoming) {
+    await respondFriendRequest(admin, fromUserId, incoming.id, true);
+    return {
+      status: "mutual_accepted",
+      message: "Ihr seid jetzt Freunde!",
+      friendUserId: target.user_id,
+      targetUsername: target.username
+    };
+  }
+
+  const { data: outgoing } = await admin
+    .from("friend_requests")
+    .select("id")
+    .eq("from_user_id", fromUserId)
+    .eq("to_user_id", target.user_id)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (outgoing) {
+    return {
+      status: "already_pending",
+      message: "Freundschaftsanfrage bereits gesendet.",
+      targetUsername: target.username
+    };
+  }
 
   const { error } = await admin.from("friend_requests").upsert({
     from_user_id: fromUserId,
@@ -118,6 +208,12 @@ export async function sendFriendRequest(admin: SupabaseClient, fromUserId: strin
     status: "pending"
   });
   if (error) throw new Error(error.message);
+
+  return {
+    status: "sent",
+    message: "Freundschaftsanfrage gesendet.",
+    targetUsername: target.username
+  };
 }
 
 export async function respondFriendRequest(

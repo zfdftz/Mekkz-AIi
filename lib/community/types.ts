@@ -40,6 +40,15 @@ export type FriendRequest = {
   createdAt: string;
   fromUsername?: string | null;
   toUsername?: string | null;
+  direction?: "incoming" | "outgoing";
+  profile?: Pick<UserProfile, "username" | "bio" | "avatarUrl" | "isOnline" | "postsCount" | "xp">;
+};
+
+export type FriendRequestResult = {
+  status: "sent" | "mutual_accepted" | "already_friends" | "already_pending";
+  message: string;
+  friendUserId?: string;
+  targetUsername?: string;
 };
 
 export type FriendMessage = {

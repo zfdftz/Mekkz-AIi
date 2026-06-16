@@ -209,12 +209,27 @@ export async function syncUserPlanFromStripe(
       ? match.subscription.customer
       : match.subscription.customer.id;
 
-  const state = await setUserPlanFromStripe(admin, userId, match.plan, {
-    customerId,
-    subscriptionId: match.subscription.id,
-    subscriptionStatus: match.subscription.status,
-    periodEnd: trySubscriptionPeriodEnd(match.subscription)
-  });
+  let state: UserPlanState;
+  try {
+    state = await setUserPlanFromStripe(admin, userId, match.plan, {
+      customerId,
+      subscriptionId: match.subscription.id,
+      subscriptionStatus: match.subscription.status,
+      periodEnd: trySubscriptionPeriodEnd(match.subscription)
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Plan konnte nicht gespeichert werden.";
+    return {
+      synced: false,
+      plan: "free",
+      message: message.includes("migration-stripe")
+        ? message
+        : `${message} Führe supabase/migration-stripe-complete.sql im Supabase SQL Editor aus (oder npm run migrate:stripe).`
+    };
+  }
 
   if (state.plan !== match.plan) {
     return {
@@ -222,7 +237,7 @@ export async function syncUserPlanFromStripe(
       plan: state.plan,
       state,
       message:
-        "Zahlung bei Stripe erkannt, aber der Plan konnte nicht gespeichert werden. Bitte migration-stripe.sql in Supabase ausführen."
+        "Zahlung bei Stripe erkannt, aber der Plan konnte nicht gespeichert werden. Bitte supabase/migration-stripe-complete.sql in Supabase ausführen (oder npm run migrate:stripe)."
     };
   }
 

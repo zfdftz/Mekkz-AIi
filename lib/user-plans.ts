@@ -637,47 +637,125 @@ export async function setUserPlanFromStripe(
   }
 ) {
   const today = todayKey();
-  const row = await getUserPlanRow(admin, userId);
-  const scheduledPlan = normalizeScheduledPlan(row?.scheduled_plan);
-  const clearSchedule = plan === "free" || (scheduledPlan != null && plan === scheduledPlan);
+  const normalizedPlan = plan === "pro" || plan === "ultra" ? plan : "free";
+  let row = await getUserPlanRow(admin, userId);
 
-  const payload: Record<string, unknown> = {
+  if (!row) {
+    const { error: insertError } = await admin.from("user_plans").insert({
+      user_id: userId,
+      plan: "free",
+      images_today: 0,
+      uploads_today: 0,
+      usage_day: today
+    });
+    if (insertError && !/duplicate|unique/i.test(insertError.message)) {
+      if (!isMissingColumnError(insertError.message)) {
+        throw new Error(insertError.message);
+      }
+    }
+    row = await getUserPlanRow(admin, userId);
+  }
+
+  const basePayload = {
     user_id: userId,
-    plan,
+    plan: normalizedPlan,
     images_today: row?.images_today ?? 0,
     uploads_today: row?.uploads_today ?? 0,
     usage_day: row?.usage_day ?? today,
-    stripe_customer_id: stripe.customerId,
-    stripe_subscription_id: stripe.subscriptionId,
-    stripe_subscription_status: stripe.subscriptionStatus,
     updated_at: new Date().toISOString()
   };
 
+  const scheduledPlan = normalizeScheduledPlan(row?.scheduled_plan);
+  const clearSchedule =
+    normalizedPlan === "free" ||
+    (scheduledPlan != null && normalizedPlan === scheduledPlan);
+
+  const fullPayload: Record<string, unknown> = {
+    ...basePayload,
+    stripe_customer_id: stripe.customerId,
+    stripe_subscription_id: stripe.subscriptionId,
+    stripe_subscription_status: stripe.subscriptionStatus
+  };
+
   if (stripe.periodEnd != null) {
-    payload.stripe_period_end = new Date(stripe.periodEnd * 1000).toISOString();
+    fullPayload.stripe_period_end = new Date(stripe.periodEnd * 1000).toISOString();
   }
 
   if (clearSchedule) {
-    payload.scheduled_plan = null;
-    payload.scheduled_plan_at = null;
+    fullPayload.scheduled_plan = null;
+    fullPayload.scheduled_plan_at = null;
   }
 
-  const { error } = await admin.from("user_plans").upsert(payload);
+  const stripePayload: Record<string, unknown> = {
+    ...basePayload,
+    stripe_customer_id: stripe.customerId,
+    stripe_subscription_id: stripe.subscriptionId,
+    stripe_subscription_status: stripe.subscriptionStatus
+  };
 
-  if (error && isMissingColumnError(error.message)) {
-    const { error: fallbackError } = await admin.from("user_plans").upsert({
+  const minimalPayloads: Record<string, unknown>[] = [
+    fullPayload,
+    stripePayload,
+    basePayload,
+    {
       user_id: userId,
-      plan,
+      plan: normalizedPlan,
       images_today: row?.images_today ?? 0,
-      uploads_today: row?.uploads_today ?? 0,
-      usage_day: today,
+      usage_day: row?.usage_day ?? today,
       updated_at: new Date().toISOString()
-    });
-    if (fallbackError) {
-      throw new Error(fallbackError.message);
     }
-  } else if (error) {
-    throw new Error(error.message);
+  ];
+
+  let saved = false;
+  let lastError: string | null = null;
+
+  for (const payload of minimalPayloads) {
+    const { error } = await admin.from("user_plans").upsert(payload);
+    if (!error) {
+      saved = true;
+      lastError = null;
+      break;
+    }
+    if (!isMissingColumnError(error.message)) {
+      throw new Error(error.message);
+    }
+    lastError = error.message;
+  }
+
+  const { error: forcePlanError } = await admin
+    .from("user_plans")
+    .update({
+      plan: normalizedPlan,
+      updated_at: new Date().toISOString()
+    })
+    .eq("user_id", userId);
+
+  if (forcePlanError && !isMissingColumnError(forcePlanError.message)) {
+    throw new Error(forcePlanError.message);
+  }
+
+  const { data: verify, error: verifyError } = await admin
+    .from("user_plans")
+    .select("plan")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (verifyError && !isMissingColumnError(verifyError.message)) {
+    throw new Error(verifyError.message);
+  }
+
+  const savedPlan =
+    verify?.plan === "pro" || verify?.plan === "ultra" ? verify.plan : "free";
+
+  if (savedPlan !== normalizedPlan) {
+    throw new Error(
+      lastError ??
+        "Plan konnte nicht in user_plans gespeichert werden. Bitte migration-stripe-complete.sql in Supabase ausführen."
+    );
+  }
+
+  if (!saved && normalizedPlan !== "free") {
+    // Plan was forced via update — still OK if verify passed.
   }
 
   return getUserPlanState(admin, userId);

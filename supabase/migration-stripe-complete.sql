@@ -1,5 +1,5 @@
--- Stripe-Abo-Felder (einmal im Supabase SQL Editor ausfuehren)
--- Tipp: alternativ die kombinierte Datei migration-stripe-complete.sql nutzen.
+-- Stripe + Abo-Felder (einmal im Supabase SQL Editor ausfuehren)
+-- Enthält migration-stripe.sql + migration-stripe-period.sql
 
 alter table public.user_plans
   add column if not exists stripe_customer_id text,

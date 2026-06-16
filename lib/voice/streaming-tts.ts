@@ -1,6 +1,6 @@
 import { loadSpeechVoices, pickSpeechVoice, type VoiceGender } from "./speech-voices";
 
-/** ChatGPT-style: speak each new word as the assistant text grows. */
+/** ChatGPT-style: speak phrase chunks as assistant text grows. */
 export class StreamingTTS {
   private queue: string[] = [];
   private speaking = false;
@@ -33,14 +33,22 @@ export class StreamingTTS {
     }
   }
 
-  /** Feed cumulative assistant text; only new words are queued. */
+  /** Feed cumulative assistant text; only new phrase chunks are queued. */
   feed(cumulativeText: string) {
     if (this.stopped || !cumulativeText.trim()) return;
     const words = cumulativeText.match(/\S+/g) ?? [];
+
     while (this.spokenWordCount < words.length) {
-      this.queue.push(words[this.spokenWordCount] ?? "");
-      this.spokenWordCount += 1;
+      const remaining = words.length - this.spokenWordCount;
+      const chunkSize =
+        remaining <= 3 ? remaining : remaining > 12 ? 5 : Math.min(4, remaining);
+      const chunk = words
+        .slice(this.spokenWordCount, this.spokenWordCount + chunkSize)
+        .join(" ");
+      this.queue.push(chunk);
+      this.spokenWordCount += chunkSize;
     }
+
     void this.drain();
   }
 
@@ -49,11 +57,11 @@ export class StreamingTTS {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
 
     this.speaking = true;
-    const word = this.queue.shift()!;
-    const utterance = new SpeechSynthesisUtterance(word);
+    const phrase = this.queue.shift()!;
+    const utterance = new SpeechSynthesisUtterance(phrase);
     utterance.lang = this.locale;
-    utterance.rate = 1.02;
-    utterance.pitch = this.gender === "female" ? 1.05 : 0.95;
+    utterance.rate = 1;
+    utterance.pitch = this.gender === "female" ? 1.02 : 0.96;
     if (this.voice) utterance.voice = this.voice;
 
     await new Promise<void>((resolve) => {

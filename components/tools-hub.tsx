@@ -15,8 +15,10 @@ import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { downloadImageAsset } from "@/lib/image-download";
 import { getToolsByCategory, TOOL_DEFINITIONS } from "@/lib/tools/registry";
 import type { ToolCategory, ToolDefinition } from "@/lib/tools/types";
+import { ChatImage } from "@/components/chat-image";
 
 type ToolsHubProps = {
   userId: string;
@@ -25,6 +27,9 @@ type ToolsHubProps = {
 type RunResponse = {
   error?: string;
   reply?: string;
+  image?: string;
+  imageGenPrompt?: string;
+  imageError?: string;
   sources?: string[];
 };
 
@@ -57,7 +62,11 @@ export function ToolsHub({ userId }: ToolsHubProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [resultImagePrompt, setResultImagePrompt] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [sources, setSources] = useState<string[]>([]);
+  const [savingImage, setSavingImage] = useState(false);
 
   const tools = useMemo(() => getToolsByCategory(category), [category]);
 
@@ -65,6 +74,9 @@ export function ToolsHub({ userId }: ToolsHubProps) {
     setActiveTool(tool);
     setValues(defaultValues(tool));
     setResult(null);
+    setResultImage(null);
+    setResultImagePrompt(null);
+    setImageError(null);
     setError(null);
     setSources([]);
   }, []);
@@ -74,6 +86,9 @@ export function ToolsHub({ userId }: ToolsHubProps) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setResultImage(null);
+    setResultImagePrompt(null);
+    setImageError(null);
     setSources([]);
 
     try {
@@ -93,11 +108,27 @@ export function ToolsHub({ userId }: ToolsHubProps) {
         return;
       }
       setResult(data.reply ?? "");
+      setResultImage(data.image ?? null);
+      setResultImagePrompt(data.imageGenPrompt ?? null);
+      setImageError(data.imageError ?? null);
       setSources(data.sources ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveLogoImage() {
+    if (!resultImage) return;
+    setSavingImage(true);
+    try {
+      const brand = (values.brand ?? "logo").trim() || "logo";
+      await downloadImageAsset(resultImage, `${brand}-logo.png`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Speichern fehlgeschlagen.");
+    } finally {
+      setSavingImage(false);
     }
   }
 
@@ -281,8 +312,34 @@ export function ToolsHub({ userId }: ToolsHubProps) {
             <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
           ) : null}
 
-          {result ? (
+          {result || resultImage ? (
             <div className="mt-4 space-y-3">
+              {imageError && !resultImage ? (
+                <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-100">
+                  Logo-Text ist fertig, aber das Bild konnte nicht erstellt werden: {imageError}
+                </p>
+              ) : null}
+              {resultImage ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">Generiertes Logo</p>
+                    <button
+                      type="button"
+                      onClick={() => void saveLogoImage()}
+                      disabled={savingImage}
+                      className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      {savingImage ? "Speichern…" : "Bild speichern"}
+                    </button>
+                  </div>
+                  <ChatImage
+                    src={resultImage}
+                    alt="Generiertes Logo"
+                    imageGenPrompt={resultImagePrompt ?? undefined}
+                    className="mx-auto max-h-80 w-full max-w-md rounded-xl object-contain"
+                  />
+                </div>
+              ) : null}
               {sources.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                   <Globe size={14} /> Sources:
@@ -299,9 +356,11 @@ export function ToolsHub({ userId }: ToolsHubProps) {
                   ))}
                 </div>
               ) : null}
-              <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap rounded-xl bg-white/5 p-4 text-sm leading-7">
-                {result}
-              </pre>
+              {result ? (
+                <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap rounded-xl bg-white/5 p-4 text-sm leading-7">
+                  {result}
+                </pre>
+              ) : null}
             </div>
           ) : null}
         </section>

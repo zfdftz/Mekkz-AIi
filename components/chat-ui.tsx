@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Wrench, X } from "lucide-react";
+import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
@@ -20,6 +20,7 @@ import { WavyBackground } from "./wavy-background";
 import { AuthRequiredModal } from "./auth-required-modal";
 import { MekkzLogo } from "./mekkz-logo";
 import { PlanUpgrade, type PlanState } from "./plan-upgrade";
+import { VoiceModeOverlay } from "./voice-mode-overlay";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { useLanguage } from "@/components/language-provider";
 import { useVoiceChat } from "@/hooks/use-voice-chat";
@@ -147,6 +148,7 @@ export function ChatUI({
     language,
     voiceGender: aiPreferences.voiceGender,
     voiceMode,
+    voiceAutoSend: aiPreferences.voiceAutoSend,
     onTranscript: (text) => setInput(text),
     onAutoSend: (text) => {
       setInput(text);
@@ -769,7 +771,18 @@ export function ChatUI({
 
   function toggleVoiceMode() {
     if (!voice.supported) return;
-    setVoiceMode((prev) => !prev);
+    if (voiceMode) {
+      closeVoiceMode();
+      return;
+    }
+    setVoiceMode(true);
+    void voice.startListening(true);
+  }
+
+  function closeVoiceMode() {
+    setVoiceMode(false);
+    voice.stopListening();
+    voice.stopSpeaking();
   }
 
   async function onFileSelected(file?: File) {
@@ -954,14 +967,8 @@ export function ChatUI({
                 </div>
               );
               })}
-            {voice.micError ? (
+            {voice.micError && !voiceMode ? (
               <p className="text-sm text-red-200">{voice.micError}</p>
-            ) : null}
-            {voiceMode && voice.listening ? (
-              <p className="text-sm text-emerald-200">{t("voice.listening")}</p>
-            ) : null}
-            {voice.speaking ? (
-              <p className="text-sm text-violet-200">{t("voice.speaking")}</p>
             ) : null}
           </div>
 
@@ -1021,14 +1028,14 @@ export function ChatUI({
                 onClick={toggleVoiceMode}
                 disabled={!voice.supported}
                 className={`shrink-0 rounded-xl p-2.5 lg:p-3 ${
-                  voiceMode ? "bg-emerald-500/25 text-emerald-100 ring-2 ring-emerald-400/40" : "bg-white/10"
+                  voiceMode ? "bg-white text-black ring-2 ring-white/40" : "bg-white/10"
                 } disabled:opacity-40`}
                 aria-label={t("voice.mode")}
                 title={voice.supported ? t("voice.mode") : t("voice.unavailable")}
               >
-                {voiceMode ? <MicOff size={18} /> : <Mic size={18} />}
+                {voiceMode ? <Mic size={18} /> : <Mic size={18} />}
               </button>
-              {voice.speaking ? (
+              {!voiceMode && voice.speaking ? (
                 <button
                   onClick={voice.stopSpeaking}
                   className="shrink-0 rounded-xl bg-red-500/20 p-2.5 text-red-100 lg:p-3"
@@ -1076,6 +1083,17 @@ export function ChatUI({
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         description={authModalDescription}
+      />
+      <VoiceModeOverlay
+        open={voiceMode}
+        onClose={closeVoiceMode}
+        listening={voice.listening}
+        speaking={voice.speaking}
+        processing={voice.processing || isLoading || isStreaming}
+        interimText={voice.interimText}
+        micError={voice.micError}
+        voiceGender={aiPreferences.voiceGender}
+        onStopSpeaking={voice.stopSpeaking}
       />
       </div>
     </WavyBackground>

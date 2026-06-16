@@ -9,6 +9,7 @@ type UseVoiceChatOptions = {
   language: LanguageCode;
   voiceGender: VoiceGender;
   voiceMode: boolean;
+  voiceAutoSend?: boolean;
   disabled?: boolean;
   onTranscript?: (text: string) => void;
   onAutoSend?: (text: string) => void;
@@ -38,12 +39,14 @@ export function useVoiceChat({
   language,
   voiceGender,
   voiceMode,
+  voiceAutoSend = true,
   disabled = false,
   onTranscript,
   onAutoSend
 }: UseVoiceChatOptions) {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [processing, setProcessingState] = useState(false);
   const [interimText, setInterimText] = useState("");
   const [supported, setSupported] = useState(true);
   const [micError, setMicError] = useState<string | null>(null);
@@ -89,13 +92,14 @@ export function useVoiceChat({
   }, [clearSilenceTimer, onAutoSend]);
 
   const scheduleSilenceSend = useCallback(() => {
+    if (!voiceAutoSend) return;
     clearSilenceTimer();
     silenceTimerRef.current = window.setTimeout(() => {
       if (finalBufferRef.current.trim()) {
         flushAndSend();
       }
-    }, 1400);
-  }, [clearSilenceTimer, flushAndSend]);
+    }, 1200);
+  }, [clearSilenceTimer, flushAndSend, voiceAutoSend]);
 
   const stopSpeaking = useCallback(() => {
     ttsRef.current?.stop();
@@ -136,8 +140,8 @@ export function useVoiceChat({
     setInterimText("");
   }, [clearSilenceTimer]);
 
-  const startListening = useCallback(async () => {
-    if (disabled || !voiceMode || processingRef.current) return;
+  const startListening = useCallback(async (fromUserGesture = false) => {
+    if (disabled || (!voiceMode && !fromUserGesture) || processingRef.current) return;
 
     const SR = getSpeechRecognitionCtor();
     if (!SR) {
@@ -217,6 +221,10 @@ export function useVoiceChat({
         }
       }
 
+      if ((interim.trim() || finalChunk.trim()) && ttsRef.current?.isActive) {
+        stopSpeaking();
+      }
+
       if (interim.trim()) {
         setInterimText(`${finalBufferRef.current} ${interim}`.trim());
       }
@@ -249,6 +257,7 @@ export function useVoiceChat({
   const setProcessing = useCallback(
     (value: boolean) => {
       processingRef.current = value;
+      setProcessingState(value);
       if (value) {
         stopListening();
       } else if (voiceMode && !disabled) {
@@ -260,12 +269,13 @@ export function useVoiceChat({
 
   useEffect(() => {
     if (voiceMode && !disabled && !processingRef.current) {
-      void startListening();
-    } else if (!voiceMode) {
+      return;
+    }
+    if (!voiceMode) {
       stopListening();
       stopSpeaking();
     }
-  }, [voiceMode, disabled, startListening, stopListening, stopSpeaking]);
+  }, [voiceMode, disabled, stopListening, stopSpeaking]);
 
   useEffect(() => {
     return () => {
@@ -280,6 +290,7 @@ export function useVoiceChat({
     supported,
     listening,
     speaking,
+    processing,
     interimText,
     micError,
     stopSpeaking,

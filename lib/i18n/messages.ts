@@ -58,6 +58,10 @@ export type TranslationKey =
   | "voice.mode"
   | "voice.listening"
   | "voice.speaking"
+  | "voice.thinking"
+  | "voice.tapToSpeak"
+  | "voice.close"
+  | "voice.overlayHint"
   | "voice.stop"
   | "voice.unavailable"
   | "voice.genderFemale"
@@ -218,6 +222,10 @@ const en: MessageTable = {
   "voice.mode": "Voice mode",
   "voice.listening": "Listening…",
   "voice.speaking": "Speaking…",
+  "voice.thinking": "Thinking…",
+  "voice.tapToSpeak": "Start speaking",
+  "voice.close": "Close voice mode",
+  "voice.overlayHint": "Speak naturally — I'll respond when you pause.",
   "voice.stop": "Stop",
   "voice.unavailable": "Voice not supported in this browser.",
   "voice.genderFemale": "Female voice",
@@ -387,6 +395,10 @@ const de: MessageTable = {
   "voice.mode": "Sprachmodus",
   "voice.listening": "Hört zu…",
   "voice.speaking": "Spricht…",
+  "voice.thinking": "Denkt nach…",
+  "voice.tapToSpeak": "Einfach sprechen",
+  "voice.close": "Sprachmodus schließen",
+  "voice.overlayHint": "Sprich ganz normal — ich antworte, wenn du kurz pausierst.",
   "voice.stop": "Stopp",
   "voice.unavailable": "Sprache wird in diesem Browser nicht unterstützt.",
   "voice.genderFemale": "Frauenstimme",

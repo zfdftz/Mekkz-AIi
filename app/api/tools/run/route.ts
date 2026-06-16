@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateAIResponse } from "@/lib/ai";
+import { generateImage } from "@/lib/image-gen";
+import { buildLogoImagePrompt } from "@/lib/tools/logo-image";
 import { getToolById } from "@/lib/tools/registry";
 import { fetchPageText, fetchYouTubeContext, formatYouTubeContext } from "@/lib/tools/web-utils";
 import { fetchWebContext } from "@/lib/web-search";
@@ -8,6 +10,8 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveUserLanguage } from "@/lib/user-language";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildReplyLanguageLock, resolveReplyLanguage } from "@/lib/languages";
+import { sleep } from "@/lib/plans";
+import { consumeImageCreateSlot, tryGetUserPlanState } from "@/lib/user-plans";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -95,7 +99,10 @@ export async function POST(req: Request) {
       `You are MEKKZ AI Tool: ${tool.name}. ${tool.systemPrompt}\n` +
       (replyLanguage ? `\n${buildReplyLanguageLock(replyLanguage)}` : "");
 
-    const reply = await generateAIResponse(
+    const logoImagePrompt =
+      toolId === "logo-generator" ? buildLogoImagePrompt(values) : undefined;
+
+    const replyPromise = generateAIResponse(
       [
         { role: "system", content: systemContent },
         { role: "user", content: enrichedPrompt }
@@ -103,7 +110,80 @@ export async function POST(req: Request) {
       { language: replyLanguage ?? userLanguage }
     );
 
-    return NextResponse.json({ reply, sources, toolId: tool.id, toolName: tool.name });
+    let image: string | undefined;
+    let imageGenPrompt: string | undefined;
+    let imageError: string | undefined;
+
+    if (logoImagePrompt) {
+      imageGenPrompt = logoImagePrompt;
+      let imagePlanState;
+      try {
+        imagePlanState = await consumeImageCreateSlot(admin, userId);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Bild-Limit erreicht.";
+        return NextResponse.json(
+          { error: message, plan: await tryGetUserPlanState(admin, userId) },
+          { status: 429 }
+        );
+      }
+
+      const startedAt = Date.now();
+      const imagePromise = Promise.race([
+        generateImage(logoImagePrompt),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Logo-Bild dauert zu lange. Bitte erneut versuchen.")),
+            52000
+          )
+        )
+      ]).then(async (result) => {
+        if (imagePlanState.imageReadyDelayMs > 0) {
+          const remaining = imagePlanState.imageReadyDelayMs - (Date.now() - startedAt);
+          if (remaining > 0) await sleep(remaining);
+        }
+        return result.image;
+      });
+
+      const [replyResult, imageResult] = await Promise.allSettled([
+        replyPromise,
+        imagePromise
+      ]);
+
+      if (replyResult.status === "rejected") {
+        throw replyResult.reason;
+      }
+
+      const reply = replyResult.value;
+
+      if (imageResult.status === "fulfilled") {
+        image = imageResult.value;
+      } else {
+        imageError =
+          imageResult.reason instanceof Error
+            ? imageResult.reason.message
+            : "Logo-Bild konnte nicht erstellt werden.";
+      }
+
+      return NextResponse.json({
+        reply,
+        image,
+        imageGenPrompt,
+        imageError,
+        sources,
+        toolId: tool.id,
+        toolName: tool.name
+      });
+    }
+
+    const reply = await replyPromise;
+
+    return NextResponse.json({
+      reply,
+      sources,
+      toolId: tool.id,
+      toolName: tool.name
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Tool execution failed.";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -9,7 +9,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     id: "logo-generator",
     category: "creative",
     name: "Logo Generator",
-    description: "Professional logo concepts, palettes, slogans, and brand identity.",
+    description: "Logo image + brand concepts, palettes, slogans, and identity guide.",
     fields: [
       { id: "brand", label: "Brand / Company name", type: "text", required: true },
       {

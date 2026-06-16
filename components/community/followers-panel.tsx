@@ -2,7 +2,6 @@
 
 import { UserMinus, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useProfileModal } from "@/components/community/profile-context";
 import { GhostButton, LoadingState, PrimaryButton } from "@/components/community/shared";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { FollowUser } from "@/lib/community/types";
@@ -18,6 +17,7 @@ type FollowersPanelProps = {
   followersCount: number;
   followingCount: number;
   defaultTab?: "followers" | "following";
+  onOpenProfile?: (userId: string) => void;
   onCountsChange?: (followers: number, following: number) => void;
 };
 
@@ -26,12 +26,12 @@ export function FollowersPanel({
   followersCount,
   followingCount,
   defaultTab = "followers",
+  onOpenProfile,
   onCountsChange
 }: FollowersPanelProps) {
   const [tab, setTab] = useState<"followers" | "following">(defaultTab);
   const [users, setUsers] = useState<FollowUser[]>([]);
   const [loading, setLoading] = useState(false);
-  const { openProfile } = useProfileModal();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,36 +109,12 @@ export function FollowersPanel({
       ) : (
         <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
           {users.map((user) => (
-            <div
+            <FollowerRow
               key={user.userId}
-              className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
-            >
-              <button
-                type="button"
-                onClick={() => openProfile(user.userId)}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left"
-              >
-                <MiniAvatar url={user.avatarUrl} name={user.username ?? "U"} />
-                <span className="truncate font-medium">@{user.username ?? "user"}</span>
-              </button>
-              {!user.isViewer && user.isFollowing !== undefined ? (
-                user.isFollowing ? (
-                  <GhostButton
-                    className="!px-2 !py-1 text-xs"
-                    onClick={() => toggleFollow(user.userId, true)}
-                  >
-                    <UserMinus size={12} />
-                  </GhostButton>
-                ) : (
-                  <PrimaryButton
-                    className="!px-2 !py-1 text-xs"
-                    onClick={() => toggleFollow(user.userId, false)}
-                  >
-                    <UserPlus size={12} />
-                  </PrimaryButton>
-                )
-              ) : null}
-            </div>
+              user={user}
+              onOpenProfile={onOpenProfile}
+              onToggleFollow={toggleFollow}
+            />
           ))}
         </div>
       )}
@@ -208,6 +184,59 @@ function StatButton({
     >
       {inner}
     </button>
+  );
+}
+
+function FollowerRow({
+  user,
+  onOpenProfile,
+  onToggleFollow
+}: {
+  user: FollowUser;
+  onOpenProfile?: (userId: string) => void;
+  onToggleFollow: (targetId: string, currentlyFollowing: boolean) => Promise<void>;
+}) {
+  const label = `@${user.username ?? "user"}`;
+  const profileContent = (
+    <>
+      <MiniAvatar url={user.avatarUrl} name={user.username ?? "U"} />
+      <span className="truncate font-medium">{label}</span>
+    </>
+  );
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+      {onOpenProfile ? (
+        <button
+          type="button"
+          onClick={() => onOpenProfile(user.userId)}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
+          {profileContent}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{profileContent}</div>
+      )}
+      {!user.isViewer && user.isFollowing !== undefined ? (
+        user.isFollowing ? (
+          <GhostButton
+            className="!px-2 !py-1 text-xs"
+            aria-label={`${label} entfolgen`}
+            onClick={() => void onToggleFollow(user.userId, true)}
+          >
+            <UserMinus size={12} aria-hidden />
+          </GhostButton>
+        ) : (
+          <PrimaryButton
+            className="!px-2 !py-1 text-xs"
+            aria-label={`${label} folgen`}
+            onClick={() => void onToggleFollow(user.userId, false)}
+          >
+            <UserPlus size={12} aria-hidden />
+          </PrimaryButton>
+        )
+      ) : null}
+    </div>
   );
 }
 

@@ -14,6 +14,7 @@ import {
   TextArea,
   TextInput
 } from "@/components/community/shared";
+import { useProfileModal } from "@/components/community/profile-context";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
@@ -21,6 +22,7 @@ import type { UserProfile } from "@/lib/community/types";
 const AVATAR_MAX_MB = Math.round(AVATAR_MAX_BYTES / (1024 * 1024));
 
 export function ProfileTab() {
+  const { openProfile } = useProfileModal();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -162,6 +164,7 @@ export function ProfileTab() {
             followersCount={profile.followersCount ?? 0}
             followingCount={profile.followingCount ?? 0}
             defaultTab={followTab}
+            onOpenProfile={openProfile}
             onCountsChange={(followers, following) =>
               setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
             }

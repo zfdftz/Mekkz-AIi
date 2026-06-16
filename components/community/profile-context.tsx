@@ -18,7 +18,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   return (
     <ProfileContext.Provider value={{ openProfile }}>
       {children}
-      {userId ? <ProfileModal userId={userId} onClose={() => setUserId(null)} /> : null}
+      {userId ? (
+        <ProfileModal userId={userId} onClose={() => setUserId(null)} onOpenProfile={openProfile} />
+      ) : null}
     </ProfileContext.Provider>
   );
 }

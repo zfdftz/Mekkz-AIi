@@ -8,7 +8,15 @@ import { LoadingState, PrimaryButton } from "@/components/community/shared";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { PublicUserProfile } from "@/lib/community/types";
 
-export function ProfileModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+export function ProfileModal({
+  userId,
+  onClose,
+  onOpenProfile
+}: {
+  userId: string;
+  onClose: () => void;
+  onOpenProfile?: (userId: string) => void;
+}) {
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +161,7 @@ export function ProfileModal({ userId, onClose }: { userId: string; onClose: () 
                 followersCount={profile.followersCount}
                 followingCount={profile.followingCount}
                 defaultTab={followTab}
+                onOpenProfile={onOpenProfile}
                 onCountsChange={(followers, following) =>
                   setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
                 }

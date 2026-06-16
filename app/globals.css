@@ -255,6 +255,12 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+body:has(.chat-mobile-shell) {
+  overflow: hidden;
+  height: 100svh;
+  overscroll-behavior: none;
+}
+
 .wavy-page {
   --ai-line-a: var(--glow-a);
   --ai-line-b: var(--glow-b);

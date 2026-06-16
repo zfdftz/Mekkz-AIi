@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
 import { ChatMessage, Conversation } from "@/lib/types";
 import { messagesForRequest } from "@/lib/chat-storage";
@@ -94,9 +94,8 @@ export function ChatUI({
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const streamRenderRef = useRef<number | null>(null);
-  const streamScrollRef = useRef<number | null>(null);
   const pendingStreamTextRef = useRef("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -241,31 +240,33 @@ export function ChatUI({
     };
   }, [userId, loadConversations, loadMessages, startNewChat]);
 
-  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+  const scrollChatToBottom = useCallback((force = false) => {
     const container = chatScrollRef.current;
-    if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior });
+    if (!container || (!force && !stickToBottomRef.current)) return;
+    container.scrollTop = container.scrollHeight;
   }, []);
 
   useEffect(() => {
-    scrollChatToBottom(isStreaming ? "auto" : "smooth");
-  }, [messages.length, isLoading, isStreaming, scrollChatToBottom]);
+    const container = chatScrollRef.current;
+    if (!container) return;
 
-  useEffect(() => {
-    if (!isStreaming) return;
-    if (streamScrollRef.current != null) {
-      window.cancelAnimationFrame(streamScrollRef.current);
-    }
-    streamScrollRef.current = window.requestAnimationFrame(() => {
-      scrollChatToBottom("auto");
-      streamScrollRef.current = null;
-    });
-    return () => {
-      if (streamScrollRef.current != null) {
-        window.cancelAnimationFrame(streamScrollRef.current);
-        streamScrollRef.current = null;
-      }
+    const onScroll = () => {
+      stickToBottomRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 96;
     };
+
+    onScroll();
+    container.addEventListener("scroll", onScroll, { passive: true });
+    return () => container.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useLayoutEffect(() => {
+    scrollChatToBottom(true);
+  }, [messages.length, scrollChatToBottom]);
+
+  useLayoutEffect(() => {
+    if (!isStreaming) return;
+    scrollChatToBottom();
   }, [messages, isStreaming, scrollChatToBottom]);
 
   useEffect(() => {
@@ -496,13 +497,11 @@ export function ChatUI({
     );
     setIsLoading(true);
     voice.setProcessing(true);
-
-    const useStream = !isImageGenRequest;
-    if (useStream) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-    }
+    stickToBottomRef.current = true;
 
     try {
+      const useStream = !isImageGenRequest;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -533,7 +532,7 @@ export function ChatUI({
             if (event.userImage) {
               setMessages((prev) => {
                 const copy = [...prev];
-                const userIndex = copy.length - 2;
+                const userIndex = copy.length - 1;
                 if (copy[userIndex]?.role === "user") {
                   copy[userIndex] = {
                     ...copy[userIndex],
@@ -556,12 +555,13 @@ export function ChatUI({
               const nextText = pendingStreamTextRef.current;
               streamRenderRef.current = null;
               setMessages((prev) => {
-                const copy = [...prev];
-                const last = copy[copy.length - 1];
+                const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
+                  const copy = [...prev];
                   copy[copy.length - 1] = { ...last, content: nextText };
+                  return copy;
                 }
-                return copy;
+                return [...prev, { role: "assistant", content: nextText }];
               });
               if (voiceMode) {
                 voice.feedAssistantText(nextText.trim());
@@ -804,6 +804,7 @@ export function ChatUI({
 
   return (
     <WavyBackground>
+      <div className="flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden">
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -813,7 +814,7 @@ export function ChatUI({
         onLogin={() => router.push("/auth/login")}
         onLogout={() => void handleLogout()}
       />
-      <div className="chat-mobile-shell relative mx-auto flex h-[100dvh] min-h-[100svh] w-full max-w-[1600px] flex-row gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3 lg:gap-4 lg:p-4">
+      <div className="chat-mobile-shell relative mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-1 flex-row gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3 lg:gap-4 lg:p-4">
         <AnimatePresence>
           {sidebarOpen ? (
             <>
@@ -892,7 +893,7 @@ export function ChatUI({
 
           <div
             ref={chatScrollRef}
-            className="flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:space-y-3 sm:p-4 lg:p-5 xl:p-6"
+            className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:space-y-3 sm:p-4 lg:p-5 xl:p-6"
           >
             {loadError ? (
               <p className="rounded-xl bg-red-500/10 p-3 text-sm text-red-200">{loadError}</p>
@@ -940,7 +941,7 @@ export function ChatUI({
                       }`}
                     />
                   ) : null}
-                  {showContent ? (
+                  {showContent || isLiveAssistant ? (
                     <p className="whitespace-pre-wrap">
                       {m.content}
                       {isLiveAssistant ? (
@@ -951,7 +952,6 @@ export function ChatUI({
                 </div>
               );
               })}
-            {isLoading ? <p className="text-sm text-muted">{loadingHint}</p> : null}
             {voice.micError ? (
               <p className="text-sm text-red-200">{voice.micError}</p>
             ) : null}
@@ -961,10 +961,12 @@ export function ChatUI({
             {voice.speaking ? (
               <p className="text-sm text-violet-200">{t("voice.speaking")}</p>
             ) : null}
-            <div ref={bottomRef} />
           </div>
 
           <footer className="shrink-0 border-t border-white/10 p-2.5 sm:p-4 lg:p-5">
+            {isLoading ? (
+              <p className="mb-2 text-sm text-muted">{loadingHint}</p>
+            ) : null}
             {hasFiniteChatLimit(chatLimit) ? (
               <p
                 className={`mb-3 text-xs ${
@@ -1073,6 +1075,7 @@ export function ChatUI({
         onClose={() => setAuthModalOpen(false)}
         description={authModalDescription}
       />
+      </div>
     </WavyBackground>
   );
 }

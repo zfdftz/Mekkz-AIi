@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { isGuestUser } from "@/lib/auth/session";
 import {
-  formatBillingDate,
   formatPlanChangeMessage,
+  completeProToUltraUpgrade,
   hasStripePriceIds,
-  invoiceNeedsPayment,
-  resolveLatestInvoice,
-  scheduleUltraDowngradeToPro,
-  subscriptionPeriodEnd,
-  upgradeProToUltra
+  scheduleUltraDowngradeToPro
 } from "@/lib/stripe-billing";
 import {
   buildStripePaymentLinkUrl,
@@ -24,6 +21,7 @@ import {
 } from "@/lib/stripe";
 import {
   findActiveSubscriptionForUser,
+  findProSubscriptionForUser,
   reconcileUserPlanWithStripe
 } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -33,7 +31,6 @@ import {
   getUserStripeBilling,
   resolveEntitledPlan,
   schedulePlanChangeAtPeriodEnd,
-  setUserPlanFromStripe,
   updateStripeCustomerId
 } from "@/lib/user-plans";
 
@@ -73,6 +70,50 @@ async function scheduleUltraToProDowngrade(
       error instanceof Error ? error.message : "Wechsel zu Pro konnte nicht geplant werden.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+async function respondProToUltraUpgrade(
+  stripe: NonNullable<ReturnType<typeof getStripe>>,
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  subscription: Stripe.Subscription
+) {
+  const outcome = await completeProToUltraUpgrade(stripe, admin, userId, subscription);
+
+  if (outcome.kind === "invoice") {
+    return NextResponse.json({
+      url: outcome.url,
+      proration: true,
+      message: outcome.message
+    });
+  }
+
+  if (outcome.kind === "success") {
+    return NextResponse.json({
+      updated: true,
+      proration: true,
+      message: outcome.message
+    });
+  }
+
+  return NextResponse.json({ error: outcome.message }, { status: outcome.status });
+}
+
+async function tryProToUltraProrationUpgrade(
+  stripe: NonNullable<ReturnType<typeof getStripe>>,
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  email: string | null | undefined,
+  subscription?: Stripe.Subscription | null
+) {
+  const proSubscription =
+    subscription && subscriptionPlan(subscription) === "pro"
+      ? subscription
+      : await findProSubscriptionForUser(admin, userId, email);
+
+  if (!proSubscription) return null;
+
+  return respondProToUltraUpgrade(stripe, admin, userId, proSubscription);
 }
 
 export async function POST(req: Request) {
@@ -140,11 +181,6 @@ export async function POST(req: Request) {
     );
 
     if (activeSubscription) {
-      const customerId =
-        typeof activeSubscription.customer === "string"
-          ? activeSubscription.customer
-          : activeSubscription.customer.id;
-
       const currentPlan = subscriptionPlan(activeSubscription) ?? dbPlan;
       const refreshedRow = await getUserPlanRow(admin, user.id);
       const entitledPlan = resolveEntitledPlan(refreshedRow);
@@ -160,54 +196,14 @@ export async function POST(req: Request) {
       }
 
       if (currentPlan === "pro" && plan === "ultra") {
-        if (!hasStripePriceIds()) {
-          return NextResponse.json(
-            {
-              error:
-                "Upgrade braucht STRIPE_PRICE_PRO und STRIPE_PRICE_ULTRA in Vercel."
-            },
-            { status: 503 }
-          );
-        }
-
-        try {
-          const updated = await upgradeProToUltra(stripe, activeSubscription);
-          const invoice = await resolveLatestInvoice(stripe, updated);
-
-          if (invoiceNeedsPayment(invoice) && invoice?.hosted_invoice_url) {
-            return NextResponse.json({
-              url: invoice.hosted_invoice_url,
-              proration: true,
-              message:
-                "Bitte den anteiligen Unterschied für die restlichen Tage jetzt bezahlen. Ultra wird danach aktiv."
-            });
-          }
-
-          if (!isActiveSubscriptionStatus(updated.status)) {
-            return NextResponse.json({
-              error:
-                "Upgrade konnte nicht abgeschlossen werden. Bitte Zahlungsmethode prüfen."
-            });
-          }
-
-          await setUserPlanFromStripe(admin, user.id, "ultra", {
-            customerId,
-            subscriptionId: updated.id,
-            subscriptionStatus: updated.status,
-            periodEnd: subscriptionPeriodEnd(updated)
-          });
-
-          const renewDate = formatBillingDate(subscriptionPeriodEnd(updated));
-
-          return NextResponse.json({
-            updated: true,
-            message: `Ultra ist aktiv. Anteilige Zahlung für die restlichen Tage wurde berechnet — dein Abo erneuert sich weiter am ${renewDate}.`
-          });
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Upgrade auf Ultra fehlgeschlagen.";
-          return NextResponse.json({ error: message }, { status: 402 });
-        }
+        const upgradeResponse = await tryProToUltraProrationUpgrade(
+          stripe,
+          admin,
+          user.id,
+          user.email,
+          activeSubscription
+        );
+        if (upgradeResponse) return upgradeResponse;
       }
 
       return NextResponse.json({
@@ -219,6 +215,16 @@ export async function POST(req: Request) {
       return NextResponse.json({
         error: "Planwechsel nur über die Buttons im Plan-Dialog (nicht als neuer Kauf)."
       });
+    }
+
+    if (plan === "ultra") {
+      const upgradeResponse = await tryProToUltraProrationUpgrade(
+        stripe,
+        admin,
+        user.id,
+        user.email
+      );
+      if (upgradeResponse) return upgradeResponse;
     }
 
     if (hasStripePriceIds()) {

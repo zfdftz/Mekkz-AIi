@@ -171,6 +171,25 @@ export async function findActiveSubscriptionForUser(
   return pickBestSubscription(subscriptions)?.subscription ?? null;
 }
 
+/** Pro-Abo für anteiliges Ultra-Upgrade (auch wenn die DB noch Free zeigt). */
+export async function findProSubscriptionForUser(
+  admin: SupabaseClient,
+  userId: string,
+  email?: string | null
+) {
+  const stripe = getStripe();
+  if (!stripe) return null;
+
+  const { subscriptions } = await collectSubscriptionsForUser(stripe, admin, userId, email);
+
+  for (const subscription of subscriptions) {
+    if (!isEntitledSubscriptionStatus(subscription.status)) continue;
+    if (subscriptionPlan(subscription) === "pro") return subscription;
+  }
+
+  return null;
+}
+
 export async function syncUserPlanFromStripe(
   admin: SupabaseClient,
   userId: string,

@@ -3,6 +3,10 @@ import { z } from "zod";
 import { isGuestUser } from "@/lib/auth/session";
 import { PLANS, PlanId } from "@/lib/plans";
 import { isStripeConfigured } from "@/lib/stripe";
+import {
+  estimateProToUltraProrationFromIso,
+  formatProrationEstimate
+} from "@/lib/stripe-billing";
 import { reconcileUserPlanWithStripe } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -38,8 +42,23 @@ export async function GET(req: Request) {
   }
 
   const state = await getUserPlanState(admin, userId);
+
+  const ultraUpgradeEstimateLabel =
+    state.plan === "pro" && state.hasActiveSubscription
+      ? (() => {
+          const cents = estimateProToUltraProrationFromIso(state.stripePeriodEnd);
+          if (cents == null) return null;
+          return `${formatProrationEstimate(cents)} jetzt (Rest der Periode)`;
+        })()
+      : null;
+
   return NextResponse.json(
-    { plan: state, plans: PLANS },
+    {
+      plan: ultraUpgradeEstimateLabel
+        ? { ...state, ultraUpgradeEstimateLabel }
+        : state,
+      plans: PLANS
+    },
     {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate"

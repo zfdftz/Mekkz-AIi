@@ -30,6 +30,7 @@ type PlanState = {
   stripePeriodEnd?: string | null;
   scheduledPlan?: PlanId | null;
   scheduledPlanAt?: string | null;
+  ultraUpgradeEstimateLabel?: string | null;
 };
 
 function planUsageLabel(state: PlanState | null) {
@@ -333,6 +334,10 @@ export function PlanUpgrade({
     proDisabled ? undefined : () => void upgrade("pro");
 
   const ultraActionLabel = getUltraActionLabel(language, current);
+  const ultraPriceLabel =
+    current === "pro" && hasLiveSubscription && planState?.ultraUpgradeEstimateLabel
+      ? planState.ultraUpgradeEstimateLabel
+      : t("plan.ultraPrice");
 
   const quota = imageQuota(planState);
   const usage = planUsageLabel(planState);
@@ -406,7 +411,7 @@ export function PlanUpgrade({
 
                 <PlanCard
                   title={t("plan.ultraTitle")}
-                  price={t("plan.ultraPrice")}
+                  price={ultraPriceLabel}
                   icon={<Crown size={16} />}
                   active={current === "ultra"}
                   isCurrentPlan={current === "ultra"}

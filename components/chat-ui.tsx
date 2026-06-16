@@ -81,6 +81,7 @@ export function ChatUI({
   const { language, t } = useLanguage();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalDescription, setAuthModalDescription] = useState<string | undefined>();
+  const [authModalReturnTo, setAuthModalReturnTo] = useState<string | undefined>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -399,8 +400,9 @@ export function ChatUI({
     });
   }
 
-  function openAuthRequired(description?: string) {
+  function openAuthRequired(description?: string, returnTo?: string) {
     setAuthModalDescription(description);
+    setAuthModalReturnTo(returnTo);
     setAuthModalOpen(true);
   }
 
@@ -897,13 +899,40 @@ export function ChatUI({
               className="min-w-0 flex-1"
               textClassName="truncate text-sm font-semibold sm:text-base lg:text-lg"
             />
-            <button
-              onClick={() => setSettingsOpen(true)}
-              aria-label="Einstellungen"
-              className="shrink-0 rounded-xl bg-white/10 p-2 transition hover:scale-105"
-            >
-              <Settings size={18} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {isGuest ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    openAuthRequired(
+                      "Die Community ist nur mit Konto nutzbar. Melde dich an oder registriere dich, um Feed, Freunde und Gruppen zu nutzen.",
+                      "/community"
+                    )
+                  }
+                  aria-label="Community"
+                  title="Community"
+                  className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
+                >
+                  <Users size={18} />
+                </button>
+              ) : (
+                <Link
+                  href="/community"
+                  aria-label="Community"
+                  title="Community"
+                  className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
+                >
+                  <Users size={18} />
+                </Link>
+              )}
+              <button
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Einstellungen"
+                className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
+              >
+                <Settings size={18} />
+              </button>
+            </div>
           </header>
 
           <div
@@ -1083,6 +1112,7 @@ export function ChatUI({
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         description={authModalDescription}
+        returnTo={authModalReturnTo}
       />
       <VoiceModeOverlay
         open={voiceMode}
@@ -1152,18 +1182,10 @@ function ChatSidebarPanel({
 
       <Link
         href="/tools"
-        className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
       >
         <Wrench size={16} />
         AI Tools
-      </Link>
-
-      <Link
-        href="/community"
-        className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
-      >
-        <Users size={16} />
-        Community
       </Link>
 
       <p className="mb-2 text-xs uppercase tracking-wide text-muted">Gespeicherte Chats</p>

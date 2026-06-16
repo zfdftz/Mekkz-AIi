@@ -11,13 +11,15 @@ type AuthRequiredModalProps = {
   onClose: () => void;
   title?: string;
   description?: string;
+  returnTo?: string;
 };
 
 export function AuthRequiredModal({
   open,
   onClose,
   title = "Anmeldung erforderlich",
-  description = "Für Bilder, Uploads und Pro/Ultra musst du dich zuerst anmelden oder registrieren."
+  description = "Für Bilder, Uploads und Pro/Ultra musst du dich zuerst anmelden oder registrieren.",
+  returnTo
 }: AuthRequiredModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -35,6 +37,8 @@ export function AuthRequiredModal({
   }, [open]);
 
   if (!mounted) return null;
+
+  const nextQuery = returnTo ? `?next=${encodeURIComponent(returnTo)}` : "";
 
   return createPortal(
     <AnimatePresence>
@@ -73,14 +77,14 @@ export function AuthRequiredModal({
 
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <Link
-                href="/auth/register"
+                href={`/auth/register${nextQuery}`}
                 className="btn-primary flex-1 rounded-xl px-4 py-3 text-center text-sm font-medium"
                 onClick={onClose}
               >
                 Registrieren
               </Link>
               <Link
-                href="/auth/login"
+                href={`/auth/login${nextQuery}`}
                 className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-medium transition hover:bg-white/10"
                 onClick={onClose}
               >

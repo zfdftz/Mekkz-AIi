@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlanInfo, type PlanId } from "@/lib/plans";
 import { resolveEntitledPlan } from "@/lib/user-plans";
 import { getProfile } from "./profile";
-import type { FeedPost, PublicUserProfile } from "./types";
+import type { FeedPost, FollowUser, PublicUserProfile } from "./types";
 
 function missing(msg: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(msg);
@@ -56,6 +56,84 @@ export async function toggleFollow(admin: SupabaseClient, followerId: string, fo
   });
   if (error) throw new Error(error.message);
   return { following: true };
+}
+
+export async function listFollowers(
+  admin: SupabaseClient,
+  userId: string,
+  viewerId?: string,
+  limit = 50
+): Promise<FollowUser[]> {
+  const { data, error } = await admin
+    .from("user_followers")
+    .select("follower_id")
+    .eq("following_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    if (missing(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return enrichFollowUsers(
+    admin,
+    (data ?? []).map((r) => r.follower_id as string),
+    viewerId
+  );
+}
+
+export async function listFollowing(
+  admin: SupabaseClient,
+  userId: string,
+  viewerId?: string,
+  limit = 50
+): Promise<FollowUser[]> {
+  const { data, error } = await admin
+    .from("user_followers")
+    .select("following_id")
+    .eq("follower_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    if (missing(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return enrichFollowUsers(
+    admin,
+    (data ?? []).map((r) => r.following_id as string),
+    viewerId
+  );
+}
+
+async function enrichFollowUsers(
+  admin: SupabaseClient,
+  userIds: string[],
+  viewerId?: string
+): Promise<FollowUser[]> {
+  if (userIds.length === 0) return [];
+  const { data: profiles } = await admin
+    .from("user_profiles")
+    .select("user_id, username, avatar_url")
+    .in("user_id", userIds);
+  const map = new Map((profiles ?? []).map((p) => [p.user_id as string, p]));
+  let viewerFollowing = new Set<string>();
+  if (viewerId) {
+    const { data: rel } = await admin
+      .from("user_followers")
+      .select("following_id")
+      .eq("follower_id", viewerId)
+      .in("following_id", userIds);
+    viewerFollowing = new Set((rel ?? []).map((r) => r.following_id as string));
+  }
+  return userIds.map((id) => {
+    const row = map.get(id);
+    return {
+      userId: id,
+      username: (row?.username as string) ?? null,
+      avatarUrl: (row?.avatar_url as string) ?? null,
+      isFollowing: viewerId ? viewerFollowing.has(id) || id === viewerId : undefined,
+      isViewer: viewerId ? id === viewerId : undefined
+    };
+  });
 }
 
 export async function getTopPosts(admin: SupabaseClient, userId: string, limit = 3): Promise<FeedPost[]> {

@@ -11,6 +11,16 @@ export type UserProfile = {
   usernameChangedAt?: string | null;
   canChangeUsername?: boolean;
   nextUsernameChangeAt?: string | null;
+  followersCount?: number;
+  followingCount?: number;
+};
+
+export type FollowUser = {
+  userId: string;
+  username: string | null;
+  avatarUrl: string | null;
+  isFollowing?: boolean;
+  isViewer?: boolean;
 };
 
 export type ChatRoom = {

@@ -7,6 +7,7 @@ import {
   USERNAME_MIN_LENGTH
 } from "@/lib/community/profile-rules";
 import { ensureUserProfile, getProfile, touchPresence, updateProfile } from "@/lib/community/profile";
+import { getFollowerCounts } from "@/lib/community/public-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -16,7 +17,10 @@ export async function GET() {
   await ensureUserProfile(admin, auth.user!.id, auth.user!.email);
   await touchPresence(admin, auth.user!.id, true);
   const profile = await getProfile(admin, auth.user!.id);
-  return NextResponse.json({ profile });
+  const counts = await getFollowerCounts(admin, auth.user!.id);
+  return NextResponse.json({
+    profile: profile ? { ...profile, ...counts } : null
+  });
 }
 
 const avatarSchema = z

@@ -3,6 +3,7 @@
 import { Crown, UserMinus, UserPlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { LoadingState, PrimaryButton } from "@/components/community/shared";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { PublicUserProfile } from "@/lib/community/types";
@@ -12,6 +13,8 @@ export function ProfileModal({ userId, onClose }: { userId: string; onClose: () 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
+  const [showFollowList, setShowFollowList] = useState(false);
+  const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,14 +44,16 @@ export function ProfileModal({ userId, onClose }: { userId: string; onClose: () 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: profile.userId })
       });
-      const data = await readJsonResponse<{ following?: boolean }>(res);
+      const data = await readJsonResponse<{ following?: boolean; followersCount?: number }>(res);
       if (res.ok) {
         setProfile((p) =>
           p
             ? {
                 ...p,
                 isFollowing: data.following,
-                followersCount: Math.max(0, p.followersCount + (data.following ? 1 : -1))
+                followersCount:
+                  data.followersCount ??
+                  Math.max(0, p.followersCount + (data.following ? 1 : -1))
               }
             : p
         );
@@ -96,6 +101,9 @@ export function ProfileModal({ userId, onClose }: { userId: string; onClose: () 
               <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-lg font-bold">@{profile.username ?? "user"}</p>
+                <p className="text-sm font-medium text-primary">
+                  {formatCount(profile.followersCount)} Follower
+                </p>
                 <span
                   className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${planBadgeClass}`}
                 >
@@ -111,11 +119,19 @@ export function ProfileModal({ userId, onClose }: { userId: string; onClose: () 
 
             {profile.bio ? <p className="mt-4 text-sm text-muted">{profile.bio}</p> : null}
 
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
-              <Stat value={profile.postsCount} label="Posts" />
-              <Stat value={profile.followersCount} label="Follower" />
-              <Stat value={profile.followingCount} label="Following" />
-            </div>
+            <FollowerStats
+              followersCount={profile.followersCount}
+              followingCount={profile.followingCount}
+              postsCount={profile.postsCount}
+              onFollowersClick={() => {
+                setFollowTab("followers");
+                setShowFollowList(true);
+              }}
+              onFollowingClick={() => {
+                setFollowTab("following");
+                setShowFollowList(true);
+              }}
+            />
 
             {!profile.isSelf ? (
               <PrimaryButton className="mt-4 w-full" loading={followBusy} onClick={toggleFollow}>
@@ -129,6 +145,18 @@ export function ProfileModal({ userId, onClose }: { userId: string; onClose: () 
                   </>
                 )}
               </PrimaryButton>
+            ) : null}
+
+            {showFollowList ? (
+              <FollowersPanel
+                userId={profile.userId}
+                followersCount={profile.followersCount}
+                followingCount={profile.followingCount}
+                defaultTab={followTab}
+                onCountsChange={(followers, following) =>
+                  setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
+                }
+              />
             ) : null}
 
             <div className="mt-5">
@@ -173,15 +201,6 @@ function Avatar({ url, name }: { url: string | null; name: string }) {
           {name[0]?.toUpperCase()}
         </div>
       )}
-    </div>
-  );
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="rounded-xl bg-white/5 px-2 py-2">
-      <p className="text-lg font-bold">{value}</p>
-      <p className="text-[10px] uppercase text-muted">{label}</p>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   TextArea,
   TextInput
 } from "@/components/community/shared";
+import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
 
@@ -28,6 +29,8 @@ export function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showFollowList, setShowFollowList] = useState(false);
+  const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
 
   const usernameLocked = profile?.canChangeUsername === false;
   const usernameHint = useMemo(() => {
@@ -132,18 +135,43 @@ export function ProfileTab() {
           </div>
           <div>
             <h3 className="text-lg font-semibold">{profile?.username ?? "Profil"}</h3>
+            <p className="text-sm font-medium text-primary">
+              {formatCount(profile?.followersCount ?? 0)} Follower
+            </p>
             <p className="text-sm text-muted">{profile?.isOnline ? "Online" : "Offline"}</p>
           </div>
         </div>
 
-        <div className="mb-4 grid grid-cols-3 gap-2 text-center text-sm">
+        <FollowerStats
+          followersCount={profile?.followersCount ?? 0}
+          followingCount={profile?.followingCount ?? 0}
+          postsCount={profile?.postsCount ?? 0}
+          onFollowersClick={() => {
+            setFollowTab("followers");
+            setShowFollowList(true);
+          }}
+          onFollowingClick={() => {
+            setFollowTab("following");
+            setShowFollowList(true);
+          }}
+        />
+
+        {showFollowList && profile?.userId ? (
+          <FollowersPanel
+            userId={profile.userId}
+            followersCount={profile.followersCount ?? 0}
+            followingCount={profile.followingCount ?? 0}
+            defaultTab={followTab}
+            onCountsChange={(followers, following) =>
+              setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
+            }
+          />
+        ) : null}
+
+        <div className="mb-4 mt-4 grid grid-cols-2 gap-2 text-center text-sm">
           <div className="rounded-xl bg-black/20 px-2 py-3">
             <p className="text-lg font-bold">{profile?.messagesSent ?? 0}</p>
             <p className="text-xs text-muted">Nachrichten</p>
-          </div>
-          <div className="rounded-xl bg-black/20 px-2 py-3">
-            <p className="text-lg font-bold">{profile?.postsCount ?? 0}</p>
-            <p className="text-xs text-muted">Posts</p>
           </div>
           <div className="rounded-xl bg-black/20 px-2 py-3">
             <p className="text-lg font-bold">{profile?.xp ?? 0}</p>

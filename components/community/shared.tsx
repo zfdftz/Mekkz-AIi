@@ -2,6 +2,7 @@
 
 import { Loader2, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { ProfileLink } from "@/components/community/profile-context";
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -195,11 +196,13 @@ export function GhostButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>
 
 export function MessageBubble({
   author,
+  authorUserId,
   content,
   highlight,
   time
 }: {
   author: string;
+  authorUserId?: string | null;
   content: string;
   highlight?: boolean;
   time?: string;
@@ -213,7 +216,13 @@ export function MessageBubble({
       }`}
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="font-semibold text-primary">{author}</span>
+        {authorUserId ? (
+          <ProfileLink userId={authorUserId} className="font-semibold text-primary">
+            {author}
+          </ProfileLink>
+        ) : (
+          <span className="font-semibold text-primary">{author}</span>
+        )}
         {time ? (
           <span className="text-[10px] text-muted">{new Date(time).toLocaleTimeString()}</span>
         ) : null}

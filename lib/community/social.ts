@@ -428,7 +428,10 @@ export async function listFeed(
     repostsCount: row.reposts_count ?? 0,
     createdAt: row.created_at,
     authorName: names.get(row.user_id) ?? null,
-    likedByMe: liked.has(row.id)
+    likedByMe: liked.has(row.id),
+    imageUrl: row.image_url ?? null,
+    videoUrl: row.video_url ?? null,
+    mediaType: row.media_type ?? "none"
   }));
 }
 
@@ -437,11 +440,21 @@ export async function createFeedPost(
   userId: string,
   content: string,
   postType: FeedPost["postType"],
-  tags: string[]
+  tags: string[],
+  media?: { imageUrl?: string | null; videoUrl?: string | null; mediaType?: FeedPost["mediaType"] }
 ) {
+  const mediaType = media?.mediaType ?? "none";
   const { data, error } = await admin
     .from("feed_posts")
-    .insert({ user_id: userId, content, post_type: postType, tags })
+    .insert({
+      user_id: userId,
+      content,
+      post_type: postType,
+      tags,
+      image_url: media?.imageUrl ?? null,
+      video_url: media?.videoUrl ?? null,
+      media_type: mediaType
+    })
     .select("*")
     .single();
   if (error) throw new Error(error.message);

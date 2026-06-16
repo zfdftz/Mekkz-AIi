@@ -167,6 +167,7 @@ export function GroupsTab() {
                 <MessageBubble
                   key={msg.id}
                   author={msg.isAi ? "Mekkz AI" : msg.authorName ?? "User"}
+                  authorUserId={msg.isAi ? null : msg.userId}
                   content={msg.content}
                   highlight={msg.isAi}
                   time={msg.createdAt}

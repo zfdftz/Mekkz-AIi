@@ -89,6 +89,29 @@ export type FeedPost = {
   createdAt: string;
   authorName?: string | null;
   likedByMe?: boolean;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  mediaType?: "none" | "image" | "video";
+};
+
+export type PublicUserProfile = {
+  userId: string;
+  username: string | null;
+  bio: string;
+  avatarUrl: string | null;
+  postsCount: number;
+  messagesSent: number;
+  xp: number;
+  isOnline?: boolean;
+  plan: "free" | "pro" | "ultra";
+  planLabel: string;
+  planSince: string | null;
+  joinedAt: string;
+  followersCount: number;
+  followingCount: number;
+  isFollowing?: boolean;
+  isSelf?: boolean;
+  topPosts: FeedPost[];
 };
 
 export type FeedComment = {

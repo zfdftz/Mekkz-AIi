@@ -2,6 +2,7 @@
 
 import { UserPlus, Users, UserCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { ProfileLink } from "@/components/community/profile-context";
 import {
   ChatComposer,
   EmptyState,
@@ -268,7 +269,9 @@ export function FriendsTab() {
                 size="md"
               />
               <div>
-                <h3 className="font-semibold">@{activeFriend.username}</h3>
+                <ProfileLink userId={activeFriend.userId} className="font-semibold">
+                  @{activeFriend.username}
+                </ProfileLink>
                 <p className="flex items-center gap-1.5 text-xs text-muted">
                   <OnlineDot online={activeFriend.isOnline} />
                   {activeFriend.isOnline
@@ -284,6 +287,7 @@ export function FriendsTab() {
                 <MessageBubble
                   key={msg.id}
                   author={msg.senderId === activeFriend.userId ? activeFriend.username : "Du"}
+                  authorUserId={msg.senderId === activeFriend.userId ? activeFriend.userId : undefined}
                   content={msg.content}
                   time={msg.createdAt}
                 />

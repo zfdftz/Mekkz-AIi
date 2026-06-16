@@ -176,6 +176,7 @@ export function RoomsTab() {
                 <MessageBubble
                   key={msg.id}
                   author={msg.authorName ?? "User"}
+                  authorUserId={msg.userId}
                   content={msg.content}
                   time={msg.createdAt}
                 />

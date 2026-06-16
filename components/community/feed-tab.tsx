@@ -15,6 +15,8 @@ import {
   TextArea,
   TextInput
 } from "@/components/community/shared";
+import { ProfileLink } from "@/components/community/profile-context";
+import { FEED_IMAGE_MAX_BYTES, FEED_VIDEO_MAX_SECONDS } from "@/lib/community/media-safety";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { FeedComment, FeedPost } from "@/lib/community/types";
 
@@ -28,6 +30,10 @@ export function FeedTab() {
   const [postType, setPostType] = useState<FeedPost["postType"]>("text");
   const [tagsInput, setTagsInput] = useState("");
   const [posting, setPosting] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videoPoster, setVideoPoster] = useState<string | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, FeedComment[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
@@ -57,7 +63,7 @@ export function FeedTab() {
   }, [trending, tag]);
 
   async function createPost() {
-    if (!content.trim()) return;
+    if (!content.trim() && !imagePreview && !videoPreview) return;
     setPosting(true);
     setError(null);
     try {
@@ -68,17 +74,67 @@ export function FeedTab() {
       const res = await fetch("/api/community/feed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "post", content, postType, tags })
+        body: JSON.stringify({
+          action: "post",
+          content,
+          postType,
+          tags,
+          imageUrl: imagePreview,
+          videoUrl: videoPreview,
+          videoPosterUrl: videoPoster
+        })
       });
       const data = await readJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error || "Post fehlgeschlagen.");
       setContent("");
       setTagsInput("");
+      setImagePreview(null);
+      setVideoPreview(null);
+      setVideoPoster(null);
       await load(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function onImagePick(file: File | null) {
+    if (!file) return;
+    if (file.size > FEED_IMAGE_MAX_BYTES) {
+      setError(`Bild max. ${FEED_IMAGE_MAX_BYTES / (1024 * 1024)} MB.`);
+      return;
+    }
+    setMediaBusy(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagePreview(typeof reader.result === "string" ? reader.result : null);
+      setVideoPreview(null);
+      setVideoPoster(null);
+      setMediaBusy(false);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function onVideoPick(file: File | null) {
+    if (!file) return;
+    setMediaBusy(true);
+    setError(null);
+    try {
+      const duration = await getVideoDuration(file);
+      if (duration > FEED_VIDEO_MAX_SECONDS) {
+        setError(`Video max. ${FEED_VIDEO_MAX_SECONDS} Sekunden.`);
+        return;
+      }
+      const poster = await captureVideoFrame(file);
+      const dataUrl = await readFileDataUrl(file);
+      setVideoPreview(dataUrl);
+      setVideoPoster(poster);
+      setImagePreview(null);
+    } catch {
+      setError("Video konnte nicht geladen werden.");
+    } finally {
+      setMediaBusy(false);
     }
   }
 
@@ -180,6 +236,25 @@ export function FeedTab() {
           ))}
         </div>
         <TextArea rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Was möchtest du teilen?" />
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted">
+          <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 hover:bg-white/5">
+            📷 Bild
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => onImagePick(e.target.files?.[0] ?? null)} />
+          </label>
+          <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 hover:bg-white/5">
+            🎬 Video (&lt;30s)
+            <input type="file" accept="video/*" className="hidden" onChange={(e) => onVideoPick(e.target.files?.[0] ?? null)} />
+          </label>
+          {mediaBusy ? <span>KI Safety-Check beim Upload…</span> : null}
+          <span className="text-[10px]">Medien werden per KI auf unangemessene Inhalte geprüft.</span>
+        </div>
+        {imagePreview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imagePreview} alt="" className="mt-2 max-h-40 rounded-xl object-cover" />
+        ) : null}
+        {videoPreview ? (
+          <video src={videoPreview} controls className="mt-2 max-h-48 w-full rounded-xl" />
+        ) : null}
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <input
             value={tagsInput}
@@ -204,15 +279,24 @@ export function FeedTab() {
           {posts.map((post) => (
             <Panel key={post.id} className="animate-in fade-in">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div>
-                  <span className="font-medium">{post.authorName ?? "User"}</span>
-                  <span className="ml-2 rounded-md bg-white/10 px-2 py-0.5 text-[10px] uppercase">
+                <div className="flex items-center gap-2">
+                  <ProfileLink userId={post.userId} className="font-medium">
+                    @{post.authorName ?? "user"}
+                  </ProfileLink>
+                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] uppercase">
                     {post.postType}
                   </span>
                 </div>
                 <span className="text-xs text-muted">{new Date(post.createdAt).toLocaleString()}</span>
               </div>
               <p className="whitespace-pre-wrap text-sm">{post.content}</p>
+              {post.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={post.imageUrl} alt="" className="mt-2 max-h-80 w-full rounded-xl object-cover" />
+              ) : null}
+              {post.videoUrl ? (
+                <video src={post.videoUrl} controls className="mt-2 max-h-80 w-full rounded-xl" />
+              ) : null}
               {post.tags.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {post.tags.map((t) => (
@@ -265,4 +349,53 @@ export function FeedTab() {
       )}
     </div>
   );
+}
+
+function readFileDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("read failed"));
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getVideoDuration(file: File) {
+  return new Promise<number>((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(video.src);
+      resolve(video.duration);
+    };
+    video.onerror = () => reject(new Error("metadata failed"));
+    video.src = URL.createObjectURL(file);
+  });
+}
+
+function captureVideoFrame(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    video.onloadeddata = () => {
+      video.currentTime = Math.min(1, video.duration / 2);
+    };
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("canvas failed"));
+        return;
+      }
+      ctx.drawImage(video, 0, 0);
+      URL.revokeObjectURL(video.src);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    video.onerror = () => reject(new Error("frame failed"));
+    video.src = URL.createObjectURL(file);
+  });
 }

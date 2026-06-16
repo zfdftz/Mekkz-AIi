@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRegisteredUser } from "@/lib/api/require-user";
 import {
+  dataUrlByteSize,
+  FEED_VIDEO_MAX_BYTES,
+  moderateImage,
+  moderateVideoPoster
+} from "@/lib/community/media-safety";
+import {
   addComment,
   createFeedPost,
   listComments,
@@ -32,9 +38,12 @@ export async function GET(req: Request) {
 const postSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("post"),
-    content: z.string().min(1).max(8000),
+    content: z.string().max(8000).default(""),
     postType: z.enum(["text", "prompt", "story", "ai_output", "result"]).default("text"),
-    tags: z.array(z.string()).default([])
+    tags: z.array(z.string()).default([]),
+    imageUrl: z.string().nullable().optional(),
+    videoUrl: z.string().nullable().optional(),
+    videoPosterUrl: z.string().nullable().optional()
   }),
   z.object({ action: z.literal("like"), postId: z.string().uuid() }),
   z.object({ action: z.literal("comment"), postId: z.string().uuid(), content: z.string().min(1) }),
@@ -49,10 +58,54 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   const admin = createAdminClient();
   const userId = auth.user!.id;
+
   if (parsed.data.action === "post") {
-    await createFeedPost(admin, userId, parsed.data.content, parsed.data.postType, parsed.data.tags);
+    const { content, postType, tags, imageUrl, videoUrl, videoPosterUrl } = parsed.data;
+    if (!content.trim() && !imageUrl && !videoUrl) {
+      return NextResponse.json({ error: "Text oder Medien erforderlich." }, { status: 400 });
+    }
+
+    let mediaType: "none" | "image" | "video" = "none";
+    let safeImage: string | null = null;
+    let safeVideo: string | null = null;
+
+    if (imageUrl) {
+      const mod = await moderateImage(imageUrl);
+      if (!mod.safe) {
+        return NextResponse.json(
+          { error: mod.reason ?? "Bild abgelehnt (Safety)." },
+          { status: 400 }
+        );
+      }
+      safeImage = imageUrl;
+      mediaType = "image";
+    }
+
+    if (videoUrl) {
+      const bytes = dataUrlByteSize(videoUrl);
+      const poster = videoPosterUrl ?? "";
+      const mod = await moderateVideoPoster(poster, bytes);
+      if (!mod.safe) {
+        return NextResponse.json(
+          { error: mod.reason ?? "Video abgelehnt (Safety)." },
+          { status: 400 }
+        );
+      }
+      if (bytes > FEED_VIDEO_MAX_BYTES) {
+        return NextResponse.json({ error: "Video zu groß (max. 20 MB)." }, { status: 400 });
+      }
+      safeVideo = videoUrl;
+      mediaType = "video";
+    }
+
+    await createFeedPost(admin, userId, content.trim() || " ", postType, tags, {
+      imageUrl: safeImage,
+      videoUrl: safeVideo,
+      mediaType
+    });
     return NextResponse.json({ ok: true });
   }
+
   if (parsed.data.action === "like") {
     const result = await toggleLike(admin, userId, parsed.data.postId);
     return NextResponse.json(result);

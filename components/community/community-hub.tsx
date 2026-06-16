@@ -31,6 +31,7 @@ import {
   TasksTab
 } from "@/components/community/productivity-tabs";
 import { RoomsTab } from "@/components/community/rooms-tab";
+import { ProfileProvider } from "@/components/community/profile-context";
 import { useReminderAlerts } from "@/hooks/use-reminder-alerts";
 import type { CommunityTab } from "@/lib/community/types";
 
@@ -141,6 +142,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
   );
 
   return (
+    <ProfileProvider>
     <div className="community-hub mx-auto min-h-screen max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8">
       {alert ? (
         <motion.div
@@ -257,5 +259,6 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
         </main>
       </div>
     </div>
+    </ProfileProvider>
   );
 }

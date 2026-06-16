@@ -93,7 +93,11 @@ export function ChatUI({
     preview: string;
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const streamRenderRef = useRef<number | null>(null);
+  const streamScrollRef = useRef<number | null>(null);
+  const pendingStreamTextRef = useRef("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [loadingHint, setLoadingHint] = useState("");
@@ -237,9 +241,32 @@ export function ChatUI({
     };
   }, [userId, loadConversations, loadMessages, startNewChat]);
 
+  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    const container = chatScrollRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
+  }, []);
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    scrollChatToBottom(isStreaming ? "auto" : "smooth");
+  }, [messages.length, isLoading, isStreaming, scrollChatToBottom]);
+
+  useEffect(() => {
+    if (!isStreaming) return;
+    if (streamScrollRef.current != null) {
+      window.cancelAnimationFrame(streamScrollRef.current);
+    }
+    streamScrollRef.current = window.requestAnimationFrame(() => {
+      scrollChatToBottom("auto");
+      streamScrollRef.current = null;
+    });
+    return () => {
+      if (streamScrollRef.current != null) {
+        window.cancelAnimationFrame(streamScrollRef.current);
+        streamScrollRef.current = null;
+      }
+    };
+  }, [messages, isStreaming, scrollChatToBottom]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -522,17 +549,24 @@ export function ChatUI({
               gotFirstDelta = true;
               setIsLoading(false);
             }
-            setMessages((prev) => {
-              const copy = [...prev];
-              const last = copy[copy.length - 1];
-              if (last?.role === "assistant") {
-                copy[copy.length - 1] = { ...last, content: fullText };
+            pendingStreamTextRef.current = fullText;
+            if (streamRenderRef.current != null) return;
+
+            streamRenderRef.current = window.requestAnimationFrame(() => {
+              const nextText = pendingStreamTextRef.current;
+              streamRenderRef.current = null;
+              setMessages((prev) => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === "assistant") {
+                  copy[copy.length - 1] = { ...last, content: nextText };
+                }
+                return copy;
+              });
+              if (voiceMode) {
+                voice.feedAssistantText(nextText.trim());
               }
-              return copy;
             });
-            if (voiceMode) {
-              voice.feedAssistantText(fullText.trim());
-            }
           },
           onDone: (event) => {
             if (event.conversationLimit) {
@@ -856,7 +890,10 @@ export function ChatUI({
             </button>
           </header>
 
-          <div className="flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:space-y-3 sm:p-4 lg:p-5 xl:p-6">
+          <div
+            ref={chatScrollRef}
+            className="flex-1 space-y-2 overflow-y-auto overscroll-contain p-3 sm:space-y-3 sm:p-4 lg:p-5 xl:p-6"
+          >
             {loadError ? (
               <p className="rounded-xl bg-red-500/10 p-3 text-sm text-red-200">{loadError}</p>
             ) : null}
@@ -872,8 +909,7 @@ export function ChatUI({
                 <span className="hidden lg:inline">Wähle einen gespeicherten Chat links.</span>
               </p>
             ) : null}
-            <AnimatePresence>
-              {messages.map((m, i) => {
+            {messages.map((m, i) => {
                 const showContent = Boolean(m.content.trim());
                 const isLiveAssistant =
                   isStreaming &&
@@ -881,10 +917,8 @@ export function ChatUI({
                   m.role === "assistant";
 
                 return (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
+                <div
+                  key={`${i}-${m.role}`}
                   className={`max-w-[min(92%,52rem)] rounded-xl border border-transparent p-2.5 text-sm sm:max-w-[min(88%,52rem)] sm:rounded-2xl sm:p-3 sm:text-base lg:max-w-[min(100%,52rem)] lg:p-4 ${
                     m.role === "user" ? "chat-bubble-user ml-auto" : "chat-bubble-ai"
                   }`}
@@ -914,10 +948,9 @@ export function ChatUI({
                       ) : null}
                     </p>
                   ) : null}
-                </motion.div>
+                </div>
               );
               })}
-            </AnimatePresence>
             {isLoading ? <p className="text-sm text-muted">{loadingHint}</p> : null}
             {voice.micError ? (
               <p className="text-sm text-red-200">{voice.micError}</p>

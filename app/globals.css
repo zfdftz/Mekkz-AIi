@@ -260,6 +260,7 @@ body {
   --ai-line-b: var(--glow-b);
   --ai-node: var(--glow-1);
   isolation: isolate;
+  contain: layout style paint;
 }
 
 .ai-canvas__base {
@@ -271,35 +272,23 @@ body {
     radial-gradient(circle at 12% 18%, var(--glow-a), transparent 38%),
     radial-gradient(circle at 88% 14%, var(--glow-b), transparent 40%),
     radial-gradient(circle at 50% 105%, var(--glow-c), transparent 50%),
-    radial-gradient(circle at 72% 48%, var(--glow-d), transparent 42%),
     linear-gradient(165deg, var(--bg-a) 0%, var(--bg-b) 42%, var(--bg-c) 100%);
-  transition: background 0.4s ease;
 }
 
 .ai-canvas__aurora {
   position: absolute;
-  inset: -20%;
+  inset: 0;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.28;
   background:
-    conic-gradient(
-      from 210deg at 30% 25%,
-      transparent 0deg,
-      var(--glow-a) 55deg,
-      transparent 110deg,
-      var(--glow-b) 180deg,
-      transparent 240deg,
-      var(--glow-d) 300deg,
-      transparent 360deg
-    );
-  filter: blur(80px);
-  animation: ai-aurora-spin 28s linear infinite;
+    radial-gradient(circle at 18% 20%, var(--glow-a), transparent 42%),
+    radial-gradient(circle at 82% 16%, var(--glow-b), transparent 40%),
+    radial-gradient(circle at 50% 88%, var(--glow-d), transparent 45%);
 }
 
 .light .ai-canvas__aurora {
-  opacity: 0.42;
-  filter: blur(90px);
+  opacity: 0.22;
 }
 
 .ai-canvas__mesh {
@@ -307,16 +296,14 @@ body {
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  opacity: 0.35;
+  opacity: 0.22;
   background:
     radial-gradient(circle at 20% 30%, var(--glow-1), transparent 28%),
-    radial-gradient(circle at 78% 22%, var(--glow-2), transparent 32%),
-    radial-gradient(circle at 55% 78%, var(--glow-b), transparent 30%);
-  animation: ai-mesh-drift 16s ease-in-out infinite alternate;
+    radial-gradient(circle at 78% 22%, var(--glow-2), transparent 32%);
 }
 
 .light .ai-canvas__mesh {
-  opacity: 0.5;
+  opacity: 0.28;
 }
 
 .ai-canvas__grid {
@@ -342,14 +329,11 @@ body {
   inset: 0;
   z-index: 4;
   pointer-events: none;
-  opacity: 0.35;
-  mix-blend-mode: screen;
-  animation: ai-nodes-float 20s ease-in-out infinite;
+  opacity: 0.22;
 }
 
 .light .ai-canvas__nodes {
-  opacity: 0.28;
-  mix-blend-mode: multiply;
+  opacity: 0.18;
 }
 
 .ai-canvas__vignette {
@@ -370,7 +354,6 @@ body {
   width: 28rem;
   height: 28rem;
   background: var(--glow-1);
-  animation: float-glow 14s ease-in-out infinite;
 }
 
 .wavy-glow-blue {
@@ -379,7 +362,6 @@ body {
   width: 26rem;
   height: 26rem;
   background: var(--glow-2);
-  animation: float-glow 18s ease-in-out infinite reverse;
 }
 
 .ai-orb--3 {
@@ -388,7 +370,6 @@ body {
   width: 20rem;
   height: 20rem;
   background: var(--glow-c);
-  animation: float-glow 20s ease-in-out infinite 2s;
 }
 
 .wavy-glow,
@@ -396,15 +377,15 @@ body {
   position: absolute;
   z-index: 5;
   border-radius: 9999px;
-  filter: blur(72px);
+  filter: blur(56px);
   pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.4;
 }
 
 .light .wavy-glow,
 .light .ai-orb {
-  opacity: 0.65;
-  filter: blur(88px);
+  opacity: 0.5;
+  filter: blur(64px);
 }
 
 @keyframes ai-aurora-spin {
@@ -434,12 +415,12 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.18;
+  opacity: 0.08;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
   mix-blend-mode: soft-light;
 }
 
-.light body::before { opacity: 0.08; }
+.light body::before { opacity: 0.04; }
 
 body::after {
   content: "";
@@ -447,41 +428,38 @@ body::after {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.06;
+  opacity: 0.03;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black, transparent);
 }
 
 .light body::after {
-  opacity: 0.04;
-  background-image:
-    linear-gradient(rgba(99, 102, 241, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+  opacity: 0.025;
 }
 
 body > * { position: relative; z-index: 1; }
 
 .glass {
-  @apply backdrop-blur-xl;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  @apply backdrop-blur-md;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%),
-    rgba(8, 8, 18, 0.42);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.02) 100%),
+    rgba(8, 8, 18, 0.5);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 8px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .light .glass {
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.45) 100%);
+    linear-gradient(145deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.52) 100%);
   box-shadow:
-    0 8px 32px rgba(99, 102, 241, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    0 8px 24px rgba(99, 102, 241, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .chat-bubble-user {
@@ -536,6 +514,21 @@ body > * { position: relative; z-index: 1; }
   .wavy-glow,
   .ai-orb {
     animation: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .ai-canvas__aurora,
+  .ai-canvas__mesh,
+  .wavy-glow,
+  .ai-orb {
+    filter: none;
+    opacity: 0.18;
+  }
+
+  .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 

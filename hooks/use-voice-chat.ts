@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSpeechLocale, type LanguageCode } from "@/lib/languages";
 import { translate } from "@/lib/i18n/messages";
 import { canUseMediaRecorderStt, MediaRecorderStt } from "@/lib/voice/media-recorder-stt";
+import { checkMicrophoneAvailability } from "@/lib/voice/microphone";
 import { StreamingTTS } from "@/lib/voice/streaming-tts";
 import { normalizeVoiceGender, type VoiceGender } from "@/lib/voice/speech-voices";
 
@@ -38,14 +39,11 @@ function canUseVoiceChat() {
 }
 
 async function requestMicrophoneAccess() {
-  if (!navigator.mediaDevices?.getUserMedia) return true;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((track) => track.stop());
-    return true;
-  } catch {
-    return false;
+  const result = await checkMicrophoneAvailability();
+  if (!result.ok) {
+    return { ok: false as const, message: result.message };
   }
+  return { ok: true as const };
 }
 
 export function useVoiceChat({
@@ -289,9 +287,9 @@ export function useVoiceChat({
         return;
       }
 
-      const micOk = await requestMicrophoneAccess();
-      if (!micOk) {
-        setMicError("Mikrofon-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben.");
+      const mic = await requestMicrophoneAccess();
+      if (!mic.ok) {
+        setMicError(mic.message);
         return;
       }
 

@@ -1,0 +1,458 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { generateAIResponse } from "@/lib/ai";
+import type {
+  ChatRoom,
+  FeedComment,
+  FeedPost,
+  FriendMessage,
+  FriendRequest,
+  GroupChat,
+  GroupMessage,
+  RoomMessage
+} from "./types";
+import { usernamesByIds } from "./profile";
+
+function missing(msg: string) {
+  return /relation|does not exist|Could not find|schema cache/i.test(msg);
+}
+
+export async function listRooms(admin: SupabaseClient, search?: string): Promise<ChatRoom[]> {
+  let query = admin.from("chat_rooms").select("*").order("name");
+  if (search?.trim()) query = query.ilike("name", `%${search.trim()}%`);
+  const { data, error } = await query;
+  if (error) {
+    if (missing(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []).map(mapRoom);
+}
+
+export async function joinRoom(admin: SupabaseClient, userId: string, roomId: string) {
+  const { error } = await admin.from("chat_room_members").upsert({ room_id: roomId, user_id: userId });
+  if (error) throw new Error(error.message);
+}
+
+export async function leaveRoom(admin: SupabaseClient, userId: string, roomId: string) {
+  await admin.from("chat_room_members").delete().eq("room_id", roomId).eq("user_id", userId);
+}
+
+export async function listRoomMessages(
+  admin: SupabaseClient,
+  roomId: string,
+  limit = 80
+): Promise<RoomMessage[]> {
+  const { data, error } = await admin
+    .from("chat_room_messages")
+    .select("id, room_id, user_id, content, created_at")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  const names = await usernamesByIds(admin, [...new Set((data ?? []).map((r) => r.user_id))]);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    roomId: row.room_id,
+    userId: row.user_id,
+    content: row.content,
+    createdAt: row.created_at,
+    authorName: names.get(row.user_id) ?? null
+  }));
+}
+
+export async function postRoomMessage(
+  admin: SupabaseClient,
+  userId: string,
+  roomId: string,
+  content: string
+) {
+  const { data, error } = await admin
+    .from("chat_room_messages")
+    .insert({ room_id: roomId, user_id: userId, content })
+    .select("id, room_id, user_id, content, created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    id: data.id,
+    roomId: data.room_id,
+    userId: data.user_id,
+    content: data.content,
+    createdAt: data.created_at
+  };
+}
+
+export async function listFriendRequests(admin: SupabaseClient, userId: string) {
+  const { data, error } = await admin
+    .from("friend_requests")
+    .select("id, from_user_id, to_user_id, status, created_at")
+    .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`)
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (missing(error.message)) return [] as FriendRequest[];
+    throw new Error(error.message);
+  }
+  const ids = [...new Set((data ?? []).flatMap((r) => [r.from_user_id, r.to_user_id]))];
+  const names = await usernamesByIds(admin, ids);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    fromUserId: row.from_user_id,
+    toUserId: row.to_user_id,
+    status: row.status,
+    createdAt: row.created_at,
+    fromUsername: names.get(row.from_user_id) ?? null,
+    toUsername: names.get(row.to_user_id) ?? null
+  })) as FriendRequest[];
+}
+
+export async function sendFriendRequest(admin: SupabaseClient, fromUserId: string, toUsername: string) {
+  const { data: target } = await admin
+    .from("user_profiles")
+    .select("user_id")
+    .eq("username", toUsername.trim())
+    .maybeSingle();
+  if (!target?.user_id) throw new Error("Nutzer nicht gefunden.");
+  if (target.user_id === fromUserId) throw new Error("Du kannst dich nicht selbst adden.");
+
+  const { error } = await admin.from("friend_requests").upsert({
+    from_user_id: fromUserId,
+    to_user_id: target.user_id,
+    status: "pending"
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function respondFriendRequest(
+  admin: SupabaseClient,
+  userId: string,
+  requestId: string,
+  accept: boolean
+) {
+  const { data: req } = await admin
+    .from("friend_requests")
+    .select("*")
+    .eq("id", requestId)
+    .eq("to_user_id", userId)
+    .maybeSingle();
+  if (!req) throw new Error("Anfrage nicht gefunden.");
+
+  const status = accept ? "accepted" : "declined";
+  await admin.from("friend_requests").update({ status }).eq("id", requestId);
+
+  if (accept) {
+    await admin.from("friendships").upsert([
+      { user_id: req.from_user_id, friend_id: req.to_user_id },
+      { user_id: req.to_user_id, friend_id: req.from_user_id }
+    ]);
+  }
+}
+
+export async function listFriends(admin: SupabaseClient, userId: string) {
+  const { data, error } = await admin
+    .from("friendships")
+    .select("friend_id")
+    .eq("user_id", userId);
+  if (error) {
+    if (missing(error.message)) return [];
+    throw new Error(error.message);
+  }
+  const ids = (data ?? []).map((r) => r.friend_id as string);
+  const names = await usernamesByIds(admin, ids);
+  const { data: presence } = await admin.from("user_presence").select("*").in("user_id", ids);
+  const presenceMap = new Map((presence ?? []).map((p) => [p.user_id, p]));
+  return ids.map((id) => ({
+    userId: id,
+    username: names.get(id) ?? "user",
+    isOnline: presenceMap.get(id)?.is_online ?? false,
+    lastSeenAt: presenceMap.get(id)?.last_seen_at ?? null
+  }));
+}
+
+export async function listFriendMessages(
+  admin: SupabaseClient,
+  userId: string,
+  friendId: string
+): Promise<FriendMessage[]> {
+  const { data, error } = await admin
+    .from("friend_messages")
+    .select("id, sender_id, receiver_id, content, created_at")
+    .or(
+      `and(sender_id.eq.${userId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${userId})`
+    )
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    senderId: row.sender_id,
+    receiverId: row.receiver_id,
+    content: row.content,
+    createdAt: row.created_at
+  }));
+}
+
+export async function sendFriendMessage(
+  admin: SupabaseClient,
+  senderId: string,
+  receiverId: string,
+  content: string
+) {
+  const { data, error } = await admin
+    .from("friend_messages")
+    .insert({ sender_id: senderId, receiver_id: receiverId, content })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function listGroups(admin: SupabaseClient, userId: string): Promise<GroupChat[]> {
+  const { data: memberships } = await admin
+    .from("group_chat_members")
+    .select("group_id")
+    .eq("user_id", userId);
+  const ids = (memberships ?? []).map((m) => m.group_id);
+  if (ids.length === 0) return [];
+  const { data, error } = await admin.from("group_chats").select("*").in("id", ids);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((g) => ({
+    id: g.id,
+    name: g.name,
+    createdBy: g.created_by,
+    createdAt: g.created_at
+  }));
+}
+
+export async function createGroup(admin: SupabaseClient, userId: string, name: string) {
+  const { data: group, error } = await admin
+    .from("group_chats")
+    .insert({ name, created_by: userId })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  await admin.from("group_chat_members").insert({
+    group_id: group.id,
+    user_id: userId,
+    role: "admin"
+  });
+  return group as GroupChat;
+}
+
+export async function listGroupMessages(admin: SupabaseClient, groupId: string): Promise<GroupMessage[]> {
+  const { data, error } = await admin
+    .from("group_chat_messages")
+    .select("id, group_id, user_id, content, is_ai, thread_parent_id, created_at")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  const userIds = [...new Set((data ?? []).map((r) => r.user_id).filter(Boolean))] as string[];
+  const names = await usernamesByIds(admin, userIds);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    groupId: row.group_id,
+    userId: row.user_id,
+    content: row.content,
+    isAi: row.is_ai,
+    threadParentId: row.thread_parent_id,
+    createdAt: row.created_at,
+    authorName: row.is_ai ? "Mekkz AI" : names.get(row.user_id ?? "") ?? null
+  }));
+}
+
+export async function postGroupMessage(
+  admin: SupabaseClient,
+  userId: string,
+  groupId: string,
+  content: string
+) {
+  const mentionAi = /@mekkz|@ai/i.test(content);
+  const { data, error } = await admin
+    .from("group_chat_messages")
+    .insert({ group_id: groupId, user_id: userId, content })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+
+  if (mentionAi) {
+    const history = await listGroupMessages(admin, groupId);
+    const reply = await generateAIResponse([
+      {
+        role: "system",
+        content: "You are Mekkz AI in a group chat. Be concise and helpful."
+      },
+      ...history.slice(-12).map((m) => ({
+        role: (m.isAi ? "assistant" : "user") as "assistant" | "user",
+        content: `${m.authorName ?? "User"}: ${m.content}`
+      })),
+      { role: "user", content }
+    ]);
+    await admin.from("group_chat_messages").insert({
+      group_id: groupId,
+      user_id: null,
+      content: reply,
+      is_ai: true,
+      thread_parent_id: data.id
+    });
+  }
+
+  return data;
+}
+
+export async function listFeed(
+  admin: SupabaseClient,
+  userId: string,
+  opts: { cursor?: string; tag?: string; trending?: boolean } = {}
+): Promise<FeedPost[]> {
+  let query = admin
+    .from("feed_posts")
+    .select("*")
+    .order(opts.trending ? "likes_count" : "created_at", { ascending: false })
+    .limit(20);
+  if (opts.cursor) query = query.lt("created_at", opts.cursor);
+  if (opts.tag) query = query.contains("tags", [opts.tag]);
+  const { data, error } = await query;
+  if (error) {
+    if (missing(error.message)) return [];
+    throw new Error(error.message);
+  }
+  const postIds = (data ?? []).map((p) => p.id);
+  const authorIds = [...new Set((data ?? []).map((p) => p.user_id))];
+  const names = await usernamesByIds(admin, authorIds);
+  const { data: likes } = postIds.length
+    ? await admin.from("feed_likes").select("post_id").eq("user_id", userId).in("post_id", postIds)
+    : { data: [] };
+  const liked = new Set((likes ?? []).map((l) => l.post_id));
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    content: row.content,
+    postType: row.post_type,
+    tags: row.tags ?? [],
+    likesCount: row.likes_count ?? 0,
+    commentsCount: row.comments_count ?? 0,
+    repostsCount: row.reposts_count ?? 0,
+    createdAt: row.created_at,
+    authorName: names.get(row.user_id) ?? null,
+    likedByMe: liked.has(row.id)
+  }));
+}
+
+export async function createFeedPost(
+  admin: SupabaseClient,
+  userId: string,
+  content: string,
+  postType: FeedPost["postType"],
+  tags: string[]
+) {
+  const { data, error } = await admin
+    .from("feed_posts")
+    .insert({ user_id: userId, content, post_type: postType, tags })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  const { data: profile } = await admin
+    .from("user_profiles")
+    .select("posts_count")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profile) {
+    await admin
+      .from("user_profiles")
+      .update({ posts_count: (profile.posts_count ?? 0) + 1 })
+      .eq("user_id", userId);
+  }
+  return data;
+}
+
+export async function toggleLike(admin: SupabaseClient, userId: string, postId: string) {
+  const { data: existing } = await admin
+    .from("feed_likes")
+    .select("post_id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const { data: post } = await admin.from("feed_posts").select("likes_count").eq("id", postId).single();
+  const count = post?.likes_count ?? 0;
+  if (existing) {
+    await admin.from("feed_likes").delete().eq("post_id", postId).eq("user_id", userId);
+    await admin.from("feed_posts").update({ likes_count: Math.max(0, count - 1) }).eq("id", postId);
+    return { liked: false };
+  }
+  await admin.from("feed_likes").insert({ post_id: postId, user_id: userId });
+  await admin.from("feed_posts").update({ likes_count: count + 1 }).eq("id", postId);
+  return { liked: true };
+}
+
+export async function listComments(
+  admin: SupabaseClient,
+  postId: string
+): Promise<FeedComment[]> {
+  const { data, error } = await admin
+    .from("feed_comments")
+    .select("id, post_id, user_id, content, created_at")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    if (missing(error.message)) return [];
+    throw new Error(error.message);
+  }
+  const ids = [...new Set((data ?? []).map((r) => r.user_id))];
+  const names = await usernamesByIds(admin, ids);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    content: row.content,
+    createdAt: row.created_at,
+    authorName: names.get(row.user_id) ?? null
+  }));
+}
+
+export async function addComment(
+  admin: SupabaseClient,
+  userId: string,
+  postId: string,
+  content: string
+): Promise<FeedComment> {
+  const { data, error } = await admin
+    .from("feed_comments")
+    .insert({ post_id: postId, user_id: userId, content })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  const { data: post } = await admin.from("feed_posts").select("comments_count").eq("id", postId).single();
+  await admin
+    .from("feed_posts")
+    .update({ comments_count: (post?.comments_count ?? 0) + 1 })
+    .eq("id", postId);
+  const names = await usernamesByIds(admin, [userId]);
+  return {
+    id: data.id,
+    postId: data.post_id,
+    userId: data.user_id,
+    content: data.content,
+    createdAt: data.created_at,
+    authorName: names.get(userId) ?? null
+  };
+}
+
+export async function repost(admin: SupabaseClient, userId: string, postId: string) {
+  const { error } = await admin.from("feed_reposts").insert({ post_id: postId, user_id: userId });
+  if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
+  const { data: post } = await admin.from("feed_posts").select("reposts_count").eq("id", postId).single();
+  await admin
+    .from("feed_posts")
+    .update({ reposts_count: (post?.reposts_count ?? 0) + 1 })
+    .eq("id", postId);
+}
+
+function mapRoom(row: Record<string, unknown>): ChatRoom {
+  return {
+    id: row.id as string,
+    slug: row.slug as string,
+    name: row.name as string,
+    topic: row.topic as string,
+    description: (row.description as string) ?? "",
+    rules: (row.rules as string) ?? "",
+    pinnedMessageId: (row.pinned_message_id as string) ?? null
+  };
+}

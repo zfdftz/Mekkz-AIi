@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, Wrench, X } from "lucide-react";
+import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, Users, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
@@ -1152,10 +1152,18 @@ function ChatSidebarPanel({
 
       <Link
         href="/tools"
-        className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
+        className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
       >
         <Wrench size={16} />
         AI Tools
+      </Link>
+
+      <Link
+        href="/community"
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
+      >
+        <Users size={16} />
+        Community
       </Link>
 
       <p className="mb-2 text-xs uppercase tracking-wide text-muted">Gespeicherte Chats</p>

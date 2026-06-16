@@ -49,13 +49,21 @@ export async function moderateImage(dataUrl: string): Promise<ModerationResult> 
   ];
 
   try {
-    const reply = await generateAIResponse(messages, { provider: "groq" });
+    const reply = await generateAIResponse(messages);
     const result = parseModeration(reply);
     if (!result.safe && !result.reason) {
       result.reason = "Inhalt verstößt gegen die Community-Richtlinien.";
     }
     return result;
-  } catch {
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "";
+    if (/GROQ_API_KEY|OPENAI_API_KEY|Bild-Analyse/i.test(msg)) {
+      return {
+        safe: false,
+        reason:
+          "Safety-Check nicht verfügbar — GROQ_API_KEY oder OPENAI_API_KEY in Vercel hinterlegen (wie für Chat-Bilder)."
+      };
+    }
     return { safe: false, reason: "Safety-Check fehlgeschlagen. Bitte erneut versuchen." };
   }
 }

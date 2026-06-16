@@ -62,6 +62,7 @@ export type TranslationKey =
   | "voice.tapToSpeak"
   | "voice.close"
   | "voice.overlayHint"
+  | "voice.transcribing"
   | "voice.stop"
   | "voice.unavailable"
   | "voice.genderFemale"
@@ -188,7 +189,7 @@ const en: MessageTable = {
   "settings.tutorEnabled": "Tutor on",
   "settings.tutorDisabled": "Tutor off",
   "settings.voice": "Voice chat",
-  "settings.voiceHint": "Speak to mekkz AI and hear replies aloud (browser speech APIs).",
+  "settings.voiceHint": "Speak to mekkz AI and hear replies aloud. Works in Chrome, Firefox, Safari, and Edge.",
   "settings.voiceOutput": "Read replies aloud",
   "settings.voiceAutoSend": "Auto-send after speaking",
   "personality.normal": "Normal",
@@ -226,8 +227,9 @@ const en: MessageTable = {
   "voice.tapToSpeak": "Start speaking",
   "voice.close": "Close voice mode",
   "voice.overlayHint": "Speak naturally — I'll respond when you pause.",
+  "voice.transcribing": "Transcribing…",
   "voice.stop": "Stop",
-  "voice.unavailable": "Voice not supported in this browser.",
+  "voice.unavailable": "Voice needs microphone access and a modern browser.",
   "voice.genderFemale": "Female voice",
   "voice.genderMale": "Male voice",
   "settings.voiceGender": "AI voice",
@@ -361,7 +363,7 @@ const de: MessageTable = {
   "settings.tutorEnabled": "Tutor an",
   "settings.tutorDisabled": "Tutor aus",
   "settings.voice": "Sprach-Chat",
-  "settings.voiceHint": "Sprich mit mekkz AI und höre Antworten laut (Browser-Sprach-APIs).",
+  "settings.voiceHint": "Sprich mit mekkz AI und höre Antworten laut. Funktioniert in Chrome, Firefox, Safari und Edge.",
   "settings.voiceOutput": "Antworten vorlesen",
   "settings.voiceAutoSend": "Nach Sprechen automatisch senden",
   "personality.normal": "Normal",
@@ -399,8 +401,9 @@ const de: MessageTable = {
   "voice.tapToSpeak": "Einfach sprechen",
   "voice.close": "Sprachmodus schließen",
   "voice.overlayHint": "Sprich ganz normal — ich antworte, wenn du kurz pausierst.",
+  "voice.transcribing": "Transkribiere…",
   "voice.stop": "Stopp",
-  "voice.unavailable": "Sprache wird in diesem Browser nicht unterstützt.",
+  "voice.unavailable": "Sprachmodus braucht Mikrofon-Zugriff und einen modernen Browser.",
   "voice.genderFemale": "Frauenstimme",
   "voice.genderMale": "Männerstimme",
   "settings.voiceGender": "KI-Stimme",

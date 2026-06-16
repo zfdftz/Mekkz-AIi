@@ -27,6 +27,7 @@ type PlanState = {
   imageReadyDelayMs: number;
   planLabel: string;
   hasActiveSubscription?: boolean;
+  canManageBilling?: boolean;
   stripePeriodEnd?: string | null;
   scheduledPlan?: PlanId | null;
   scheduledPlanAt?: string | null;
@@ -310,7 +311,8 @@ export function PlanUpgrade({
   const hasLiveSubscription = planState?.hasActiveSubscription === true;
   const isPaidPlan =
     !isGuest && hasLiveSubscription && (current === "pro" || current === "ultra");
-  const canManageBilling = isPaidPlan;
+  const canManageBilling =
+    !isGuest && (planState?.canManageBilling === true || hasLiveSubscription);
   const badgeLabel = isGuest
     ? t("common.guest")
     : current === "free"

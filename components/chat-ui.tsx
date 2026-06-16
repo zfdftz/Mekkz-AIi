@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { Menu, MessageSquarePlus, Mic, MicOff, Paperclip, Send, Settings, Square, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
 import { ChatMessage, Conversation } from "@/lib/types";
 import { messagesForRequest } from "@/lib/chat-storage";
@@ -15,7 +15,6 @@ import { ChatImage } from "./chat-image";
 import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
-import { createStreamReveal } from "@/lib/stream-reveal";
 import { createClient } from "@/lib/supabase/client";
 import { WavyBackground } from "./wavy-background";
 import { AuthRequiredModal } from "./auth-required-modal";
@@ -95,9 +94,10 @@ export function ChatUI({
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const stickToBottomRef = useRef(true);
+  const streamRenderRef = useRef<number | null>(null);
+  const streamScrollRef = useRef<number | null>(null);
+  const pendingStreamTextRef = useRef("");
   const voiceModeRef = useRef(false);
-  const streamRevealRef = useRef<ReturnType<typeof createStreamReveal> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [loadingHint, setLoadingHint] = useState("");
@@ -159,28 +159,6 @@ export function ChatUI({
 
   const voiceRef = useRef(voice);
   voiceRef.current = voice;
-
-  useEffect(() => {
-    const reveal = createStreamReveal({
-      intervalMs: 48,
-      onUpdate: (visible) => {
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "assistant") {
-            const copy = [...prev];
-            copy[copy.length - 1] = { ...last, content: visible };
-            return copy;
-          }
-          return [...prev, { role: "assistant", content: visible }];
-        });
-        if (voiceModeRef.current) {
-          voiceRef.current.feedAssistantText(visible.trim());
-        }
-      }
-    });
-    streamRevealRef.current = reveal;
-    return () => reveal.dispose();
-  }, []);
 
   const canSend = useMemo(
     () => (input.trim().length > 0 || pendingImage) && !isLoading && !chatFull,
@@ -268,33 +246,31 @@ export function ChatUI({
     };
   }, [userId, loadConversations, loadMessages, startNewChat]);
 
-  const scrollChatToBottom = useCallback((force = false) => {
+  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const container = chatScrollRef.current;
-    if (!container || (!force && !stickToBottomRef.current)) return;
-    container.scrollTop = container.scrollHeight;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior });
   }, []);
 
   useEffect(() => {
-    const container = chatScrollRef.current;
-    if (!container) return;
+    scrollChatToBottom(isStreaming ? "auto" : "smooth");
+  }, [messages.length, isLoading, isStreaming, scrollChatToBottom]);
 
-    const onScroll = () => {
-      stickToBottomRef.current =
-        container.scrollHeight - container.scrollTop - container.clientHeight < 96;
-    };
-
-    onScroll();
-    container.addEventListener("scroll", onScroll, { passive: true });
-    return () => container.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useLayoutEffect(() => {
-    scrollChatToBottom(true);
-  }, [messages.length, scrollChatToBottom]);
-
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!isStreaming) return;
-    scrollChatToBottom();
+    if (streamScrollRef.current != null) {
+      window.cancelAnimationFrame(streamScrollRef.current);
+    }
+    streamScrollRef.current = window.requestAnimationFrame(() => {
+      scrollChatToBottom("auto");
+      streamScrollRef.current = null;
+    });
+    return () => {
+      if (streamScrollRef.current != null) {
+        window.cancelAnimationFrame(streamScrollRef.current);
+        streamScrollRef.current = null;
+      }
+    };
   }, [messages, isStreaming, scrollChatToBottom]);
 
   useEffect(() => {
@@ -525,9 +501,6 @@ export function ChatUI({
     );
     setIsLoading(true);
     voice.setProcessing(true);
-    stickToBottomRef.current = true;
-    streamRevealRef.current?.reset();
-
     try {
       const useStream = !isImageGenRequest;
 
@@ -577,10 +550,27 @@ export function ChatUI({
               gotFirstDelta = true;
               setIsLoading(false);
             }
-            streamRevealRef.current?.setTarget(fullText);
+            pendingStreamTextRef.current = fullText;
+            if (streamRenderRef.current != null) return;
+
+            streamRenderRef.current = window.requestAnimationFrame(() => {
+              const nextText = pendingStreamTextRef.current;
+              streamRenderRef.current = null;
+              setMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  const copy = [...prev];
+                  copy[copy.length - 1] = { ...last, content: nextText };
+                  return copy;
+                }
+                return [...prev, { role: "assistant", content: nextText }];
+              });
+              if (voiceModeRef.current) {
+                voiceRef.current.feedAssistantText(nextText.trim());
+              }
+            });
           },
           onDone: (event) => {
-            streamRevealRef.current?.flush();
             if (event.conversationLimit) {
               setChatLimit(event.conversationLimit);
             }

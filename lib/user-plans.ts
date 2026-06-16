@@ -80,6 +80,15 @@ function billingFromPlanRow(row: UserPlanRow) {
   };
 }
 
+function canManageStripeBilling(row: UserPlanRow | null | undefined) {
+  if (!row) return false;
+  return Boolean(
+    row.stripe_customer_id ||
+      row.stripe_subscription_id ||
+      isEntitledSubscriptionStatus(row.stripe_subscription_status)
+  );
+}
+
 function stateFromPlanRow(row: UserPlanRow): UserPlanState {
   const plan = resolveEntitledPlan(row);
   return buildState(
@@ -93,7 +102,8 @@ function stateFromPlanRow(row: UserPlanRow): UserPlanState {
           scheduledPlan: null,
           scheduledPlanAt: null
         }
-      : billingFromPlanRow(row)
+      : billingFromPlanRow(row),
+    canManageStripeBilling(row)
   );
 }
 
@@ -119,6 +129,7 @@ export type UserPlanState = {
   planLabel: string;
   stripeSubscriptionStatus: string | null;
   hasActiveSubscription: boolean;
+  canManageBilling: boolean;
   stripePeriodEnd: string | null;
   scheduledPlan: PlanId | null;
   scheduledPlanAt: string | null;
@@ -245,7 +256,8 @@ function buildState(
     stripePeriodEnd?: string | null;
     scheduledPlan?: PlanId | null;
     scheduledPlanAt?: string | null;
-  } = {}
+  } = {},
+  canManageBilling = false
 ): UserPlanState {
   const info = getPlanInfo(plan);
   const dailyLimit = info.dailyImageLimit;
@@ -271,6 +283,7 @@ function buildState(
     planLabel: info.label,
     stripeSubscriptionStatus,
     hasActiveSubscription: isActiveSubscriptionStatus(stripeSubscriptionStatus),
+    canManageBilling,
     stripePeriodEnd: billing.stripePeriodEnd ?? null,
     scheduledPlan: billing.scheduledPlan ?? null,
     scheduledPlanAt: billing.scheduledPlanAt ?? null
@@ -455,7 +468,8 @@ export async function getUserPlanState(
     row.images_today ?? 0,
     row.uploads_today ?? 0,
     stripeStatus,
-    billing
+    billing,
+    canManageStripeBilling(row)
   );
 }
 

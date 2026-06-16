@@ -179,26 +179,282 @@ type GenerateAIOptions = {
   language?: LanguageCode;
 };
 
-export async function generateAIResponse(
-  messages: ChatMessage[],
+function normalizeGenerateOptions(
   options?: GenerateAIOptions | ExtendedAIProvider
-) {
-  const resolved =
-    typeof options === "string" ? { provider: options } : options ?? {};
+): GenerateAIOptions {
+  return typeof options === "string" ? { provider: options } : options ?? {};
+}
+
+function resolveActiveProvider(
+  messages: ChatMessage[],
+  options?: GenerateAIOptions
+): { provider: ExtendedAIProvider; language: LanguageCode; needsVision: boolean } {
+  const resolved = normalizeGenerateOptions(options);
   const language = resolved.language ?? DEFAULT_LANGUAGE;
   const needsVision = hasUserImages(messages);
   let provider =
     resolved.provider ?? (needsVision ? resolveVisionProvider() : resolveTextProvider());
 
-  // Groq nur für Text — nicht für Bild-Uploads.
   if (provider === "groq" && needsVision) {
     provider = resolveVisionProvider();
   }
 
-  // Ollama läuft nur lokal — auf Vercel Cloud-Provider nutzen.
   if (provider === "ollama" && process.env.VERCEL) {
     provider = process.env.OPENAI_API_KEY ? "openai" : resolveVisionProvider();
   }
+
+  return { provider, language, needsVision };
+}
+
+async function* readOpenAICompatibleSSE(
+  body: ReadableStream<Uint8Array>
+): AsyncGenerator<string, void, undefined> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("data:")) continue;
+
+      const payload = trimmed.slice(5).trim();
+      if (payload === "[DONE]") return;
+
+      try {
+        const parsed = JSON.parse(payload) as {
+          choices?: Array<{ delta?: { content?: string } }>;
+        };
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) yield delta;
+      } catch {
+        // Ignore malformed SSE chunks.
+      }
+    }
+  }
+}
+
+async function* readOllamaNDJSON(
+  body: ReadableStream<Uint8Array>
+): AsyncGenerator<string, void, undefined> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+
+      try {
+        const parsed = JSON.parse(line) as {
+          message?: { content?: string };
+        };
+        const delta = parsed.message?.content;
+        if (delta) yield delta;
+      } catch {
+        // Ignore malformed NDJSON chunks.
+      }
+    }
+  }
+}
+
+async function* streamGroqResponse(
+  messages: ChatMessage[],
+  language: LanguageCode,
+  needsVision: boolean
+): AsyncGenerator<string, void, undefined> {
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY fehlt.");
+  }
+
+  const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", needsVision ? 3 : 3);
+  const groqMessages = needsVision
+    ? buildVisionApiMessages(trimMessagesForContext(messages, groqContextTurns), language)
+    : trimMessagesForContext(messages, groqContextTurns);
+  const model = needsVision
+    ? process.env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"
+    : process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+  const maxTokens = needsVision
+    ? parseEnvInt("GROQ_VISION_MAX_TOKENS", 520)
+    : parseEnvInt("GROQ_MAX_TOKENS", 360);
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`
+    },
+    body: JSON.stringify({
+      model,
+      stream: true,
+      temperature: 0.45,
+      max_tokens: maxTokens,
+      messages: groqMessages
+    }),
+    signal: AbortSignal.timeout(needsVision ? 28000 : 12000)
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(
+      needsVision
+        ? `Bild-Analyse fehlgeschlagen: ${errorText.slice(0, 220)}`
+        : `Groq API Fehler: ${errorText.slice(0, 220)}`
+    );
+  }
+
+  if (!res.body) {
+    throw new Error("Groq Streaming-Antwort fehlt.");
+  }
+
+  yield* readOpenAICompatibleSSE(res.body);
+}
+
+async function* streamOpenAIResponse(
+  messages: ChatMessage[],
+  language: LanguageCode,
+  needsVision: boolean
+): AsyncGenerator<string, void, undefined> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY fehlt.");
+  }
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const apiMessages = (needsVision
+    ? buildVisionApiMessages(messages, language)
+    : messages) as OpenAI.Chat.ChatCompletionMessageParam[];
+
+  try {
+    const stream = await openai.chat.completions.create({
+      model: needsVision
+        ? process.env.OPENAI_VISION_MODEL || "gpt-4o-mini"
+        : process.env.OPENAI_MODEL || "gpt-4o-mini",
+      temperature: 0.7,
+      stream: true,
+      messages: apiMessages
+    });
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) yield delta;
+    }
+  } catch (error) {
+    const apiError = error as { status?: number; message?: string };
+    const isQuota =
+      apiError.status === 429 || /quota|billing/i.test(apiError.message ?? "");
+
+    if (isQuota && process.env.GROQ_API_KEY) {
+      yield* streamGroqResponse(messages, language, needsVision);
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function* streamOllamaResponse(
+  messages: ChatMessage[]
+): AsyncGenerator<string, void, undefined> {
+  const baseUrl = process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434";
+  const contextMessages = trimMessagesForContext(
+    messages,
+    parseEnvInt("OLLAMA_MAX_TURNS", 6)
+  );
+  const hasImages = contextMessages.some(
+    (m) => m.role === "user" && (m as ChatMessage).images?.length
+  );
+  const model = hasImages
+    ? process.env.OLLAMA_VISION_MODEL || "llava"
+    : process.env.OLLAMA_MODEL || "llama3.1";
+
+  const ollamaMessages = contextMessages
+    .filter((m) => m.role !== "system" || m.content)
+    .map((m) => {
+      const msg = m as ChatMessage;
+      const payload: {
+        role: string;
+        content: string;
+        images?: string[];
+      } = {
+        role: msg.role,
+        content: msg.content
+      };
+      if (msg.images?.length) {
+        payload.images = msg.images.map(stripImageBase64);
+      }
+      return payload;
+    });
+
+  const res = await fetch(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      stream: true,
+      keep_alive: process.env.OLLAMA_KEEP_ALIVE || "30m",
+      messages: ollamaMessages,
+      options: getOllamaOptions(hasImages)
+    })
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(formatOllamaError(errorText, model, hasImages));
+  }
+
+  if (!res.body) {
+    throw new Error("Ollama Streaming-Antwort fehlt.");
+  }
+
+  yield* readOllamaNDJSON(res.body);
+}
+
+export async function* streamAIResponse(
+  messages: ChatMessage[],
+  options?: GenerateAIOptions | ExtendedAIProvider
+): AsyncGenerator<string, void, undefined> {
+  const resolved = normalizeGenerateOptions(options);
+  const { provider, language, needsVision } = resolveActiveProvider(messages, resolved);
+
+  if (provider === "groq") {
+    yield* streamGroqResponse(messages, language, needsVision);
+    return;
+  }
+
+  if (provider === "openai") {
+    yield* streamOpenAIResponse(messages, language, needsVision);
+    return;
+  }
+
+  if (provider === "ollama") {
+    yield* streamOllamaResponse(messages);
+    return;
+  }
+
+  const full = await generateAIResponse(messages, resolved);
+  if (full) yield full;
+}
+
+export async function generateAIResponse(
+  messages: ChatMessage[],
+  options?: GenerateAIOptions | ExtendedAIProvider
+) {
+  const resolved = normalizeGenerateOptions(options);
+  const { provider, language, needsVision } = resolveActiveProvider(messages, resolved);
 
   if (provider === "claude") {
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -262,7 +518,7 @@ export async function generateAIResponse(
     }
 
     const vision = needsVision;
-    const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", vision ? 3 : 4);
+    const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", vision ? 3 : 3);
     const groqMessages = vision
       ? buildVisionApiMessages(trimMessagesForContext(messages, groqContextTurns), language)
       : trimMessagesForContext(messages, groqContextTurns);
@@ -271,7 +527,7 @@ export async function generateAIResponse(
       : process.env.GROQ_MODEL || "llama-3.1-8b-instant";
     const maxTokens = vision
       ? parseEnvInt("GROQ_VISION_MAX_TOKENS", 520)
-      : parseEnvInt("GROQ_MAX_TOKENS", 520);
+      : parseEnvInt("GROQ_MAX_TOKENS", 360);
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -281,11 +537,11 @@ export async function generateAIResponse(
       },
       body: JSON.stringify({
         model,
-        temperature: 0.5,
+        temperature: 0.45,
         max_tokens: maxTokens,
         messages: groqMessages
       }),
-      signal: AbortSignal.timeout(vision ? 35000 : 18000)
+      signal: AbortSignal.timeout(vision ? 28000 : 12000)
     });
 
     if (!res.ok) {

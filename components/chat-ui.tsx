@@ -14,6 +14,7 @@ import { extractImagePrompt, wantsImageGeneration } from "@/lib/image-intent";
 import { ChatImage } from "./chat-image";
 import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
 import { createClient } from "@/lib/supabase/client";
 import { WavyBackground } from "./wavy-background";
 import { AuthRequiredModal } from "./auth-required-modal";
@@ -84,6 +85,7 @@ export function ChatUI({
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingImage, setPendingImage] = useState<{
     base64: string;
@@ -347,45 +349,19 @@ export function ChatUI({
         });
         if (/\S/.test(token)) {
           options?.onPartial?.(partial.trim());
-          await new Promise((resolve) => window.setTimeout(resolve, 42));
+          await new Promise((resolve) => window.setTimeout(resolve, 10));
         }
       }
       return;
     }
 
-    if (fullText.length < 600) {
-      setMessages((prev) => {
-        const copy = [...prev];
-        const last = copy[copy.length - 1];
-        if (last?.role === "assistant") {
-          copy[copy.length - 1] = { ...last, content: fullText };
-        }
-        return copy;
-      });
-      return;
-    }
-
-    let cursor = 0;
-    const chunkSize = Math.max(4, Math.floor(fullText.length / 8));
-
-    await new Promise<void>((resolve) => {
-      const timer = setInterval(() => {
-        cursor = Math.min(fullText.length, cursor + chunkSize);
-        const partial = fullText.slice(0, cursor);
-        setMessages((prev) => {
-          const copy = [...prev];
-          const last = copy[copy.length - 1];
-          if (last?.role === "assistant") {
-            copy[copy.length - 1] = { ...last, content: partial };
-          }
-          return copy;
-        });
-
-        if (cursor >= fullText.length) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 4);
+    setMessages((prev) => {
+      const copy = [...prev];
+      const last = copy[copy.length - 1];
+      if (last?.role === "assistant") {
+        copy[copy.length - 1] = { ...last, content: fullText };
+      }
+      return copy;
     });
   }
 
@@ -494,7 +470,10 @@ export function ChatUI({
     setIsLoading(true);
     voice.setProcessing(true);
 
-    const requestStartedAt = Date.now();
+    const useStream = !isImageGenRequest;
+    if (useStream) {
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+    }
 
     try {
       const res = await fetch("/api/chat", {
@@ -504,6 +483,7 @@ export function ChatUI({
           userId,
           language,
           generateImage: isImageGenRequest,
+          stream: useStream,
           ...(activeConversationId ? { conversationId: activeConversationId } : {}),
           messages: messagesForRequest(
             next.filter(
@@ -512,6 +492,95 @@ export function ChatUI({
           )
         })
       });
+
+      if (useStream && res.ok && isChatStreamResponse(res.headers.get("content-type"))) {
+        setIsStreaming(true);
+        voice.resetSpeech();
+        let gotFirstDelta = false;
+
+        await readChatStream(res, {
+          onMeta: (event) => {
+            if (event.conversationId && event.conversationId !== activeConversationId) {
+              setActiveConversationId(event.conversationId);
+            }
+            if (event.userImage) {
+              setMessages((prev) => {
+                const copy = [...prev];
+                const userIndex = copy.length - 2;
+                if (copy[userIndex]?.role === "user") {
+                  copy[userIndex] = {
+                    ...copy[userIndex],
+                    images: [event.userImage!]
+                  };
+                }
+                return copy;
+              });
+            }
+          },
+          onDelta: (_chunk, fullText) => {
+            if (!gotFirstDelta) {
+              gotFirstDelta = true;
+              setIsLoading(false);
+            }
+            setMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === "assistant") {
+                copy[copy.length - 1] = { ...last, content: fullText };
+              }
+              return copy;
+            });
+            if (voiceMode) {
+              voice.feedAssistantText(fullText.trim());
+            }
+          },
+          onDone: (event) => {
+            if (event.conversationLimit) {
+              setChatLimit(event.conversationLimit);
+            }
+            if (event.conversationId && event.conversationId !== activeConversationId) {
+              setActiveConversationId(event.conversationId);
+            }
+            setMessages((prev) => {
+              const copy = [...prev];
+              const assistantIndex = copy.length - 1;
+              const userIndex = copy.length - 2;
+
+              if (copy[assistantIndex]?.role === "assistant") {
+                copy[assistantIndex] = {
+                  ...copy[assistantIndex],
+                  content: event.reply || copy[assistantIndex].content
+                };
+              }
+
+              if (event.userImage && copy[userIndex]?.role === "user") {
+                copy[userIndex] = {
+                  ...copy[userIndex],
+                  images: [event.userImage],
+                  ...(event.imageCategory ? { imageCategory: event.imageCategory } : {})
+                };
+              } else if (event.imageCategory && copy[userIndex]?.role === "user") {
+                copy[userIndex] = {
+                  ...copy[userIndex],
+                  imageCategory: event.imageCategory
+                };
+              }
+
+              return copy;
+            });
+            syncPlanBadge(event.plan);
+            void loadConversations();
+          },
+          onError: (message) => {
+            throw new Error(message);
+          }
+        });
+
+        if (!gotFirstDelta) {
+          setIsLoading(false);
+        }
+        return;
+      }
 
       const data = await readJsonResponse<ChatApiResponse>(res);
       if (!res.ok) {
@@ -538,21 +607,19 @@ export function ChatUI({
             return copy;
           });
         } else {
-          setMessages((prev) => prev.slice(0, -1));
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant" && !last.content.trim()) {
+              return prev.slice(0, -1);
+            }
+            return prev;
+          });
           await streamAssistantMessage(`Fehler: ${message}`);
         }
         if (res.status === 429) {
           syncPlanBadge(data.plan);
         }
         return;
-      }
-
-      if (isImageGenRequest && (data.plan?.imageReadyDelayMs ?? 0) > 0) {
-        const elapsed = Date.now() - requestStartedAt;
-        const waitMs = (data.plan?.imageReadyDelayMs ?? 0) - elapsed;
-        if (waitMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, waitMs));
-        }
       }
 
       if (data.conversationLimit) {
@@ -599,11 +666,15 @@ export function ChatUI({
           data.imageGenPrompt,
           voiceMode
             ? {
-                wordByWord: true,
+                wordByWord: false,
                 onPartial: (partial) => voice.feedAssistantText(partial)
               }
             : undefined
         );
+
+        if (voiceMode && aiContent.trim()) {
+          voice.feedAssistantText(aiContent.trim());
+        }
 
         setMessages((prev) => {
           const copy = [...prev];
@@ -634,14 +705,23 @@ export function ChatUI({
           return copy;
         });
       }
-      await loadConversations();
+
+      void loadConversations();
       syncPlanBadge(data.plan);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unbekannter Netzwerkfehler.";
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && !last.content.trim()) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
       await streamAssistantMessage(`Fehler: ${message}`);
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
       if (voiceMode) {
         await voice.waitUntilSpeechDone();
       }
@@ -795,6 +875,10 @@ export function ChatUI({
             <AnimatePresence>
               {messages.map((m, i) => {
                 const showContent = Boolean(m.content.trim());
+                const isLiveAssistant =
+                  isStreaming &&
+                  i === messages.length - 1 &&
+                  m.role === "assistant";
 
                 return (
                 <motion.div
@@ -823,7 +907,12 @@ export function ChatUI({
                     />
                   ) : null}
                   {showContent ? (
-                    <p className="whitespace-pre-wrap">{m.content}</p>
+                    <p className="whitespace-pre-wrap">
+                      {m.content}
+                      {isLiveAssistant ? (
+                        <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
+                      ) : null}
+                    </p>
                   ) : null}
                 </motion.div>
               );

@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
-import { generateAIResponse } from "@/lib/ai";
+import { generateAIResponse, streamAIResponse } from "@/lib/ai";
+import { encodeChatStreamEvent } from "@/lib/chat-stream";
 import { insertConversationMessage, messagesForAI } from "@/lib/chat-storage";
 import { extractImagePrompt, generateImage } from "@/lib/image-gen";
 import { wantsImageGeneration as detectImageRequest } from "@/lib/image-intent";
@@ -69,7 +70,8 @@ const payloadSchema = z.object({
   conversationId: z.string().uuid().nullish(),
   messages: z.array(messageSchema).min(1),
   language: z.string().min(2).max(8).optional(),
-  generateImage: z.boolean().optional()
+  generateImage: z.boolean().optional(),
+  stream: z.boolean().optional()
 });
 
 function buildTitle(text: string) {
@@ -101,7 +103,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userId, messages: rawMessages, language: requestedLanguage, generateImage: clientGenerateImage } =
+  const { userId, messages: rawMessages, language: requestedLanguage, generateImage: clientGenerateImage, stream: wantsStream } =
     parsed.data;
   let { conversationId } = parsed.data;
 
@@ -115,11 +117,13 @@ export async function POST(req: Request) {
   }
 
   if (!isGuestUser(user) && isStripeConfigured() && user.email) {
-    try {
-      await syncUserPlanFromStripe(admin, user.id, user.email);
-    } catch {
-      // Plan sync is best-effort before applying limits.
-    }
+    after(async () => {
+      try {
+        await syncUserPlanFromStripe(admin, user.id, user.email!);
+      } catch {
+        // Plan sync is best-effort and must not slow chat replies.
+      }
+    });
   }
 
   const messages = rawMessages.filter(
@@ -167,11 +171,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const memoryText = await getMemoriesForPrompt(admin, userId);
-  const userLanguage = await resolveUserLanguage(admin, userId, req, requestedLanguage);
-  const aiPreferences = await getUserAiPreferences(admin, userId);
-  const stylePrompt = await getCommunicationStylePrompt(admin, userId);
-  const planState = await getUserPlanState(admin, userId);
+  const [memoryText, userLanguage, aiPreferences, stylePrompt, planState] =
+    await Promise.all([
+      getMemoriesForPrompt(admin, userId),
+      resolveUserLanguage(admin, userId, req, requestedLanguage),
+      getUserAiPreferences(admin, userId),
+      getCommunicationStylePrompt(admin, userId),
+      getUserPlanState(admin, userId)
+    ]);
   const chatLimitState = await getConversationLimitState(
     admin,
     userId,
@@ -282,10 +289,7 @@ export async function POST(req: Request) {
 
       imageGenPrompt = prompt;
 
-      if (imagePlanState.imageReadyDelayMs > 0) {
-        await sleep(imagePlanState.imageReadyDelayMs);
-      }
-
+      const imageStartedAt = Date.now();
       const imageTimeoutMs = 58000;
       const result = await Promise.race([
         generateImage(prompt),
@@ -298,14 +302,167 @@ export async function POST(req: Request) {
       ]);
       generatedImage = result.image;
 
-      imageCategory = categorizeGeneratedPrompt(prompt);
-      reply = "";
-    } else {
-      const textPlanState = await getUserPlanState(admin, userId);
-      if (textPlanState.textReadyDelayMs > 0) {
-        await sleep(textPlanState.textReadyDelayMs);
+      if (imagePlanState.imageReadyDelayMs > 0) {
+        const remaining =
+          imagePlanState.imageReadyDelayMs - (Date.now() - imageStartedAt);
+        if (remaining > 0) {
+          await sleep(remaining);
+        }
       }
 
+      imageCategory = categorizeGeneratedPrompt(prompt);
+      reply = "";
+    } else if (wantsStream !== false) {
+      let storedUserImage = lastUserMessage?.images?.[0] ?? null;
+      if (storedUserImage) {
+        storedUserImage = await persistChatImage(
+          admin,
+          userId,
+          conversationId,
+          storedUserImage,
+          "user"
+        );
+      }
+
+      const storedUserText =
+        lastUserMessage?.content?.trim() ||
+        (lastUserMessage?.imageName ? `[Bild: ${lastUserMessage.imageName}]` : "");
+
+      const aiMessages = [system, ...messagesForAI(messages)];
+      const streamLanguage = replyLanguage ?? userLanguage;
+      const streamTimeoutMs = hasImageInLastMessage ? 90000 : 45000;
+
+      const body = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const emit = (event: Parameters<typeof encodeChatStreamEvent>[0]) => {
+            controller.enqueue(encodeChatStreamEvent(event));
+          };
+
+          let fullReply = "";
+          let streamError: string | null = null;
+
+          try {
+            emit({
+              type: "meta",
+              conversationId,
+              ...(storedUserImage ? { userImage: storedUserImage } : {})
+            });
+
+            const streamTask = (async () => {
+              for await (const chunk of streamAIResponse(aiMessages, {
+                language: streamLanguage
+              })) {
+                fullReply += chunk;
+                if (chunk) {
+                  emit({ type: "delta", text: chunk });
+                }
+              }
+            })();
+
+            await Promise.race([
+              streamTask,
+              new Promise<never>((_, reject) =>
+                setTimeout(
+                  () =>
+                    reject(
+                      new Error(
+                        "Timeout: Bild/Text-Analyse dauert zu lange. Bitte erneut versuchen."
+                      )
+                    ),
+                  streamTimeoutMs
+                )
+              )
+            ]);
+
+            const parsedCategory = parseCategoryFromAnalysis(fullReply);
+            if (parsedCategory) imageCategory = parsedCategory;
+
+            const { error: insertError } = await insertConversationMessage(admin, {
+              user_id: userId,
+              conversation_id: conversationId,
+              user_message: storedUserText,
+              assistant_message: fullReply,
+              user_image: storedUserImage,
+              image_name: lastUserMessage?.imageName ?? null,
+              assistant_image: null,
+              user_image_category: lastUserMessage?.images?.length
+                ? imageCategory ?? null
+                : null,
+              assistant_image_category: null
+            });
+
+            if (storedUserText) {
+              after(async () => {
+                try {
+                  await autoSaveMemoriesFromMessage(admin, userId, storedUserText);
+                  await refreshUserCommunicationStyle(admin, userId);
+
+                  const { data: conversation } = await admin
+                    .from("conversations")
+                    .select("title")
+                    .eq("id", conversationId)
+                    .single();
+
+                  if (conversation?.title === "Neuer Chat") {
+                    await admin
+                      .from("conversations")
+                      .update({
+                        title: buildTitle(storedUserText),
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq("id", conversationId);
+                  } else {
+                    await admin
+                      .from("conversations")
+                      .update({ updated_at: new Date().toISOString() })
+                      .eq("id", conversationId);
+                  }
+                } catch {
+                  // Background enrichment must not block chat replies.
+                }
+              });
+            }
+
+            emit({
+              type: "done",
+              reply: fullReply,
+              conversationId,
+              ...(storedUserImage ? { userImage: storedUserImage } : {}),
+              ...(imageCategory ? { imageCategory } : {}),
+              plan: latestPlanState,
+              conversationLimit: await getConversationLimitState(
+                admin,
+                userId,
+                conversationId
+              ),
+              ...(insertError
+                ? {
+                    warning:
+                      insertError.message ||
+                      "Chat-Verlauf konnte nicht vollständig gespeichert werden."
+                  }
+                : {})
+            });
+          } catch (error) {
+            streamError =
+              error instanceof Error
+                ? error.message
+                : "KI-Antwort konnte nicht erzeugt werden.";
+            emit({ type: "error", error: streamError });
+          } finally {
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(body, {
+        headers: {
+          "Content-Type": "application/x-ndjson; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive"
+        }
+      });
+    } else {
       reply = await Promise.race([
         generateAIResponse([system, ...messagesForAI(messages)], {
           language: replyLanguage ?? userLanguage
@@ -318,7 +475,7 @@ export async function POST(req: Request) {
                   "Timeout: Bild/Text-Analyse dauert zu lange. Bitte erneut versuchen."
                 )
               ),
-            hasImageInLastMessage ? 120000 : 90000
+            hasImageInLastMessage ? 90000 : 45000
           )
         )
       ]);
@@ -402,30 +559,35 @@ export async function POST(req: Request) {
   }
 
   if (storedUserText) {
-    await autoSaveMemoriesFromMessage(admin, userId, storedUserText);
+    after(async () => {
+      try {
+        await autoSaveMemoriesFromMessage(admin, userId, storedUserText);
+        await refreshUserCommunicationStyle(admin, userId);
 
-    await refreshUserCommunicationStyle(admin, userId);
+        const { data: conversation } = await admin
+          .from("conversations")
+          .select("title")
+          .eq("id", conversationId)
+          .single();
 
-    const { data: conversation } = await admin
-      .from("conversations")
-      .select("title")
-      .eq("id", conversationId)
-      .single();
-
-    if (conversation?.title === "Neuer Chat") {
-      await admin
-        .from("conversations")
-        .update({
-          title: buildTitle(storedUserText),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", conversationId);
-    } else {
-      await admin
-        .from("conversations")
-        .update({ updated_at: new Date().toISOString() })
-        .eq("id", conversationId);
-    }
+        if (conversation?.title === "Neuer Chat") {
+          await admin
+            .from("conversations")
+            .update({
+              title: buildTitle(storedUserText),
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", conversationId);
+        } else {
+          await admin
+            .from("conversations")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", conversationId);
+        }
+      } catch {
+        // Background enrichment must not block chat replies.
+      }
+    });
   }
 
   return NextResponse.json({

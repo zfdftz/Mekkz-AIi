@@ -33,8 +33,8 @@ export const PLANS: Record<PlanId, PlanInfo> = {
     dailyImageLimit: 7,
     dailyUploadLimit: 5,
     messagesPerChatLimit: CHATGPT_MESSAGES_PER_CHAT,
-    imageReadyDelayMs: 5000,
-    textReadyDelayMs: 3000,
+    imageReadyDelayMs: 1200,
+    textReadyDelayMs: 0,
     description: "7 Bilder erstellen, 5 Bilder an mekkz AI senden pro Tag."
   },
   pro: {
@@ -44,8 +44,8 @@ export const PLANS: Record<PlanId, PlanInfo> = {
     dailyImageLimit: 20,
     dailyUploadLimit: 20,
     messagesPerChatLimit: CHATGPT_MESSAGES_PER_CHAT * 2,
-    imageReadyDelayMs: 3000,
-    textReadyDelayMs: 1000,
+    imageReadyDelayMs: 400,
+    textReadyDelayMs: 0,
     description: "Schnellere Bildgenerierung, 20 Bilder erstellen, 20 Bilder senden pro Tag."
   },
   ultra: {

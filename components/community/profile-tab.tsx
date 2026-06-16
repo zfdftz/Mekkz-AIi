@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AVATAR_MAX_BYTES,
+  USERNAME_MIN_LENGTH
+} from "@/lib/community/profile-rules";
 import {
   ErrorBanner,
   FieldLabel,
@@ -13,6 +17,8 @@ import {
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
 
+const AVATAR_MAX_MB = Math.round(AVATAR_MAX_BYTES / (1024 * 1024));
+
 export function ProfileTab() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [username, setUsername] = useState("");
@@ -22,6 +28,14 @@ export function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const usernameLocked = profile?.canChangeUsername === false;
+  const usernameHint = useMemo(() => {
+    if (usernameLocked && profile?.nextUsernameChangeAt) {
+      return `Nächste Änderung ab ${new Date(profile.nextUsernameChangeAt).toLocaleDateString("de-DE")} (30-Tage-Limit).`;
+    }
+    return `Mindestens ${USERNAME_MIN_LENGTH} Zeichen. Jeder Name ist einmalig.`;
+  }, [usernameLocked, profile?.nextUsernameChangeAt]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -49,18 +63,28 @@ export function ProfileTab() {
     setError(null);
     setSuccess(null);
     try {
+      const payload: {
+        username?: string;
+        bio: string;
+        avatarUrl: string | null;
+      } = {
+        bio,
+        avatarUrl: avatarUrl.trim() || null
+      };
+
+      if (!usernameLocked) {
+        payload.username = username.trim();
+      }
+
       const res = await fetch("/api/community/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: username.trim() || undefined,
-          bio,
-          avatarUrl: avatarUrl.trim() || null
-        })
+        body: JSON.stringify(payload)
       });
       const data = await readJsonResponse<{ profile?: UserProfile; error?: string }>(res);
       if (!res.ok) throw new Error(data.error || "Speichern fehlgeschlagen.");
       setProfile(data.profile ?? null);
+      setUsername(data.profile?.username ?? username);
       setSuccess("Profil gespeichert.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
@@ -71,14 +95,21 @@ export function ProfileTab() {
 
   async function onAvatarFile(file: File | null) {
     if (!file) return;
-    if (file.size > 500_000) {
-      setError("Avatar max. 500 KB.");
+    if (file.size > AVATAR_MAX_BYTES) {
+      setError(`Avatar max. ${AVATAR_MAX_MB} MB.`);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Bitte eine Bilddatei wählen.");
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
-      if (typeof result === "string") setAvatarUrl(result);
+      if (typeof result === "string") {
+        setAvatarUrl(result);
+        setError(null);
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -130,14 +161,22 @@ export function ProfileTab() {
         <div className="space-y-3">
           <div>
             <FieldLabel>Benutzername</FieldLabel>
-            <TextInput value={username} onChange={(e) => setUsername(e.target.value)} />
+            <TextInput
+              value={username}
+              minLength={USERNAME_MIN_LENGTH}
+              disabled={usernameLocked}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <p className={`mt-1 text-xs ${usernameLocked ? "text-amber-300" : "text-muted"}`}>
+              {usernameHint}
+            </p>
           </div>
           <div>
             <FieldLabel>Bio</FieldLabel>
             <TextArea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
           </div>
           <div>
-            <FieldLabel>Avatar (URL oder Upload)</FieldLabel>
+            <FieldLabel>Avatar (URL oder Upload, max. {AVATAR_MAX_MB} MB)</FieldLabel>
             <TextInput
               value={avatarUrl.startsWith("data:") ? "" : avatarUrl}
               onChange={(e) => setAvatarUrl(e.target.value)}

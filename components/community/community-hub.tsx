@@ -8,7 +8,9 @@ import {
   Globe,
   Hash,
   Layout,
+  Menu,
   MessageCircle,
+  Sparkles,
   StickyNote,
   User,
   Users,
@@ -17,12 +19,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { BoardTab } from "@/components/community/board-tab";
 import { FeedTab } from "@/components/community/feed-tab";
 import { FriendsTab } from "@/components/community/friends-tab";
 import { GroupsTab } from "@/components/community/groups-tab";
 import { ProfileTab } from "@/components/community/profile-tab";
 import {
-  BoardTab,
   CalendarTab,
   NotesTab,
   RemindersTab,
@@ -32,29 +34,39 @@ import { RoomsTab } from "@/components/community/rooms-tab";
 import { useReminderAlerts } from "@/hooks/use-reminder-alerts";
 import type { CommunityTab } from "@/lib/community/types";
 
-type CommunityHubProps = {
-  userId: string;
-};
+type TabId = CommunityTab | "reminders";
 
-const NAV: { id: CommunityTab | "reminders"; label: string; icon: typeof Globe; section?: string }[] = [
-  { id: "feed", label: "Feed", icon: Globe, section: "Community" },
-  { id: "rooms", label: "Chat-Räume", icon: Hash, section: "Community" },
-  { id: "friends", label: "Freunde", icon: Users, section: "Community" },
-  { id: "groups", label: "Gruppen + KI", icon: UsersRound, section: "Community" },
-  { id: "profile", label: "Profil", icon: User, section: "Account" },
-  { id: "tasks", label: "Tasks", icon: CheckSquare, section: "Produktivität" },
-  { id: "calendar", label: "Kalender", icon: Calendar, section: "Produktivität" },
-  { id: "reminders", label: "Reminder", icon: Bell, section: "Produktivität" },
-  { id: "notes", label: "Notizen", icon: StickyNote, section: "Produktivität" },
-  { id: "board", label: "Brainstorm", icon: Layout, section: "Produktivität" }
+const NAV: {
+  id: TabId;
+  label: string;
+  description: string;
+  icon: typeof Globe;
+  section: "community" | "account" | "productivity";
+}[] = [
+  { id: "feed", label: "Feed", description: "Posts, Trends & Tags", icon: Globe, section: "community" },
+  { id: "rooms", label: "Räume", description: "Öffentliche Topic-Chats", icon: Hash, section: "community" },
+  { id: "friends", label: "Freunde", description: "Anfragen & 1:1 Chat", icon: Users, section: "community" },
+  { id: "groups", label: "Gruppen", description: "Team-Chats mit @mekkz", icon: UsersRound, section: "community" },
+  { id: "profile", label: "Profil", description: "Avatar, Bio & Stats", icon: User, section: "account" },
+  { id: "tasks", label: "Tasks", description: "Kanban & KI-To-dos", icon: CheckSquare, section: "productivity" },
+  { id: "calendar", label: "Kalender", description: "Termine & Events", icon: Calendar, section: "productivity" },
+  { id: "reminders", label: "Reminder", description: "Erinnerungen & Alerts", icon: Bell, section: "productivity" },
+  { id: "notes", label: "Notizen", description: "Suchen & KI-Summary", icon: StickyNote, section: "productivity" },
+  { id: "board", label: "Brainstorm", description: "Canvas & Sticky Notes", icon: Layout, section: "productivity" }
 ];
 
-export function CommunityHub({ userId }: CommunityHubProps) {
-  const [tab, setTab] = useState<CommunityTab | "reminders">("feed");
+const SECTIONS = [
+  { key: "community" as const, label: "Community" },
+  { key: "account" as const, label: "Account" },
+  { key: "productivity" as const, label: "Produktivität" }
+];
+
+export function CommunityHub({ userId: _userId }: { userId: string }) {
+  const [tab, setTab] = useState<TabId>("feed");
   const [navOpen, setNavOpen] = useState(false);
   const { alert, dismiss } = useReminderAlerts(true);
 
-  const sections = ["Community", "Account", "Produktivität"];
+  const active = NAV.find((n) => n.id === tab)!;
 
   function renderTab() {
     switch (tab) {
@@ -83,15 +95,17 @@ export function CommunityHub({ userId }: CommunityHubProps) {
     }
   }
 
-  const navContent = (
-    <nav className="space-y-4">
-      {sections.map((section) => (
-        <div key={section}>
-          <p className="mb-2 text-[10px] uppercase tracking-wider text-muted">{section}</p>
+  const navButtons = (
+    <nav className="space-y-6">
+      {SECTIONS.map((section) => (
+        <div key={section.key}>
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
+            {section.label}
+          </p>
           <div className="space-y-1">
-            {NAV.filter((n) => n.section === section).map((item) => {
+            {NAV.filter((n) => n.section === section.key).map((item) => {
               const Icon = item.icon;
-              const active = tab === item.id;
+              const isActive = tab === item.id;
               return (
                 <button
                   key={item.id}
@@ -100,12 +114,23 @@ export function CommunityHub({ userId }: CommunityHubProps) {
                     setTab(item.id);
                     setNavOpen(false);
                   }}
-                  className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition ${
-                    active ? "bg-primary text-white" : "hover:bg-white/10"
+                  className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                    isActive
+                      ? "community-nav-active shadow-lg shadow-primary/15"
+                      : "hover:bg-white/8"
                   }`}
                 >
-                  <Icon size={16} />
-                  {item.label}
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                      isActive ? "bg-primary/30 text-white" : "bg-white/8 text-muted group-hover:text-fg"
+                    }`}
+                  >
+                    <Icon size={18} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{item.label}</span>
+                    <span className="block truncate text-[11px] text-muted">{item.description}</span>
+                  </span>
                 </button>
               );
             })}
@@ -116,7 +141,7 @@ export function CommunityHub({ userId }: CommunityHubProps) {
   );
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6">
+    <div className="community-hub mx-auto min-h-screen max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8">
       {alert ? (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -136,69 +161,101 @@ export function CommunityHub({ userId }: CommunityHubProps) {
         </motion.div>
       ) : null}
 
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="flex items-center gap-2 text-sm text-primary">
-            <MessageCircle size={16} /> Mekkz Community & Produktivität
-          </p>
-          <h1 className="text-2xl font-bold sm:text-3xl">Social Hub</h1>
-          <p className="mt-1 text-sm text-muted">
-            Chat-Räume, Freunde, Feed, Tasks, Kalender, Notizen & Brainstorm — alles an einem Ort.
-          </p>
+      <header className="community-header mb-6 rounded-2xl border border-white/10 bg-gradient-to-r from-primary/15 via-white/5 to-transparent p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Sparkles size={12} /> Mekkz Hub
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Community & Produktivität</h1>
+            <p className="mt-2 max-w-xl text-sm text-muted">
+              Alles an einem Ort — chatten, connecten, planen und brainstormen.
+            </p>
+          </div>
+          <Link
+            href="/chat"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-5 py-2.5 text-sm font-medium backdrop-blur-sm transition hover:bg-white/15"
+          >
+            ← Zurück zum Chat
+          </Link>
         </div>
-        <Link
-          href="/chat"
-          className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-        >
-          ← Zurück zum Chat
-        </Link>
       </header>
 
-      <div className="flex gap-4">
-        <aside className="hidden w-56 shrink-0 lg:block">{navContent}</aside>
+      <div className="flex gap-5 lg:gap-6">
+        <aside className="hidden w-[280px] shrink-0 lg:block">
+          <div className="community-sidebar sticky top-6 rounded-2xl border border-white/10 bg-black/20 p-4 backdrop-blur-xl">
+            {navButtons}
+          </div>
+        </aside>
 
         {navOpen ? (
           <div className="fixed inset-0 z-40 lg:hidden">
             <button
               type="button"
-              className="absolute inset-0 bg-black/60"
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
               aria-label="Menü schließen"
               onClick={() => setNavOpen(false)}
             />
-            <div className="absolute left-0 top-0 h-full w-72 overflow-y-auto border-r border-white/10 bg-card p-4">
-              <div className="mb-4 flex justify-end">
+            <div className="absolute left-0 top-0 h-full w-[min(100vw-3rem,320px)] overflow-y-auto border-r border-white/10 bg-card/95 p-4 backdrop-blur-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-sm font-semibold">Navigation</span>
                 <button type="button" onClick={() => setNavOpen(false)} className="rounded-lg p-2 hover:bg-white/10">
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
-              {navContent}
+              {navButtons}
             </div>
           </div>
         ) : null}
 
         <main className="min-w-0 flex-1">
-          <div className="mb-4 flex items-center gap-2 lg:hidden">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={() => setNavOpen(true)}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm lg:hidden"
             >
-              Menü
+              <Menu size={16} /> Menü
             </button>
-            <span className="text-sm text-muted">{NAV.find((n) => n.id === tab)?.label}</span>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                <active.icon size={20} />
+              </span>
+              <div>
+                <h2 className="text-lg font-semibold">{active.label}</h2>
+                <p className="text-xs text-muted">{active.description}</p>
+              </div>
+            </div>
           </div>
+
+          <div className="overflow-x-auto pb-2 lg:hidden">
+            <div className="flex min-w-max gap-2">
+              {NAV.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                    tab === item.id ? "bg-primary text-white" : "bg-white/10"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <motion.div
             key={tab}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.22 }}
+            className="community-content rounded-2xl"
           >
             {renderTab()}
           </motion.div>
         </main>
       </div>
-
-      <p className="text-center text-[10px] text-muted">User: {userId.slice(0, 8)}…</p>
     </div>
   );
 }

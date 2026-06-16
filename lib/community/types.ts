@@ -8,6 +8,9 @@ export type UserProfile = {
   xp: number;
   isOnline?: boolean;
   lastSeenAt?: string | null;
+  usernameChangedAt?: string | null;
+  canChangeUsername?: boolean;
+  nextUsernameChangeAt?: string | null;
 };
 
 export type ChatRoom = {

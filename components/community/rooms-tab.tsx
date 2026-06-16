@@ -4,13 +4,14 @@ import { Hash, Pin, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   ChatComposer,
+  ChatLayout,
   EmptyState,
   ErrorBanner,
   GhostButton,
   LoadingState,
   MessageBubble,
   Panel,
-  PrimaryButton,
+  SideListButton,
   TextInput
 } from "@/components/community/shared";
 import { usePoll } from "@/hooks/use-poll";
@@ -108,57 +109,57 @@ export function RoomsTab() {
     : null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-      <Panel className="flex max-h-[70vh] flex-col">
-        <div className="relative mb-3">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <TextInput
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Räume suchen…"
-          />
-        </div>
-        {loading ? (
-          <LoadingState />
-        ) : rooms.length === 0 ? (
-          <EmptyState>Keine Räume — Migration in Supabase ausführen?</EmptyState>
-        ) : (
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {rooms.map((room) => (
-              <button
-                key={room.id}
-                type="button"
-                onClick={() => joinRoom(room)}
-                className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
-                  activeRoom?.id === room.id ? "bg-primary/20 text-primary" : "hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center gap-2 font-medium">
-                  <Hash size={14} />
-                  {room.name}
-                </div>
-                <p className="mt-0.5 line-clamp-2 text-xs text-muted">{room.topic}</p>
-              </button>
-            ))}
+    <ChatLayout
+      sidebarTitle="Themen-Räume"
+      sidebar={
+        <>
+          <div className="relative mb-3">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <TextInput
+              className="pl-9"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Räume suchen…"
+            />
           </div>
-        )}
-      </Panel>
-
-      <Panel className="flex max-h-[70vh] flex-col">
-        {!activeRoom ? (
-          <EmptyState>Wähle einen Chat-Raum links aus.</EmptyState>
+          {loading ? (
+            <LoadingState />
+          ) : rooms.length === 0 ? (
+            <EmptyState>Keine Räume gefunden.</EmptyState>
+          ) : (
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+              {rooms.map((room) => (
+                <SideListButton
+                  key={room.id}
+                  active={activeRoom?.id === room.id}
+                  onClick={() => joinRoom(room)}
+                  title={room.name}
+                  subtitle={room.topic}
+                  leading={
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <Hash size={14} />
+                    </span>
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </>
+      }
+      main={
+        !activeRoom ? (
+          <EmptyState>Wähle einen Chat-Raum aus der Liste.</EmptyState>
         ) : (
           <>
             <div className="mb-3 flex items-start justify-between gap-2 border-b border-white/10 pb-3">
               <div>
-                <h3 className="font-semibold">{activeRoom.name}</h3>
-                <p className="text-xs text-muted">{activeRoom.description}</p>
+                <h3 className="text-lg font-semibold">{activeRoom.name}</h3>
+                <p className="text-sm text-muted">{activeRoom.description}</p>
               </div>
               <GhostButton onClick={leaveRoom}>Verlassen</GhostButton>
             </div>
             {activeRoom.rules ? (
-              <details className="mb-3 rounded-xl bg-black/20 px-3 py-2 text-xs">
+              <details className="mb-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs">
                 <summary className="cursor-pointer font-medium">Raumregeln</summary>
                 <p className="mt-2 whitespace-pre-wrap text-muted">{activeRoom.rules}</p>
               </details>
@@ -180,18 +181,16 @@ export function RoomsTab() {
                 />
               ))}
             </div>
-            <div className="mt-3">
-              <ChatComposer
-                value={draft}
-                onChange={setDraft}
-                onSend={sendMessage}
-                placeholder={`Nachricht in ${activeRoom.name}…`}
-                loading={sending}
-              />
-            </div>
+            <ChatComposer
+              value={draft}
+              onChange={setDraft}
+              onSend={sendMessage}
+              placeholder={`Nachricht in ${activeRoom.name}…`}
+              loading={sending}
+            />
           </>
-        )}
-      </Panel>
-    </div>
+        )
+      }
+    />
   );
 }

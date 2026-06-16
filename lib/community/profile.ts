@@ -1,8 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  normalizeUsername,
+  usernameChangeEligibility,
+  validateAvatarUrl,
+  validateUsername
+} from "./profile-rules";
 import type { UserProfile } from "./types";
 
 function isMissingTable(message: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(message);
+}
+
+function isDuplicateUsername(message: string) {
+  return /duplicate|unique|user_profiles_username/i.test(message);
 }
 
 export async function ensureUserProfile(admin: SupabaseClient, userId: string, email?: string | null) {
@@ -39,7 +49,7 @@ export async function getProfile(
   const { data, error } = await admin
     .from("user_profiles")
     .select(
-      "user_id, username, bio, avatar_url, messages_sent, posts_count, xp, updated_at"
+      "user_id, username, bio, avatar_url, messages_sent, posts_count, xp, updated_at, username_changed_at"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -56,6 +66,8 @@ export async function getProfile(
     .eq("user_id", userId)
     .maybeSingle();
 
+  const eligibility = usernameChangeEligibility(data.username_changed_at);
+
   return {
     userId: data.user_id,
     username: data.username,
@@ -65,8 +77,23 @@ export async function getProfile(
     postsCount: data.posts_count ?? 0,
     xp: data.xp ?? 0,
     isOnline: presence?.is_online ?? false,
-    lastSeenAt: presence?.last_seen_at ?? null
+    lastSeenAt: presence?.last_seen_at ?? null,
+    usernameChangedAt: data.username_changed_at ?? null,
+    canChangeUsername: eligibility.canChange,
+    nextUsernameChangeAt: eligibility.nextChangeAt
   };
+}
+
+async function isUsernameTaken(admin: SupabaseClient, username: string, userId: string) {
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("user_id, username")
+    .ilike("username", username)
+    .neq("user_id", userId)
+    .maybeSingle();
+
+  if (error && !isMissingTable(error.message)) throw new Error(error.message);
+  return Boolean(data?.user_id);
 }
 
 export async function updateProfile(
@@ -74,16 +101,61 @@ export async function updateProfile(
   userId: string,
   patch: { username?: string; bio?: string; avatarUrl?: string | null }
 ) {
+  const { data: current, error: currentError } = await admin
+    .from("user_profiles")
+    .select("username, username_changed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (currentError && !isMissingTable(currentError.message)) {
+    throw new Error(currentError.message);
+  }
+
   const payload: Record<string, unknown> = {
     user_id: userId,
     updated_at: new Date().toISOString()
   };
-  if (patch.username != null) payload.username = patch.username.trim().slice(0, 32);
+
+  if (patch.username != null) {
+    const nextUsername = normalizeUsername(patch.username);
+    validateUsername(nextUsername);
+
+    const currentUsername = current?.username ?? "";
+    if (nextUsername.toLowerCase() !== (currentUsername ?? "").toLowerCase()) {
+      const eligibility = usernameChangeEligibility(current?.username_changed_at);
+      if (!eligibility.canChange && eligibility.nextChangeAt) {
+        const date = new Date(eligibility.nextChangeAt).toLocaleDateString("de-DE");
+        throw new Error(`Benutzername kann erst wieder am ${date} geändert werden (30-Tage-Limit).`);
+      }
+
+      if (await isUsernameTaken(admin, nextUsername, userId)) {
+        throw new Error("Dieser Benutzername ist bereits vergeben.");
+      }
+
+      payload.username = nextUsername;
+      payload.username_changed_at = new Date().toISOString();
+    }
+  }
+
   if (patch.bio != null) payload.bio = patch.bio.slice(0, 500);
-  if (patch.avatarUrl !== undefined) payload.avatar_url = patch.avatarUrl;
+
+  if (patch.avatarUrl !== undefined) {
+    if (patch.avatarUrl === null || patch.avatarUrl === "") {
+      payload.avatar_url = null;
+    } else {
+      validateAvatarUrl(patch.avatarUrl);
+      payload.avatar_url = patch.avatarUrl;
+    }
+  }
 
   const { error } = await admin.from("user_profiles").upsert(payload);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isDuplicateUsername(error.message)) {
+      throw new Error("Dieser Benutzername ist bereits vergeben.");
+    }
+    throw new Error(error.message);
+  }
+
   return getProfile(admin, userId);
 }
 

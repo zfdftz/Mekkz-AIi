@@ -10,8 +10,10 @@ import {
   GhostButton,
   LoadingState,
   Panel,
+  PillTabs,
   PrimaryButton,
-  TextArea
+  TextArea,
+  TextInput
 } from "@/components/community/shared";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { FeedComment, FeedPost } from "@/lib/community/types";
@@ -146,35 +148,31 @@ export function FeedTab() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <GhostButton
-          className={!trending ? "border-primary/40 bg-primary/15" : ""}
-          onClick={() => setTrending(false)}
-        >
-          Neueste
-        </GhostButton>
-        <GhostButton
-          className={trending ? "border-primary/40 bg-primary/15" : ""}
-          onClick={() => setTrending(true)}
-        >
-          <TrendingUp size={14} className="mr-1 inline" /> Trending
-        </GhostButton>
-        <input
-          value={tag}
-          onChange={(e) => setTag(e.target.value)}
-          placeholder="Tag filtern…"
-          className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm"
-        />
-      </div>
+    <div className="space-y-5">
+      <PillTabs
+        items={[
+          { id: "latest", label: "Neueste" },
+          { id: "trending", label: "Trending", icon: TrendingUp }
+        ]}
+        value={trending ? "trending" : "latest"}
+        onChange={(id) => setTrending(id === "trending")}
+      />
 
       <Panel>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <TextInput
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            placeholder="Nach Tag filtern…"
+            className="sm:max-w-xs"
+          />
+        </div>
         <FieldLabel>Neuer Post</FieldLabel>
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           {(["text", "prompt", "story", "ai_output", "result"] as const).map((type) => (
             <GhostButton
               key={type}
-              className={postType === type ? "border-primary/40 bg-primary/15" : ""}
+              className={postType === type ? "community-nav-active" : ""}
               onClick={() => setPostType(type)}
             >
               {type}

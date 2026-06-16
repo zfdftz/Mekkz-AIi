@@ -10,9 +10,14 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   messages_sent INT NOT NULL DEFAULT 0,
   posts_count INT NOT NULL DEFAULT 0,
   xp INT NOT NULL DEFAULT 0,
+  username_changed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_username_lower_idx
+  ON user_profiles (LOWER(username))
+  WHERE username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS user_presence (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

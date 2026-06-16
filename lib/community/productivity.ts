@@ -278,6 +278,23 @@ export async function upsertBoardNode(
   return data.id as string;
 }
 
+export async function deleteBoardNode(
+  admin: SupabaseClient,
+  userId: string,
+  boardId: string,
+  nodeId: string
+) {
+  const { data: board } = await admin
+    .from("brainstorm_boards")
+    .select("id")
+    .eq("id", boardId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!board) throw new Error("Board nicht gefunden.");
+  const { error } = await admin.from("brainstorm_nodes").delete().eq("id", nodeId).eq("board_id", boardId);
+  if (error) throw new Error(error.message);
+}
+
 export async function suggestBoardIdeas(topic: string) {
   const reply = await generateAIResponse([
     {

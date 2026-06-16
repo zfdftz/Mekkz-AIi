@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireRegisteredUser } from "@/lib/api/require-user";
 import {
   createBoard,
+  deleteBoardNode,
   generateTasksFromText,
   listBoards,
   listBoardNodes,
@@ -116,6 +117,12 @@ export async function POST(req: Request) {
       if (action === "create") {
         const board = await createBoard(admin, userId, String(payload.title ?? "Brainstorm"));
         return NextResponse.json({ board, boards: await listBoards(admin, userId) });
+      }
+      if (action === "delete-node") {
+        await deleteBoardNode(admin, userId, String(payload.boardId), String(payload.id));
+        return NextResponse.json({
+          nodes: await listBoardNodes(admin, String(payload.boardId))
+        });
       }
       if (action === "suggest") {
         const ideas = await suggestBoardIdeas(String(payload.topic ?? ""));

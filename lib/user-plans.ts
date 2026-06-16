@@ -2,7 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { countConversationMessages } from "./chat-storage";
 import { getPlanInfo, PlanId, PLANS, buildPlansLimitsReference } from "./plans";
 import { formatBillingDateIso } from "./stripe-billing";
-import { isActiveSubscriptionStatus } from "./stripe";
+import { isActiveSubscriptionStatus, isEntitledSubscriptionStatus } from "./stripe";
 
 type UserPlanRow = {
   user_id: string;
@@ -54,6 +54,24 @@ function normalizeScheduledPlan(value: string | null | undefined): PlanId | null
   return null;
 }
 
+/** Nur bezahlte Pläne mit gültigem Stripe-Status — sonst Free. */
+export function resolveEntitledPlan(row: UserPlanRow | null | undefined): PlanId {
+  if (!row) return "free";
+
+  const stored = row.plan === "pro" || row.plan === "ultra" ? row.plan : "free";
+  if (stored === "free") return "free";
+
+  if (process.env.ALLOW_DEMO_PLAN_UPGRADE === "true") {
+    return stored;
+  }
+
+  return isEntitledSubscriptionStatus(row.stripe_subscription_status) ? stored : "free";
+}
+
+export function hasStoredPaidPlan(row: UserPlanRow | null | undefined) {
+  return row?.plan === "pro" || row?.plan === "ultra";
+}
+
 function billingFromPlanRow(row: UserPlanRow) {
   return {
     stripePeriodEnd: row.stripe_period_end ?? null,
@@ -63,13 +81,19 @@ function billingFromPlanRow(row: UserPlanRow) {
 }
 
 function stateFromPlanRow(row: UserPlanRow): UserPlanState {
-  const plan = (row.plan === "pro" || row.plan === "ultra" ? row.plan : "free") as PlanId;
+  const plan = resolveEntitledPlan(row);
   return buildState(
     plan,
     row.images_today ?? 0,
     row.uploads_today ?? 0,
     row.stripe_subscription_status ?? null,
-    billingFromPlanRow(row)
+    plan === "free"
+      ? {
+          stripePeriodEnd: null,
+          scheduledPlan: null,
+          scheduledPlanAt: null
+        }
+      : billingFromPlanRow(row)
   );
 }
 
@@ -378,8 +402,16 @@ export async function getUserPlanState(
     return buildState("free", 0, 0);
   }
 
-  const plan = (row.plan === "pro" || row.plan === "ultra" ? row.plan : "free") as PlanId;
+  const plan = resolveEntitledPlan(row);
   const stripeStatus = row.stripe_subscription_status ?? null;
+  const billing =
+    plan === "free"
+      ? {
+          stripePeriodEnd: null,
+          scheduledPlan: null,
+          scheduledPlanAt: null
+        }
+      : billingFromPlanRow(row);
   const dayStatus = usageDayStatus(row.usage_day, today);
 
   if (dayStatus === "past") {
@@ -423,7 +455,7 @@ export async function getUserPlanState(
     row.images_today ?? 0,
     row.uploads_today ?? 0,
     stripeStatus,
-    billingFromPlanRow(row)
+    billing
   );
 }
 

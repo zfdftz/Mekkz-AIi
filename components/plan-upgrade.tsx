@@ -79,7 +79,11 @@ function applyPlanState(incoming: PlanState): PlanState {
 }
 
 function mergePlanState(prev: PlanState | null, incoming: PlanState): PlanState {
-  if (!prev || prev.plan !== incoming.plan) return incoming;
+  if (!prev) return applyPlanState(incoming);
+  if (incoming.plan === "free" && !incoming.hasActiveSubscription) {
+    return applyPlanState(incoming);
+  }
+  if (prev.plan !== incoming.plan) return applyPlanState(incoming);
 
   const looksLikeDayReset =
     (incoming.imagesToday ?? 0) === 0 &&
@@ -302,7 +306,9 @@ export function PlanUpgrade({
   }
 
   const current = planState?.plan ?? "free";
-  const isPaidPlan = !isGuest && (current === "pro" || current === "ultra");
+  const hasLiveSubscription = planState?.hasActiveSubscription === true;
+  const isPaidPlan =
+    !isGuest && hasLiveSubscription && (current === "pro" || current === "ultra");
   const canManageBilling = isPaidPlan;
   const badgeLabel = isGuest
     ? t("common.guest")
@@ -320,7 +326,8 @@ export function PlanUpgrade({
     planState?.stripePeriodEnd
   );
 
-  const proDisabled = current === "pro" || upgrading === "pro";
+  const proDisabled =
+    (current === "pro" && hasLiveSubscription) || upgrading === "pro";
 
   const proOnAction =
     proDisabled ? undefined : () => void upgrade("pro");
@@ -405,10 +412,12 @@ export function PlanUpgrade({
                   isCurrentPlan={current === "ultra"}
                   bullets={planBulletsForLanguage("ultra", language)}
                   actionLabel={ultraActionLabel}
-                  disabled={current === "ultra" || upgrading === "ultra"}
+                  disabled={
+                    (current === "ultra" && hasLiveSubscription) || upgrading === "ultra"
+                  }
                   loading={upgrading === "ultra"}
                   onAction={
-                    current === "ultra" || upgrading === "ultra"
+                    (current === "ultra" && hasLiveSubscription) || upgrading === "ultra"
                       ? undefined
                       : () => void upgrade("ultra")
                   }

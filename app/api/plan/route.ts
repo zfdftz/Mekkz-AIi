@@ -3,7 +3,7 @@ import { z } from "zod";
 import { isGuestUser } from "@/lib/auth/session";
 import { PLANS, PlanId } from "@/lib/plans";
 import { isStripeConfigured } from "@/lib/stripe";
-import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
+import { reconcileUserPlanWithStripe } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPlanState, setUserPlan } from "@/lib/user-plans";
@@ -31,9 +31,9 @@ export async function GET(req: Request) {
 
   if (!isGuestUser(user) && isStripeConfigured() && user.email) {
     try {
-      await syncUserPlanFromStripe(admin, user.id, user.email);
+      await reconcileUserPlanWithStripe(admin, user.id, user.email);
     } catch {
-      // Plan sync is best-effort before returning plan state.
+      // Plan reconcile is best-effort before returning plan state.
     }
   }
 

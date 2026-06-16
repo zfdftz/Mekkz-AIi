@@ -24,13 +24,14 @@ import {
 } from "@/lib/stripe";
 import {
   findActiveSubscriptionForUser,
-  syncUserPlanFromStripe
+  reconcileUserPlanWithStripe
 } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   getUserPlanRow,
   getUserStripeBilling,
+  resolveEntitledPlan,
   schedulePlanChangeAtPeriodEnd,
   setUserPlanFromStripe,
   updateStripeCustomerId
@@ -46,7 +47,7 @@ async function scheduleUltraToProDowngrade(
   userId: string,
   email: string | null | undefined
 ) {
-  await syncUserPlanFromStripe(admin, userId, email);
+  await reconcileUserPlanWithStripe(admin, userId, email);
   const activeSubscription = await findActiveSubscriptionForUser(admin, userId, email);
 
   if (!activeSubscription) {
@@ -102,10 +103,11 @@ export async function POST(req: Request) {
     const { plan } = parsed.data;
     const appUrl = getAppUrl();
     const admin = createAdminClient();
+    await reconcileUserPlanWithStripe(admin, user.id, user.email);
+
     const billing = await getUserStripeBilling(admin, user.id);
     const planRow = await getUserPlanRow(admin, user.id);
-    const dbPlan =
-      planRow?.plan === "pro" || planRow?.plan === "ultra" ? planRow.plan : "free";
+    const dbPlan = resolveEntitledPlan(planRow);
     const stripe = getStripe();
 
     if (!stripe) {
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
       });
     }
 
-    await syncUserPlanFromStripe(admin, user.id, user.email);
+    await reconcileUserPlanWithStripe(admin, user.id, user.email);
     const activeSubscription = await findActiveSubscriptionForUser(
       admin,
       user.id,
@@ -144,8 +146,13 @@ export async function POST(req: Request) {
           : activeSubscription.customer.id;
 
       const currentPlan = subscriptionPlan(activeSubscription) ?? dbPlan;
+      const refreshedRow = await getUserPlanRow(admin, user.id);
+      const entitledPlan = resolveEntitledPlan(refreshedRow);
 
-      if (currentPlan === plan || dbPlan === plan) {
+      if (
+        entitledPlan === plan ||
+        (currentPlan === plan && isActiveSubscriptionStatus(activeSubscription.status))
+      ) {
         return NextResponse.json({
           updated: true,
           message: `${plan === "pro" ? "Pro" : "Ultra"} ist bereits aktiv.`

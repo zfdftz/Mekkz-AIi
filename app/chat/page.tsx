@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { ChatUI } from "@/components/chat-ui";
 import { isGuestUser } from "@/lib/auth/session";
 import { isStripeConfigured } from "@/lib/stripe";
-import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
+import { reconcileUserPlanWithStripe } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,7 +15,7 @@ export default async function ChatPage() {
   if (!isGuestUser(data.user) && isStripeConfigured() && data.user.email) {
     try {
       const admin = createAdminClient();
-      await syncUserPlanFromStripe(admin, data.user.id, data.user.email);
+      await reconcileUserPlanWithStripe(admin, data.user.id, data.user.email);
     } catch {
       // Plan sync is best-effort on page load.
     }

@@ -7,7 +7,12 @@ import {
   subscriptionPlan
 } from "./stripe";
 import {
+  downgradeUserToFree,
+  getUserPlanRow,
+  getUserPlanState,
   getUserStripeBilling,
+  hasStoredPaidPlan,
+  resolveEntitledPlan,
   schedulePlanChangeAtPeriodEnd,
   setUserPlanFromStripe,
   type UserPlanState
@@ -194,6 +199,18 @@ export async function syncUserPlanFromStripe(
   const match = pickBestSubscription(uniqueSubscriptions);
 
   if (!match) {
+    const row = await getUserPlanRow(admin, userId);
+    if (hasStoredPaidPlan(row)) {
+      const state = await downgradeUserToFree(admin, userId);
+      return {
+        synced: true,
+        plan: "free",
+        state,
+        message:
+          "Kein aktives Stripe-Abo gefunden. Dein Tarif wurde wieder auf Free gesetzt."
+      };
+    }
+
     return {
       synced: false,
       plan: "free",
@@ -250,4 +267,28 @@ export async function syncUserPlanFromStripe(
         ? "Ultra ist jetzt aktiv."
         : "Pro ist jetzt aktiv."
   };
+}
+
+/** Stripe = Quelle der Wahrheit: aktives Abo setzen oder veralteten Paid-Plan zurücksetzen. */
+export async function reconcileUserPlanWithStripe(
+  admin: SupabaseClient,
+  userId: string,
+  email?: string | null
+): Promise<UserPlanState> {
+  const stripe = getStripe();
+  if (!stripe) {
+    return getUserPlanState(admin, userId);
+  }
+
+  const result = await syncUserPlanFromStripe(admin, userId, email);
+  if (result.synced && result.state) {
+    return result.state;
+  }
+
+  const row = await getUserPlanRow(admin, userId);
+  if (hasStoredPaidPlan(row) && resolveEntitledPlan(row) === "free") {
+    return downgradeUserToFree(admin, userId);
+  }
+
+  return getUserPlanState(admin, userId);
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isGuestUser } from "@/lib/auth/session";
 import { isStripeConfigured, stripeConfigErrorMessage } from "@/lib/stripe";
-import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
+import { reconcileUserPlanWithStripe } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,11 +29,16 @@ export async function POST() {
   }
 
   const admin = createAdminClient();
-  const result = await syncUserPlanFromStripe(admin, user.id, user.email);
+  const state = await reconcileUserPlanWithStripe(admin, user.id, user.email);
 
   return NextResponse.json({
-    synced: result.synced,
-    plan: result.state ?? { plan: result.plan },
-    message: result.message
+    synced: state.plan !== "free" || state.hasActiveSubscription,
+    plan: state,
+    message:
+      state.hasActiveSubscription
+        ? state.plan === "ultra"
+          ? "Ultra ist aktiv."
+          : "Pro ist aktiv."
+        : "Kein aktives Abo gefunden — Free-Plan ist aktiv."
   });
 }

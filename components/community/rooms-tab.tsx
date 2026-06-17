@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ChatComposer,
   ChatLayout,
+  ChatMessageList,
   EmptyState,
   ErrorBanner,
   GhostButton,
@@ -17,6 +18,7 @@ import {
 import { usePoll } from "@/hooks/use-poll";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { PUBLIC_ROOM_MESSAGE_COOLDOWN_MS } from "@/lib/community/social";
+import { chatMessagesScrollKey } from "@/lib/chat-user-color";
 import type { ChatRoom, RoomMessage } from "@/lib/community/types";
 
 export function RoomsTab() {
@@ -215,7 +217,7 @@ export function RoomsTab() {
               </div>
             ) : null}
             <ErrorBanner message={error} />
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            <ChatMessageList scrollKey={chatMessagesScrollKey(messages)}>
               {messages.map((msg) => (
                 <MessageBubble
                   key={msg.id}
@@ -226,11 +228,12 @@ export function RoomsTab() {
                   authorCreator={msg.authorCreator}
                   authorChosen={msg.authorChosen}
                   authorUltraCreator={msg.authorUltraCreator}
+                  colorKey={msg.userId}
                   content={msg.content}
                   time={msg.createdAt}
                 />
               ))}
-            </div>
+            </ChatMessageList>
             <ChatComposer
               value={draft}
               onChange={setDraft}

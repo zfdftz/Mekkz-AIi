@@ -4,6 +4,7 @@ import { Plus, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   ChatComposer,
+  ChatMessageList,
   EmptyState,
   ErrorBanner,
   FieldLabel,
@@ -16,6 +17,7 @@ import {
 } from "@/components/community/shared";
 import { usePoll } from "@/hooks/use-poll";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { chatMessagesScrollKey } from "@/lib/chat-user-color";
 import type { GroupChat, GroupMessage } from "@/lib/community/types";
 
 export function GroupsTab() {
@@ -182,7 +184,7 @@ export function GroupsTab() {
               <h3 className="truncate text-xl font-semibold sm:text-2xl">{activeGroup.name}</h3>
             </div>
             <ErrorBanner message={error} />
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+            <ChatMessageList scrollKey={chatMessagesScrollKey(messages)}>
               {messages.map((msg) => (
                 <MessageBubble
                   key={msg.id}
@@ -193,12 +195,13 @@ export function GroupsTab() {
                   authorCreator={msg.isAi ? undefined : msg.authorCreator}
                   authorChosen={msg.isAi ? undefined : msg.authorChosen}
                   authorUltraCreator={msg.isAi ? undefined : msg.authorUltraCreator}
+                  colorKey={msg.isAi ? "mekkz-ai" : msg.userId}
                   content={msg.content}
                   highlight={msg.isAi}
                   time={msg.createdAt}
                 />
               ))}
-            </div>
+            </ChatMessageList>
             <div className="mt-3">
               <ChatComposer
                 value={draft}

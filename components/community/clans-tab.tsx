@@ -4,6 +4,7 @@ import { Shield, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   ChatComposer,
+  ChatMessageList,
   EmptyState,
   ErrorBanner,
   FieldLabel,
@@ -16,6 +17,7 @@ import {
 } from "@/components/community/shared";
 import { usePoll } from "@/hooks/use-poll";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { chatMessagesScrollKey } from "@/lib/chat-user-color";
 import type { Clan, ClanMember, ClanMessage } from "@/lib/community/types";
 
 export function ClansTab() {
@@ -159,7 +161,7 @@ export function ClansTab() {
 
           <Panel className="flex min-h-[280px] flex-col">
             <FieldLabel>Clan-Chat</FieldLabel>
-            <div className="mb-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <ChatMessageList scrollKey={chatMessagesScrollKey(messages)} className="mb-3 space-y-2">
               {messages.length === 0 ? (
                 <EmptyState>Noch keine Nachrichten — schreib die erste!</EmptyState>
               ) : (
@@ -168,12 +170,13 @@ export function ClansTab() {
                     key={msg.id}
                     author={msg.authorName ?? "user"}
                     authorUserId={msg.userId}
+                    colorKey={msg.userId}
                     content={msg.content}
                     time={msg.createdAt}
                   />
                 ))
               )}
-            </div>
+            </ChatMessageList>
             <ChatComposer
               value={draft}
               onChange={setDraft}

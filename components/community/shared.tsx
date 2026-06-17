@@ -1,9 +1,10 @@
 "use client";
 
 import { Loader2, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { ProfileLink } from "@/components/community/profile-context";
 import { ProfileIdentity } from "@/components/rewards/profile-identity";
+import { getChatUserColor } from "@/lib/chat-user-color";
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -211,6 +212,33 @@ export function GhostButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>
   );
 }
 
+export function ChatMessageList({
+  scrollKey,
+  children,
+  className = ""
+}: {
+  scrollKey: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [scrollKey]);
+
+  return (
+    <div
+      ref={scrollRef}
+      className={`min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 ${className}`.trim()}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function MessageBubble({
   author,
   authorUserId,
@@ -221,6 +249,7 @@ export function MessageBubble({
   authorUltraCreator,
   content,
   highlight,
+  colorKey,
   time
 }: {
   author: string;
@@ -232,14 +261,19 @@ export function MessageBubble({
   authorUltraCreator?: boolean;
   content: string;
   highlight?: boolean;
+  colorKey?: string | null;
   time?: string;
 }) {
+  const userColor = colorKey ? getChatUserColor(colorKey) : null;
+
   return (
     <div
-      className={`rounded-2xl px-5 py-4 text-[17px] leading-relaxed shadow-sm sm:text-lg sm:leading-relaxed ${
+      className={`rounded-2xl border px-5 py-4 text-[17px] leading-relaxed shadow-sm sm:text-lg sm:leading-relaxed ${
         highlight
-          ? "border border-primary/30 bg-gradient-to-br from-primary/20 to-primary/5"
-          : "border border-white/5 bg-black/20"
+          ? "border-primary/30 bg-gradient-to-br from-primary/20 to-primary/5"
+          : userColor
+            ? userColor.bubble
+            : "border-white/5 bg-black/20"
       }`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -256,7 +290,7 @@ export function MessageBubble({
             />
           </ProfileLink>
         ) : (
-          <span className="font-semibold text-primary">{author}</span>
+          <span className={`font-semibold ${userColor?.name ?? "text-primary"}`}>{author}</span>
         )}
         {time ? (
           <span className="text-sm text-muted">{new Date(time).toLocaleTimeString()}</span>

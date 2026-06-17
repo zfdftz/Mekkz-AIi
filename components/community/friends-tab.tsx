@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ProfileLink } from "@/components/community/profile-context";
 import {
   ChatComposer,
+  ChatMessageList,
   EmptyState,
   ErrorBanner,
   FieldLabel,
@@ -18,6 +19,7 @@ import {
 } from "@/components/community/shared";
 import { usePoll } from "@/hooks/use-poll";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { chatMessagesScrollKey } from "@/lib/chat-user-color";
 import type { FriendMessage, FriendRequest } from "@/lib/community/types";
 
 type FriendRow = {
@@ -296,7 +298,7 @@ export function FriendsTab() {
                 </p>
               </div>
             </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            <ChatMessageList scrollKey={chatMessagesScrollKey(messages)}>
               {messages.map((msg) => {
                 const isFriend = msg.senderId === activeFriend.userId;
                 return (
@@ -309,12 +311,13 @@ export function FriendsTab() {
                     authorCreator={isFriend ? msg.authorCreator : undefined}
                     authorChosen={isFriend ? msg.authorChosen : undefined}
                     authorUltraCreator={isFriend ? msg.authorUltraCreator : undefined}
+                    colorKey={msg.senderId}
                     content={msg.content}
                     time={msg.createdAt}
                   />
                 );
               })}
-            </div>
+            </ChatMessageList>
             <ChatComposer
               value={draft}
               onChange={setDraft}

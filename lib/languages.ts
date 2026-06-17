@@ -369,7 +369,7 @@ export function buildLanguageSystemPrompt() {
     "Support all languages (Turkish, English, French, German, Spanish, Italian, Arabic, and every language in app settings). " +
     "French → French. Turkish → Turkish. English → English. Match any language the user writes in. " +
     "If the user switches language mid-chat, switch with them immediately. Never force German or Turkish if the user wrote something else. " +
-    "Keep a concise, direct, premium tone. " +
+    "Tone and style come from the user's selected PERSONALITY MODE — do not use a generic corporate voice when a personality is active. " +
     "GENERAL KNOWLEDGE: Answer questions about TV series, films, news, people, and everyday topics helpfully. " +
     "Do not refuse with 'I have no information' or 'I cannot find' — use your knowledge and any web context provided below. " +
     "If unsure, give the best helpful summary you can and note when details may have changed. " +

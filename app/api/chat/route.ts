@@ -50,7 +50,10 @@ import {
   buildMemorySystemPrompt,
   getMemoriesForPrompt
 } from "@/lib/memory";
-import { buildPersonalityPrompt } from "@/lib/personality";
+import {
+  buildPersonalityLock,
+  buildPersonalitySystemPrompt
+} from "@/lib/personality";
 import { buildTutorSystemPrompt } from "@/lib/tutor";
 import {
   buildCustomInstructionsPrompt,
@@ -215,17 +218,21 @@ export async function POST(req: Request) {
       userText
     );
 
-  const [memoryText, aiPreferences, stylePrompt, planState, chatContext, activityContext] =
+  const [memoryText, aiPreferences, planState, chatContext, activityContext] =
     await Promise.all([
       getMemoriesForPrompt(admin, userId),
       getUserAiPreferences(admin, userId),
-      getCommunicationStylePrompt(admin, userId),
       getUserPlanState(admin, userId),
       buildChatUserContextPrompt(admin, userId, user.email),
       needsActivityContext
         ? buildExtendedUserActivityContext(admin, userId, { searchHint: userText })
         : Promise.resolve("")
     ]);
+  const stylePrompt = await getCommunicationStylePrompt(
+    admin,
+    userId,
+    aiPreferences.personalityMode
+  );
   const chatLimitState = await getConversationLimitState(
     admin,
     userId,
@@ -278,7 +285,7 @@ export async function POST(req: Request) {
     content:
       systemContent +
       `${planRules}\n` +
-      `${buildPersonalityPrompt(aiPreferences.personalityMode, userLanguage)}\n` +
+      `${buildPersonalitySystemPrompt(aiPreferences.personalityMode, userLanguage)}\n` +
       (aiPreferences.tutorModeEnabled
         ? `${buildTutorSystemPrompt(aiPreferences.tutorLevel)}\n`
         : "") +
@@ -288,6 +295,7 @@ export async function POST(req: Request) {
       `${chatContext.prompt}\n` +
       `${activityContext}\n` +
       `${buildChatFormatInstructions(chatContext.username)}\n` +
+      `${buildPersonalityLock(aiPreferences.personalityMode, userLanguage)}\n` +
       `\n${buildReplyLanguageLock(replyLanguage)}`
   };
 

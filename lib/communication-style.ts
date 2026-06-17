@@ -1,4 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import type { PersonalityMode } from "./personality";
+import { isActivePersonalityMode } from "./personality";
 
 const STOPWORDS = new Set([
   "aber",
@@ -461,8 +463,13 @@ export async function getUserCommunicationStyle(
 
 export async function getCommunicationStylePrompt(
   admin: SupabaseClient,
-  userId: string
+  userId: string,
+  personalityMode: PersonalityMode = "normal"
 ) {
+  if (isActivePersonalityMode(personalityMode)) {
+    return "";
+  }
+
   const profile = await getUserCommunicationStyle(admin, userId);
   if (!profile?.enabled || !profile.stylePrompt.trim()) return "";
   return (

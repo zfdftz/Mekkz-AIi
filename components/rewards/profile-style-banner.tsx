@@ -5,55 +5,98 @@ import {
   getProfileBackgroundClass,
   resolveEquippedStyleId
 } from "@/lib/rewards/catalog";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
-export function ProfileStyleBanner({
-  styleId,
-  profileFrame,
-  accentColor,
-  className = "h-24",
-  seasonClass
-}: {
+type StyleProps = {
   styleId?: string | null;
   profileFrame?: string | null;
   accentColor?: string | null;
-  className?: string;
   seasonClass?: string;
-}) {
+};
+
+function useEquippedStyle({ styleId, profileFrame }: StyleProps) {
   const equipped = resolveEquippedStyleId(styleId, profileFrame);
   const bgClass = getProfileBackgroundClass(equipped);
   const hasCustomStyle = Boolean(equipped);
   const cosmetic = equipped ? getCosmetic(equipped) : null;
   const isFrameStyle = cosmetic?.type === "frame";
+  return { equipped, bgClass, hasCustomStyle, isFrameStyle };
+}
+
+/** Full-bleed animated background layer (fixed, no filter animations). */
+export function ProfileStyleBackground({
+  styleId,
+  profileFrame,
+  accentColor,
+  seasonClass,
+  className = ""
+}: StyleProps & { className?: string }) {
+  const { bgClass, hasCustomStyle, isFrameStyle } = useEquippedStyle({ styleId, profileFrame });
 
   return (
     <div
-      className={`discord-profile-banner profile-style-banner relative w-full overflow-hidden bg-cover bg-center ${bgClass} ${className} ${
-        hasCustomStyle ? "profile-style-custom" : seasonClass ? `${seasonClass}-banner` : ""
+      className={`profile-style-background ${bgClass} ${className} ${
+        hasCustomStyle ? "profile-bg-animated" : seasonClass ? `${seasonClass}-banner` : ""
       }`}
       style={accentColor ? ({ "--profile-accent": accentColor } as CSSProperties) : undefined}
+      aria-hidden
     >
-      {isFrameStyle ? (
-        <div className="profile-style-rings pointer-events-none absolute inset-0" aria-hidden />
-      ) : null}
-      {!hasCustomStyle ? (
-        <div className="season-stars pointer-events-none absolute inset-0 opacity-60" />
-      ) : null}
+      {isFrameStyle ? <div className="profile-style-rings" /> : null}
+      {!hasCustomStyle ? <div className="season-stars opacity-60" /> : null}
+      {hasCustomStyle ? <div className="profile-bg-drift-layer" /> : null}
       {accentColor ? (
         <div
-          className={`pointer-events-none absolute inset-0 mix-blend-soft-light ${
-            hasCustomStyle ? "opacity-20" : "opacity-35"
-          }`}
+          className="profile-style-accent"
           style={{
-            background: `linear-gradient(135deg, ${accentColor} 0%, transparent 50%, ${accentColor}66 100%)`
+            background: `linear-gradient(135deg, ${accentColor}33 0%, transparent 45%, ${accentColor}22 100%)`
           }}
         />
       ) : null}
-      <div
-        className={`absolute inset-0 bg-gradient-to-t ${
-          hasCustomStyle ? "from-[#232428]/75" : "from-[#232428]/90"
-        } via-transparent to-transparent`}
+    </div>
+  );
+}
+
+/** Wraps profile UI: animated bg on the whole card, readable text on top. */
+export function ProfileStyleShell({
+  styleId,
+  profileFrame,
+  accentColor,
+  seasonClass,
+  className = "",
+  children
+}: StyleProps & { className?: string; children: ReactNode }) {
+  return (
+    <div className={`profile-style-shell relative isolate overflow-hidden ${className}`}>
+      <ProfileStyleBackground
+        styleId={styleId}
+        profileFrame={profileFrame}
+        accentColor={accentColor}
+        seasonClass={seasonClass}
       />
+      <div className="profile-style-scrim" aria-hidden />
+      <div className="profile-style-content relative z-[2]">{children}</div>
+    </div>
+  );
+}
+
+/** Small preview strip (background picker only). */
+export function ProfileStyleBanner({
+  styleId,
+  profileFrame,
+  accentColor,
+  className = "h-20",
+  seasonClass
+}: StyleProps & { className?: string }) {
+  return (
+    <div className={`relative overflow-hidden rounded-xl border border-white/10 ${className}`}>
+      <ProfileStyleBackground
+        styleId={styleId}
+        profileFrame={profileFrame}
+        accentColor={accentColor}
+        seasonClass={seasonClass}
+        className="rounded-xl"
+      />
+      <div className="profile-style-scrim rounded-xl opacity-80" aria-hidden />
     </div>
   );
 }

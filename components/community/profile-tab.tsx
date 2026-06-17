@@ -24,7 +24,7 @@ import {
   ProfileRewardsPanel,
   type RewardsFormState
 } from "@/components/rewards/profile-rewards-panel";
-import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
+import { ProfileStyleShell } from "@/components/rewards/profile-style-banner";
 import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { readJsonResponse } from "@/lib/fetch-json";
@@ -168,18 +168,16 @@ export function ProfileTab() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <Panel className="overflow-hidden p-0">
-        <ProfileStyleBanner
+      <Panel className="overflow-hidden !bg-transparent p-0 shadow-none">
+        <ProfileStyleShell
           styleId={rewardsForm.profileBackground}
           accentColor={rewardsForm.accentColor}
           seasonClass={seasonClass}
-          className="h-28 rounded-none border-0"
-        />
-
+        >
         <form onSubmit={(e) => void save(e)} className="space-y-4 p-4 sm:p-5">
-          <div className="-mt-14 flex items-end gap-4">
+          <div className="flex items-end gap-4">
             <div
-              className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#232428] bg-[#232428]"
+              className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-black/40 bg-black/30"
               style={
                 rewardsForm.accentColor
                   ? {
@@ -307,7 +305,7 @@ export function ProfileTab() {
           </div>
 
           <div className="border-t border-white/10 pt-4">
-            <ProfileRewardsPanel embedded onFormChange={setRewardsForm} hidePreview />
+            <ProfileRewardsPanel embedded onFormChange={setRewardsForm} />
           </div>
 
           <button
@@ -322,6 +320,7 @@ export function ProfileTab() {
             Speichern
           </PrimaryButton>
         </form>
+        </ProfileStyleShell>
       </Panel>
 
       {showBadgesPanel ? <BadgesTitlesPanel onClose={() => setShowBadgesPanel(false)} /> : null}

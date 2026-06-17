@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Gift, Heart, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Panel, PrimaryButton } from "@/components/community/shared";
-import { BadgeShowcase } from "@/components/rewards/profile-identity";
 import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
 import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { readJsonResponse } from "@/lib/fetch-json";
@@ -47,12 +46,10 @@ function formatCooldown(ms: number) {
 
 export function ProfileRewardsPanel({
   embedded,
-  onFormChange,
-  hidePreview
+  onFormChange
 }: {
   embedded?: boolean;
   onFormChange?: (state: RewardsFormState) => void;
-  hidePreview?: boolean;
 }) {
   const [state, setState] = useState<RewardsState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,12 +165,11 @@ export function ProfileRewardsPanel({
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold">Badge Showcase</h4>
+        <h4 className="mb-1 text-sm font-semibold">Badges</h4>
         <p className="mb-2 text-[10px] text-muted">
           Chat- und Follower-Badges: pro Tier-Gruppe nur eins (z. B. 100 oder 500 Chats, 1k oder 10k Follower). Andere Badges unbegrenzt.
         </p>
-        <BadgeShowcase badges={state.showcased ?? []} />
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1">
           {(state.badges ?? []).map((b) => {
             const active = showcaseIds.includes(b.id);
             return (
@@ -199,18 +195,14 @@ export function ProfileRewardsPanel({
 
       <div>
         <h4 className="mb-2 text-sm font-semibold">Profil-Hintergrund</h4>
-        {!hidePreview ? (
+        {!embedded ? (
           <ProfileStyleBanner
             styleId={profileBackground}
             accentColor={accentColor}
             seasonClass={seasonClass}
-            className="mb-3 h-24"
+            className="mb-3 h-20"
           />
-        ) : (
-          <p className="mb-3 text-[11px] text-muted">
-            Vorschau oben im Profil-Banner — Galaxy Ring & Co. erscheinen als Hintergrund.
-          </p>
-        )}
+        ) : null}
         <label className="mb-2 block text-xs text-muted">Akzentfarbe</label>
         <input
           type="color"

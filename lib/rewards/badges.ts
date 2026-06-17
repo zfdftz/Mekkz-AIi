@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BADGES, getBadge, type BadgeDef } from "./catalog";
-import { validateShowcaseBadgeIds } from "./showcase-rules";
+import { validateShowcaseBadgeIds, filterShowcaseBadges, stripIdentityBadgeIds } from "./showcase-rules";
 
 function missing(msg: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(msg);
@@ -85,8 +85,10 @@ export async function getShowcasedBadges(admin: SupabaseClient, userId: string):
     .select("showcased_badge_ids")
     .eq("user_id", userId)
     .maybeSingle();
-  const ids = (data?.showcased_badge_ids as string[]) ?? [];
+  const ids = stripIdentityBadgeIds((data?.showcased_badge_ids as string[]) ?? []);
   const all = await listUserBadges(admin, userId);
   const map = new Map(all.map((b) => [b.id, b]));
-  return ids.map((id) => map.get(id)).filter(Boolean) as UserBadge[];
+  return filterShowcaseBadges(
+    ids.map((id) => map.get(id)).filter(Boolean) as UserBadge[]
+  );
 }

@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Check } from "lucide-react";
 import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
+import { filterShowcaseBadges } from "@/lib/rewards/showcase-rules";
 
 type BadgeChip = { id: string; name: string; description: string; icon: string };
 
@@ -137,6 +138,7 @@ export function ProfileIdentity({
   profileView?: boolean;
 }) {
   const markSize = profileView ? 18 : compact ? 14 : 16;
+  const showcaseBadges = badges ? filterShowcaseBadges(badges) : [];
   const nameClass = profileView
     ? "truncate text-lg font-bold leading-none"
     : compact
@@ -171,9 +173,9 @@ export function ProfileIdentity({
         </span>
       ) : null}
 
-      {badges && badges.length > 0 && !compact ? (
+      {showcaseBadges.length > 0 && !compact ? (
         <span className={`flex flex-wrap gap-1 ${profileView ? "mt-1.5" : "mt-1"}`}>
-          {badges.map((b) => (
+          {showcaseBadges.map((b) => (
             <DiscordTooltip key={b.id} label={b.name} description={b.description}>
               <span className="inline-flex cursor-help rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs">
                 {b.icon}
@@ -187,12 +189,13 @@ export function ProfileIdentity({
 }
 
 export function BadgeShowcase({ badges }: { badges: BadgeChip[] }) {
-  if (badges.length === 0) {
+  const items = filterShowcaseBadges(badges);
+  if (items.length === 0) {
     return <p className="text-xs text-muted">Noch keine Badges.</p>;
   }
   return (
     <div className="flex flex-wrap gap-1.5">
-      {badges.map((b) => (
+      {items.map((b) => (
         <DiscordTooltip key={b.id} label={b.name} description={b.description}>
           <span className="inline-flex cursor-help rounded-xl border border-white/10 bg-black/30 px-2 py-1.5 text-sm backdrop-blur-sm">
             {b.icon}

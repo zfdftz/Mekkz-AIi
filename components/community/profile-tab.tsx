@@ -28,6 +28,7 @@ import { ProfileStyleShell } from "@/components/rewards/profile-style-banner";
 import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { TITLES } from "@/lib/rewards/catalog";
+import { filterShowcaseBadges, stripIdentityBadgeIds } from "@/lib/rewards/showcase-rules";
 import { storeAccent } from "@/lib/accent-color";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
@@ -35,12 +36,13 @@ import type { UserProfile } from "@/lib/community/types";
 const AVATAR_MAX_MB = Math.round(AVATAR_MAX_BYTES / (1024 * 1024));
 
 function profileToRewardsForm(profile: UserProfile | null): RewardsFormState {
+  const showcasedBadges = filterShowcaseBadges(profile?.showcasedBadges ?? []);
   return {
-    showcaseIds: (profile?.showcasedBadges ?? []).map((b) => b.id),
+    showcaseIds: showcasedBadges.map((b) => b.id),
     profileBackground: profile?.profileBackground ?? null,
     accentColor: profile?.accentColor ?? "#8b5cf6",
     activeTitle: profile?.activeTitle ?? null,
-    showcasedBadges: profile?.showcasedBadges ?? []
+    showcasedBadges
   };
 }
 

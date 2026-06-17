@@ -9,7 +9,7 @@ import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { TITLES } from "@/lib/rewards/catalog";
-import { toggleShowcaseBadge } from "@/lib/rewards/showcase-rules";
+import { toggleShowcaseBadge, isIdentityBadge, filterShowcaseBadges, stripIdentityBadgeIds } from "@/lib/rewards/showcase-rules";
 
 type RewardsState = {
   badges?: { id: string; name: string; description: string; icon: string; grantedAt: string }[];
@@ -70,9 +70,11 @@ export function ProfileRewardsPanel({
       const ids = next.showcaseIds ?? showcaseIds;
       const showcasedBadges =
         next.showcasedBadges ??
-        (state?.badges ?? [])
-          .filter((b) => ids.includes(b.id))
-          .map((b) => ({ id: b.id, name: b.name, description: b.description, icon: b.icon }));
+        filterShowcaseBadges(
+          (state?.badges ?? [])
+            .filter((b) => ids.includes(b.id))
+            .map((b) => ({ id: b.id, name: b.name, description: b.description, icon: b.icon }))
+        );
 
       onFormChange?.({
         showcaseIds: ids,
@@ -106,7 +108,7 @@ export function ProfileRewardsPanel({
       if (res.ok) {
         setState(data);
         if (!embedded) {
-          const ids = (data.showcased ?? []).map((b) => b.id);
+          const ids = stripIdentityBadgeIds((data.showcased ?? []).map((b) => b.id));
           const bg = data.cosmetics?.profileBackground ?? null;
           const accent = data.cosmetics?.accentColor ?? "#8b5cf6";
           const title = data.cosmetics?.activeTitle ?? null;
@@ -119,7 +121,7 @@ export function ProfileRewardsPanel({
             profileBackground: bg,
             accentColor: accent,
             activeTitle: title,
-            showcasedBadges: data.showcased ?? []
+            showcasedBadges: filterShowcaseBadges(data.showcased ?? [])
           });
         }
       }
@@ -201,10 +203,10 @@ export function ProfileRewardsPanel({
       <div>
         <h4 className="mb-1 text-sm font-semibold">Badges</h4>
         <p className="mb-2 text-[10px] text-muted">
-          Chat- und Follower-Badges: pro Tier-Gruppe nur eins (z. B. 100 oder 500 Chats, 1k oder 10k Follower). Andere Badges unbegrenzt.
+          Chat- und Follower-Badges: pro Tier-Gruppe nur eins. Verified, Creator & Chosen One erscheinen automatisch neben dem Namen — nicht hier.
         </p>
         <div className="flex flex-wrap gap-1">
-          {(state.badges ?? []).map((b) => {
+          {(state.badges ?? []).filter((b) => !isIdentityBadge(b.id)).map((b) => {
             const active = showcaseIds.includes(b.id);
             return (
               <DiscordTooltip key={b.id} label={b.name} description={b.description}>

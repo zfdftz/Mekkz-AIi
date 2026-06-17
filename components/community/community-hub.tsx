@@ -314,7 +314,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
   return (
     <ProfileProvider>
     <RewardsAdminButton />
-    <div className={`community-hub ${seasonClass} mx-auto min-h-screen max-w-[1800px] px-4 py-5 sm:px-6 sm:py-8`}>
+    <div className={`community-hub ${seasonClass} mx-auto min-h-screen max-w-[1800px] px-3 py-4 sm:px-6 sm:py-8`}>
       {alert ? (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -334,14 +334,14 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
         </motion.div>
       ) : null}
 
-      <header className="community-header mb-6 rounded-2xl border border-white/10 bg-gradient-to-r from-primary/15 via-white/5 to-transparent p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <header className="community-header mb-4 rounded-2xl border border-white/10 bg-gradient-to-r from-primary/15 via-white/5 to-transparent p-4 sm:mb-6 sm:p-6">
+        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
               <Sparkles size={12} /> {t("community.hubBadge")}
             </p>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t("community.title")}</h1>
-            <p className="mt-2 max-w-xl text-sm text-muted">{t("community.subtitle")}</p>
+            <h1 className="text-xl font-bold tracking-tight sm:text-3xl">{t("community.title")}</h1>
+            <p className="mt-1.5 max-w-xl text-sm text-muted sm:mt-2">{t("community.subtitle")}</p>
           </div>
           <Link
             href="/chat"
@@ -380,28 +380,29 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
           </div>
         ) : null}
 
-        <main className="min-w-0 flex-1">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <main className="min-w-0 flex-1 overflow-x-hidden">
+          <div className="mb-4 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={() => setNavOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-base lg:hidden"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm lg:hidden"
             >
               <Menu size={18} /> {t("community.menu")}
             </button>
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/20 text-primary">
-                <active.icon size={22} />
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary sm:h-11 sm:w-11">
+                <active.icon size={20} className="sm:hidden" />
+                <active.icon size={22} className="hidden sm:block" />
               </span>
-              <div>
-                <h2 className="text-2xl font-semibold">{activeLabel}</h2>
-                <p className="text-base text-muted">{activeDescription}</p>
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold sm:text-2xl">{activeLabel}</h2>
+                <p className="truncate text-sm text-muted sm:text-base">{activeDescription}</p>
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto pb-2 lg:hidden">
-            <div className="flex min-w-max gap-2">
+          <div className="-mx-1 overflow-x-auto pb-2 lg:hidden">
+            <div className="flex w-max max-w-full gap-1.5 px-1 sm:gap-2">
               {navItems.map((item) =>
                 item.disabled ? (
                   <span
@@ -419,7 +420,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
                     key={item.id}
                     type="button"
                     onClick={() => setTab(item.id)}
-                    className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:py-2 sm:text-sm ${
                       tab === item.id ? "bg-primary text-white" : "bg-white/10"
                     }`}
                   >

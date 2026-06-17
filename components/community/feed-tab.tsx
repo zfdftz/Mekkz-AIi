@@ -38,6 +38,7 @@ export function FeedTab() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, FeedComment[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
+  const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async (append = false) => {
     setError(null);
@@ -140,35 +141,53 @@ export function FeedTab() {
   }
 
   async function toggleLike(postId: string) {
-    const res = await fetch("/api/community/feed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "like", postId })
-    });
-    const data = await readJsonResponse<{ liked?: boolean; error?: string }>(res);
-    if (!res.ok) return;
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              likedByMe: data.liked,
-              likesCount: p.likesCount + (data.liked ? 1 : -1)
-            }
-          : p
-      )
-    );
+    const key = `like:${postId}`;
+    if (actionBusy[key]) return;
+    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    try {
+      const res = await fetch("/api/community/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "like", postId })
+      });
+      const data = await readJsonResponse<{ liked?: boolean; likesCount?: number; error?: string }>(res);
+      if (!res.ok) return;
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                likedByMe: data.liked ?? p.likedByMe,
+                likesCount: data.likesCount ?? p.likesCount
+              }
+            : p
+        )
+      );
+    } finally {
+      setActionBusy((prev) => ({ ...prev, [key]: false }));
+    }
   }
 
   async function repostPost(postId: string) {
-    await fetch("/api/community/feed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "repost", postId })
-    });
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, repostsCount: p.repostsCount + 1 } : p))
-    );
+    const key = `repost:${postId}`;
+    if (actionBusy[key]) return;
+    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    try {
+      const res = await fetch("/api/community/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "repost", postId })
+      });
+      const data = await readJsonResponse<{ repostsCount?: number; error?: string }>(res);
+      if (!res.ok) return;
+      if (typeof data.repostsCount === "number") {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === postId ? { ...p, repostsCount: data.repostsCount! } : p))
+        );
+      }
+    } finally {
+      setActionBusy((prev) => ({ ...prev, [key]: false }));
+    }
   }
 
   async function loadComments(postId: string) {
@@ -185,22 +204,35 @@ export function FeedTab() {
   async function sendComment(postId: string) {
     const text = commentDraft[postId]?.trim();
     if (!text) return;
-    const res = await fetch("/api/community/feed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "comment", postId, content: text })
-    });
-    const data = await readJsonResponse<{ comment?: FeedComment; error?: string }>(res);
-    if (!res.ok) return;
-    setCommentDraft((prev) => ({ ...prev, [postId]: "" }));
-    if (data.comment) {
-      setComments((prev) => ({
-        ...prev,
-        [postId]: [...(prev[postId] ?? []), data.comment!]
-      }));
-      setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p))
+    const key = `comment:${postId}`;
+    if (actionBusy[key]) return;
+    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    try {
+      const res = await fetch("/api/community/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "comment", postId, content: text })
+      });
+      const data = await readJsonResponse<{ comment?: FeedComment; commentsCount?: number; error?: string }>(
+        res
       );
+      if (!res.ok) return;
+      setCommentDraft((prev) => ({ ...prev, [postId]: "" }));
+      if (data.comment) {
+        setComments((prev) => ({
+          ...prev,
+          [postId]: [...(prev[postId] ?? []), data.comment!]
+        }));
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, commentsCount: data.commentsCount ?? p.commentsCount + 1 }
+              : p
+          )
+        );
+      }
+    } finally {
+      setActionBusy((prev) => ({ ...prev, [key]: false }));
     }
   }
 
@@ -321,15 +353,21 @@ export function FeedTab() {
                 </div>
               ) : null}
               <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-                <GhostButton onClick={() => toggleLike(post.id)}>
+                <GhostButton
+                  disabled={actionBusy[`like:${post.id}`]}
+                  onClick={() => void toggleLike(post.id)}
+                >
                   <Heart size={16} className={`mr-1.5 inline ${post.likedByMe ? "fill-red-400 text-red-400" : ""}`} />
                   {post.likesCount}
                 </GhostButton>
-                <GhostButton onClick={() => loadComments(post.id)}>
+                <GhostButton onClick={() => void loadComments(post.id)}>
                   <MessageCircle size={16} className="mr-1.5 inline" />
                   {post.commentsCount}
                 </GhostButton>
-                <GhostButton onClick={() => repostPost(post.id)}>
+                <GhostButton
+                  disabled={actionBusy[`repost:${post.id}`]}
+                  onClick={() => void repostPost(post.id)}
+                >
                   <Repeat2 size={16} className="mr-1.5 inline" />
                   {post.repostsCount}
                 </GhostButton>
@@ -355,8 +393,9 @@ export function FeedTab() {
                   <ChatComposer
                     value={commentDraft[post.id] ?? ""}
                     onChange={(v) => setCommentDraft((prev) => ({ ...prev, [post.id]: v }))}
-                    onSend={() => sendComment(post.id)}
+                    onSend={() => void sendComment(post.id)}
                     placeholder="Kommentar…"
+                    loading={actionBusy[`comment:${post.id}`]}
                   />
                 </div>
               ) : null}

@@ -139,6 +139,7 @@ export function RoomsTab() {
 
   return (
     <ChatLayout
+      mobileView={activeRoom ? "main" : "sidebar"}
       sidebarTitle="Themen-Räume"
       sidebar={
         <>
@@ -181,11 +182,20 @@ export function RoomsTab() {
         ) : (
           <>
             <div className="mb-4 flex items-start justify-between gap-2 border-b border-white/10 pb-4">
-              <div>
-                <h3 className="text-2xl font-semibold">{activeRoom.name}</h3>
-                <p className="text-lg text-muted">{activeRoom.description}</p>
+              <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => void leaveRoom()}
+                  className="mb-2 inline-flex items-center rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium xl:hidden"
+                >
+                  ← Zurück
+                </button>
+                <h3 className="truncate text-xl font-semibold sm:text-2xl">{activeRoom.name}</h3>
+                <p className="text-base text-muted sm:text-lg">{activeRoom.description}</p>
               </div>
-              <GhostButton onClick={leaveRoom}>Verlassen</GhostButton>
+              <GhostButton className="hidden shrink-0 xl:inline-flex" onClick={leaveRoom}>
+                Verlassen
+              </GhostButton>
             </div>
             {activeRoom.rules ? (
               <details className="mb-4 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm">

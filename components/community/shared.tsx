@@ -8,7 +8,7 @@ import { ProfileIdentity } from "@/components/rewards/profile-identity";
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`community-panel rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-5 shadow-lg shadow-black/20 backdrop-blur-md sm:p-6 ${className}`}
+      className={`community-panel rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.02] p-4 shadow-lg shadow-black/20 backdrop-blur-md sm:p-6 ${className}`}
     >
       {children}
     </div>
@@ -33,21 +33,37 @@ export function SectionHeader({
 export function ChatLayout({
   sidebar,
   main,
-  sidebarTitle
+  sidebarTitle,
+  mobileView = "both"
 }: {
   sidebar: ReactNode;
   main: ReactNode;
   sidebarTitle?: string;
+  /** On phones: show only sidebar list, only chat, or both stacked. */
+  mobileView?: "sidebar" | "main" | "both";
 }) {
+  const hideSidebar = mobileView === "main";
+  const hideMain = mobileView === "sidebar";
+
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
-      <Panel className="flex max-h-[85vh] min-h-[520px] flex-col overflow-hidden">
+    <div className="grid gap-3 lg:gap-5 xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
+      <Panel
+        className={`flex min-h-0 flex-col overflow-hidden ${
+          hideSidebar ? "hidden xl:flex" : "flex"
+        } max-h-[min(50dvh,420px)] xl:max-h-[85vh] xl:min-h-[520px]`}
+      >
         {sidebarTitle ? (
           <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-primary">{sidebarTitle}</p>
         ) : null}
         {sidebar}
       </Panel>
-      <Panel className="flex max-h-[85vh] min-h-[520px] flex-col overflow-hidden">{main}</Panel>
+      <Panel
+        className={`flex min-h-0 flex-col overflow-hidden ${
+          hideMain ? "hidden xl:flex" : "flex"
+        } min-h-[min(65dvh,560px)] xl:max-h-[85vh] xl:min-h-[520px]`}
+      >
+        {main}
+      </Panel>
     </div>
   );
 }
@@ -270,9 +286,9 @@ export function ChatComposer({
 }) {
   const blocked = loading || disabled;
   return (
-    <div className="flex gap-3 border-t border-white/10 pt-5">
+    <div className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:gap-3 sm:pt-5">
       <TextInput
-        className="py-3.5 text-[17px] sm:text-lg"
+        className="min-w-0 flex-1 py-3 text-base sm:py-3.5 sm:text-lg"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -284,7 +300,12 @@ export function ChatComposer({
           }
         }}
       />
-      <PrimaryButton onClick={onSend} loading={loading} disabled={disabled}>
+      <PrimaryButton
+        className="w-full shrink-0 sm:w-auto"
+        onClick={onSend}
+        loading={loading}
+        disabled={disabled}
+      >
         {sendLabel}
       </PrimaryButton>
     </div>

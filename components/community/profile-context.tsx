@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ProfileModal } from "@/components/community/profile-modal";
 import type { PublicUserProfile } from "@/lib/community/types";
 
@@ -47,18 +48,30 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     cacheRef.current.set(id, { profile, at: Date.now() });
   }, []);
 
+  useEffect(() => {
+    if (!userId) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [userId]);
+
+  const modal =
+    userId && typeof document !== "undefined" ? (
+      <ProfileModal
+        userId={userId}
+        initialProfile={initialProfile}
+        onProfileLoaded={onProfileLoaded}
+        onClose={closeProfile}
+        onOpenProfile={openProfile}
+      />
+    ) : null;
+
   return (
     <ProfileContext.Provider value={{ openProfile }}>
       {children}
-      {userId ? (
-        <ProfileModal
-          userId={userId}
-          initialProfile={initialProfile}
-          onProfileLoaded={onProfileLoaded}
-          onClose={closeProfile}
-          onOpenProfile={openProfile}
-        />
-      ) : null}
+      {modal ? createPortal(modal, document.body) : null}
     </ProfileContext.Provider>
   );
 }

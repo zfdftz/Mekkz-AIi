@@ -612,6 +612,22 @@ export async function createFeedPost(
   return data;
 }
 
+async function syncFeedPostCounter(
+  admin: SupabaseClient,
+  postId: string,
+  table: "feed_likes" | "feed_comments" | "feed_reposts",
+  column: "likes_count" | "comments_count" | "reposts_count"
+) {
+  const { count, error } = await admin
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .eq("post_id", postId);
+  if (error) throw new Error(error.message);
+  const value = count ?? 0;
+  await admin.from("feed_posts").update({ [column]: value }).eq("id", postId);
+  return value;
+}
+
 export async function toggleLike(admin: SupabaseClient, userId: string, postId: string) {
   const { data: existing } = await admin
     .from("feed_likes")
@@ -619,16 +635,25 @@ export async function toggleLike(admin: SupabaseClient, userId: string, postId: 
     .eq("post_id", postId)
     .eq("user_id", userId)
     .maybeSingle();
-  const { data: post } = await admin.from("feed_posts").select("likes_count").eq("id", postId).single();
-  const count = post?.likes_count ?? 0;
+
   if (existing) {
     await admin.from("feed_likes").delete().eq("post_id", postId).eq("user_id", userId);
-    await admin.from("feed_posts").update({ likes_count: Math.max(0, count - 1) }).eq("id", postId);
-    return { liked: false };
+  } else {
+    const { error } = await admin.from("feed_likes").insert({ post_id: postId, user_id: userId });
+    if (error && !/duplicate|unique/i.test(error.message)) {
+      throw new Error(error.message);
+    }
   }
-  await admin.from("feed_likes").insert({ post_id: postId, user_id: userId });
-  await admin.from("feed_posts").update({ likes_count: count + 1 }).eq("id", postId);
-  return { liked: true };
+
+  const likesCount = await syncFeedPostCounter(admin, postId, "feed_likes", "likes_count");
+  const { data: likedRow } = await admin
+    .from("feed_likes")
+    .select("post_id")
+    .eq("post_id", postId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return { liked: Boolean(likedRow), likesCount };
 }
 
 export async function listComments(
@@ -661,37 +686,35 @@ export async function addComment(
   userId: string,
   postId: string,
   content: string
-): Promise<FeedComment> {
+): Promise<{ comment: FeedComment; commentsCount: number }> {
   const { data, error } = await admin
     .from("feed_comments")
     .insert({ post_id: postId, user_id: userId, content })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  const { data: post } = await admin.from("feed_posts").select("comments_count").eq("id", postId).single();
-  await admin
-    .from("feed_posts")
-    .update({ comments_count: (post?.comments_count ?? 0) + 1 })
-    .eq("id", postId);
+  const commentsCount = await syncFeedPostCounter(admin, postId, "feed_comments", "comments_count");
   const names = await usernamesByIds(admin, [userId]);
   return {
-    id: data.id,
-    postId: data.post_id,
-    userId: data.user_id,
-    content: data.content,
-    createdAt: data.created_at,
-    authorName: names.get(userId) ?? null
+    comment: {
+      id: data.id,
+      postId: data.post_id,
+      userId: data.user_id,
+      content: data.content,
+      createdAt: data.created_at,
+      authorName: names.get(userId) ?? null
+    },
+    commentsCount
   };
 }
 
 export async function repost(admin: SupabaseClient, userId: string, postId: string) {
   const { error } = await admin.from("feed_reposts").insert({ post_id: postId, user_id: userId });
-  if (error && !/duplicate|unique/i.test(error.message)) throw new Error(error.message);
-  const { data: post } = await admin.from("feed_posts").select("reposts_count").eq("id", postId).single();
-  await admin
-    .from("feed_posts")
-    .update({ reposts_count: (post?.reposts_count ?? 0) + 1 })
-    .eq("id", postId);
+  const alreadyReposted = Boolean(error && /duplicate|unique/i.test(error.message));
+  if (error && !alreadyReposted) throw new Error(error.message);
+
+  const repostsCount = await syncFeedPostCounter(admin, postId, "feed_reposts", "reposts_count");
+  return { reposted: !alreadyReposted, alreadyReposted, repostsCount };
 }
 
 function mapRoom(row: Record<string, unknown>): ChatRoom {

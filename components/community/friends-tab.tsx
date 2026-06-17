@@ -167,8 +167,8 @@ export function FriendsTab() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
-      <div className="space-y-4">
+    <div className="grid gap-3 lg:gap-5 xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
+      <div className={`space-y-3 lg:space-y-4 ${activeFriend ? "hidden xl:block" : "block"}`}>
         <Panel>
           <FieldLabel>Freund hinzufügen</FieldLabel>
           <p className="mb-2 text-sm text-muted">
@@ -254,7 +254,7 @@ export function FriendsTab() {
         </Panel>
       </div>
 
-      <Panel className="flex min-h-[560px] max-h-[85vh] flex-col">
+      <Panel className={`flex min-h-[min(65dvh,560px)] max-h-none flex-col xl:max-h-[85vh] xl:min-h-[560px] ${activeFriend ? "flex" : "hidden xl:flex"}`}>
         {!activeFriend ? (
           <EmptyState>
             <Users size={32} className="mb-2 opacity-40" />
@@ -263,6 +263,13 @@ export function FriendsTab() {
         ) : (
           <>
             <div className="mb-4 flex items-center gap-3 border-b border-white/10 pb-4">
+              <button
+                type="button"
+                onClick={() => setActiveFriend(null)}
+                className="inline-flex shrink-0 items-center rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium xl:hidden"
+              >
+                ← Zurück
+              </button>
               <FriendAvatar
                 username={activeFriend.username}
                 avatarUrl={null}

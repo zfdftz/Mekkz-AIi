@@ -106,8 +106,8 @@ export function GroupsTab() {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
-      <div className="space-y-4">
+    <div className="grid gap-3 lg:gap-5 xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
+      <div className={`space-y-3 lg:space-y-4 ${activeGroup ? "hidden xl:block" : "block"}`}>
         <Panel>
           <FieldLabel>Neue Gruppe</FieldLabel>
           <div className="flex gap-2">
@@ -155,12 +155,21 @@ export function GroupsTab() {
         </Panel>
       </div>
 
-      <Panel className="flex min-h-[560px] max-h-[85vh] flex-col">
+      <Panel className={`flex min-h-[min(65dvh,560px)] max-h-none flex-col xl:max-h-[85vh] xl:min-h-[560px] ${activeGroup ? "flex" : "hidden xl:flex"}`}>
         {!activeGroup ? (
           <EmptyState>Gruppe auswählen oder erstellen.</EmptyState>
         ) : (
           <>
-            <h3 className="mb-4 border-b border-white/10 pb-4 text-2xl font-semibold">{activeGroup.name}</h3>
+            <div className="mb-4 flex items-center gap-3 border-b border-white/10 pb-4">
+              <button
+                type="button"
+                onClick={() => setActiveGroup(null)}
+                className="inline-flex shrink-0 items-center rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium xl:hidden"
+              >
+                ← Zurück
+              </button>
+              <h3 className="truncate text-xl font-semibold sm:text-2xl">{activeGroup.name}</h3>
+            </div>
             <ErrorBanner message={error} />
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
               {messages.map((msg) => (

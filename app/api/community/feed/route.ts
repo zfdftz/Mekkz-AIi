@@ -134,16 +134,22 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   }
   if (parsed.data.action === "comment") {
-    const comment = await addComment(admin, userId, parsed.data.postId, parsed.data.content);
+    const { comment, commentsCount } = await addComment(
+      admin,
+      userId,
+      parsed.data.postId,
+      parsed.data.content
+    );
     const identity = await getAuthorIdentityMap(admin, [userId]);
     const id = identity.get(userId);
     return NextResponse.json({
       comment: {
         ...comment,
         ...authorFieldsFromIdentity(id)
-      }
+      },
+      commentsCount
     });
   }
-  await repost(admin, userId, parsed.data.postId);
-  return NextResponse.json({ ok: true });
+  const result = await repost(admin, userId, parsed.data.postId);
+  return NextResponse.json(result);
 }

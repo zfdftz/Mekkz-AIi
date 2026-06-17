@@ -154,20 +154,22 @@ export function ProfileModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 32, opacity: 0 }}
+        initial={{ y: "100%", opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className={`discord-profile ${seasonClass} max-h-[92vh] w-full max-w-[440px] overflow-hidden rounded-t-2xl shadow-2xl sm:rounded-2xl`}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", damping: 28, stiffness: 320 }}
+        className={`discord-profile ${seasonClass} flex max-h-[min(92dvh,720px)] w-full max-w-[440px] flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#1e1f22] shadow-2xl sm:max-h-[85vh] sm:rounded-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <ProfileStyleShell
           styleId={profile?.profileBackground}
           profileFrame={profile?.profileFrame}
           seasonClass={seasonClass}
-          className="max-h-[92vh] min-h-[320px] overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
         >
           <button
             type="button"
@@ -186,10 +188,10 @@ export function ProfileModal({
         ) : error || !profile ? (
           <p className="p-6 text-center text-sm text-red-300">{error ?? "Nicht gefunden."}</p>
         ) : (
-          <div className="px-4 pb-5 pt-5">
-            <div className="flex items-end gap-3">
+          <div className="px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <FramedAvatar profile={profile} />
-              <div className="mb-1 min-w-0 flex-1">
+              <div className="min-w-0 flex-1">
                 <ProfileIdentity
                   username={profile.username ?? "user"}
                   title={profile.activeTitleLabel}
@@ -209,7 +211,7 @@ export function ProfileModal({
                 ) : null}
               </div>
               {!profile.isSelf ? (
-                <div className="flex shrink-0 flex-col gap-1.5">
+                <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:flex-col sm:gap-1.5">
                   <PrimaryButton
                     className="season-btn px-3 py-1.5 text-xs"
                     loading={followBusy}

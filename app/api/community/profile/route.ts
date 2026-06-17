@@ -11,6 +11,8 @@ import { getFollowerCounts, getTotalLikes } from "@/lib/community/public-profile
 import { syncUserRewards } from "@/lib/rewards/sync";
 import { getAuthorIdentity } from "@/lib/rewards/identity";
 import { canManageRewards } from "@/lib/rewards/admin-access";
+import { updateShowcasedBadges } from "@/lib/rewards/badges";
+import { getProfileCosmetics, updateProfileCosmetics } from "@/lib/rewards/cosmetics";
 import { getPlanInfo } from "@/lib/plans";
 import { resolveEntitledPlan } from "@/lib/user-plans";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,6 +29,7 @@ export async function GET() {
   const identity = await getAuthorIdentity(admin, auth.user!.id);
   const isRewardsAdmin = await canManageRewards(admin, auth.user!.id, auth.user!.email);
   const totalLikes = await getTotalLikes(admin, auth.user!.id);
+  const cosmetics = await getProfileCosmetics(admin, auth.user!.id);
   const { data: planRow } = await admin
     .from("user_plans")
     .select("plan, stripe_subscription_status")
@@ -44,7 +47,9 @@ export async function GET() {
           isCreator: identity.isCreator,
           isChosen: identity.isChosen,
           activeTitleLabel: identity.titleLabel,
-          accentColor: identity.accentColor,
+          accentColor: cosmetics.accentColor,
+          profileBackground: cosmetics.profileBackground,
+          activeTitle: cosmetics.activeTitle,
           totalLikes,
           plan,
           planLabel: planInfo.label,
@@ -81,7 +86,11 @@ const patchSchema = z.object({
     .regex(/^[\w.-]+$/, "Nur Buchstaben, Zahlen, _, . und - erlaubt.")
     .optional(),
   bio: z.string().max(500).optional(),
-  avatarUrl: z.union([avatarSchema, z.null()]).optional()
+  avatarUrl: z.union([avatarSchema, z.null()]).optional(),
+  showcasedBadgeIds: z.array(z.string()).optional(),
+  profileBackground: z.string().nullable().optional(),
+  accentColor: z.string().max(32).optional(),
+  activeTitle: z.string().nullable().optional()
 });
 
 export async function PATCH(req: Request) {
@@ -95,8 +104,61 @@ export async function PATCH(req: Request) {
   }
   const admin = createAdminClient();
   try {
-    const profile = await updateProfile(admin, auth.user!.id, parsed.data);
-    return NextResponse.json({ profile });
+    const {
+      showcasedBadgeIds,
+      profileBackground,
+      accentColor,
+      activeTitle,
+      ...profilePatch
+    } = parsed.data;
+
+    const profile = await updateProfile(admin, auth.user!.id, profilePatch);
+
+    if (showcasedBadgeIds) {
+      await updateShowcasedBadges(admin, auth.user!.id, showcasedBadgeIds);
+    }
+
+    if (
+      profileBackground !== undefined ||
+      accentColor !== undefined ||
+      activeTitle !== undefined
+    ) {
+      await updateProfileCosmetics(admin, auth.user!.id, {
+        profileBackground,
+        accentColor,
+        activeTitle
+      });
+    }
+
+    const [counts, identity, cosmetics, totalLikes] = await Promise.all([
+      getFollowerCounts(admin, auth.user!.id),
+      getAuthorIdentity(admin, auth.user!.id),
+      getProfileCosmetics(admin, auth.user!.id),
+      getTotalLikes(admin, auth.user!.id)
+    ]);
+
+    return NextResponse.json({
+      profile: profile
+        ? {
+            ...profile,
+            ...counts,
+            isVerified: identity.isVerified,
+            isCreator: identity.isCreator,
+            isChosen: identity.isChosen,
+            activeTitleLabel: identity.titleLabel,
+            accentColor: cosmetics.accentColor,
+            profileBackground: cosmetics.profileBackground,
+            activeTitle: cosmetics.activeTitle,
+            totalLikes,
+            showcasedBadges: identity.showcasedBadges.map((b) => ({
+              id: b.id,
+              name: b.name,
+              description: b.description,
+              icon: b.icon
+            }))
+          }
+        : null
+    });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Speichern fehlgeschlagen." },

@@ -74,7 +74,7 @@ export function BadgeShowcase({ badges }: { badges: BadgeChip[] }) {
     <div className="flex flex-wrap gap-2">
       {badges.map((b) => (
         <DiscordTooltip key={b.id} label={b.name} description={b.description}>
-          <div className="flex cursor-help items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 text-sm">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 text-sm">
             <span>{b.icon}</span>
             <span className="text-xs font-medium">{b.name}</span>
           </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Crown } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AVATAR_MAX_BYTES,
   USERNAME_MIN_LENGTH,
@@ -43,7 +43,12 @@ export function ProfileTab() {
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const [showBadgesPanel, setShowBadgesPanel] = useState(false);
-  const rewardsFormRef = useRef<RewardsFormState | null>(null);
+  const [rewardsForm, setRewardsForm] = useState<RewardsFormState>({
+    showcaseIds: [],
+    profileBackground: null,
+    accentColor: "#8b5cf6",
+    activeTitle: null
+  });
 
   const usernameLocked = profile?.canChangeUsername === false;
   const usernameHint = useMemo(() => {
@@ -70,6 +75,13 @@ export function ProfileTab() {
       setUsername(data.profile?.username ?? "");
       setBio(data.profile?.bio ?? "");
       setAvatarUrl(data.profile?.avatarUrl ?? "");
+      setRewardsForm((prev) => ({
+        ...prev,
+        showcaseIds: (data.profile?.showcasedBadges ?? []).map((b) => b.id),
+        profileBackground: data.profile?.profileBackground ?? null,
+        accentColor: data.profile?.accentColor ?? "#8b5cf6",
+        activeTitle: data.profile?.activeTitle ?? null
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
@@ -90,9 +102,17 @@ export function ProfileTab() {
         username?: string;
         bio: string;
         avatarUrl: string | null;
+        showcasedBadgeIds: string[];
+        profileBackground: string | null;
+        accentColor: string;
+        activeTitle: string | null;
       } = {
         bio,
-        avatarUrl: avatarUrl.trim() || null
+        avatarUrl: avatarUrl.trim() || null,
+        showcasedBadgeIds: rewardsForm.showcaseIds,
+        profileBackground: rewardsForm.profileBackground,
+        accentColor: rewardsForm.accentColor,
+        activeTitle: rewardsForm.activeTitle
       };
 
       if (!usernameLocked) {
@@ -105,23 +125,7 @@ export function ProfileTab() {
         body: JSON.stringify(payload)
       });
       const profileData = await readJsonResponse<{ profile?: UserProfile; error?: string }>(profileRes);
-      if (!profileRes.ok) throw new Error(profileData.error || "Profil speichern fehlgeschlagen.");
-
-      const rewards = rewardsFormRef.current;
-      if (rewards) {
-        const rewardsRes = await fetch("/api/rewards", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            showcasedBadgeIds: rewards.showcaseIds,
-            profileBackground: rewards.profileBackground,
-            accentColor: rewards.accentColor,
-            activeTitle: rewards.activeTitle
-          })
-        });
-        const rewardsData = await readJsonResponse<{ error?: string }>(rewardsRes);
-        if (!rewardsRes.ok) throw new Error(rewardsData.error || "Rewards speichern fehlgeschlagen.");
-      }
+      if (!profileRes.ok) throw new Error(profileData.error || "Speichern fehlgeschlagen.");
 
       setProfile(profileData.profile ?? null);
       setUsername(profileData.profile?.username ?? username);
@@ -281,12 +285,7 @@ export function ProfileTab() {
           </div>
 
           <div className="border-t border-white/10 pt-4">
-            <ProfileRewardsPanel
-              embedded
-              onFormChange={(state) => {
-                rewardsFormRef.current = state;
-              }}
-            />
+            <ProfileRewardsPanel embedded onFormChange={setRewardsForm} />
           </div>
 
           <button
@@ -296,10 +295,11 @@ export function ProfileTab() {
           >
             Badges & Titles (Quests)
           </button>
-          <PrimaryButton loading={saving} onClick={save} className="w-full">
-            Speichern
-          </PrimaryButton>
         </div>
+
+        <PrimaryButton loading={saving} onClick={save} className="mt-4 w-full">
+          Speichern
+        </PrimaryButton>
       </Panel>
 
       {showBadgesPanel ? <BadgesTitlesPanel onClose={() => setShowBadgesPanel(false)} /> : null}

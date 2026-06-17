@@ -2,11 +2,12 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, Users, Wrench, X } from "lucide-react";
+import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, User, Users, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
 import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
+import { ProfileProvider, useProfileModal } from "@/components/community/profile-context";
 import { ChatMessage, Conversation } from "@/lib/types";
 import { messagesForRequest } from "@/lib/chat-storage";
 import { categorizeUploadedImage } from "@/lib/image-categories";
@@ -80,7 +81,19 @@ type BootstrapResponse = {
   conversationLimit?: ConversationLimit | null;
 };
 
-export function ChatUI({
+export function ChatUI(props: {
+  userId: string;
+  userEmail?: string;
+  isGuest?: boolean;
+}) {
+  return (
+    <ProfileProvider>
+      <ChatUIInner {...props} />
+    </ProfileProvider>
+  );
+}
+
+function ChatUIInner({
   userId,
   userEmail = "",
   isGuest = false
@@ -89,6 +102,7 @@ export function ChatUI({
   userEmail?: string;
   isGuest?: boolean;
 }) {
+  const { openProfile } = useProfileModal();
   const supabase = createClient();
   const router = useRouter();
   const { language, t } = useLanguage();
@@ -999,6 +1013,17 @@ export function ChatUI({
                   <Users size={18} />
                 </Link>
               )}
+              {!isGuest ? (
+                <button
+                  type="button"
+                  onClick={() => openProfile(userId)}
+                  aria-label="Mein Profil"
+                  title="Mein Profil"
+                  className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
+                >
+                  <User size={18} />
+                </button>
+              ) : null}
               <button
                 onClick={() => setSettingsOpen(true)}
                 aria-label="Einstellungen"

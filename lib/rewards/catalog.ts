@@ -193,6 +193,13 @@ const FRAME_AS_BG: Record<string, string> = {
 };
 
 /** Profile card background — frames render as full backgrounds like Discord. */
+export function resolveEquippedStyleId(
+  profileBackground: string | null | undefined,
+  profileFrame: string | null | undefined
+) {
+  return profileBackground ?? profileFrame ?? null;
+}
+
 export function getProfileBackgroundClass(cosmeticId: string | null | undefined) {
   if (!cosmeticId) return "reward-bg-mekkz";
   const def = getCosmetic(cosmeticId);

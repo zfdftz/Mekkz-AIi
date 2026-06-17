@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export function DiscordTooltip({
   label,
@@ -11,16 +12,56 @@ export function DiscordTooltip({
   description?: string;
   children: ReactNode;
 }) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const fallbackTitle = description ? `${label} — ${description}` : label;
+
+  const show = useCallback(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setCoords({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8
+    });
+    setVisible(true);
+  }, []);
+
+  const hide = useCallback(() => setVisible(false), []);
+
   return (
-    <span className="group relative inline-flex cursor-help">
-      {children}
-      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-max max-w-[220px] -translate-x-1/2 rounded-md bg-[#111214] px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-lg group-hover:block">
-        <span className="block font-semibold">{label}</span>
-        {description ? (
-          <span className="mt-0.5 block text-[10px] font-normal text-[#b5bac1]">{description}</span>
-        ) : null}
-        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[#111214]" />
+    <>
+      <span
+        ref={anchorRef}
+        className="inline-flex"
+        title={fallbackTitle}
+        aria-label={fallbackTitle}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >
+        {children}
       </span>
-    </span>
+      {visible && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              role="tooltip"
+              className="pointer-events-none fixed z-[500] max-w-[240px] -translate-x-1/2 -translate-y-full rounded-md bg-[#111214] px-2.5 py-1.5 text-center text-xs font-medium text-white shadow-xl"
+              style={{ left: coords.x, top: coords.y }}
+            >
+              <span className="block font-semibold">{label}</span>
+              {description ? (
+                <span className="mt-0.5 block text-[10px] font-normal leading-snug text-[#b5bac1]">
+                  {description}
+                </span>
+              ) : null}
+              <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-[#111214]" />
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }

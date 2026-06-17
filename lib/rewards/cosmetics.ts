@@ -3,6 +3,7 @@ import {
   COSMETICS,
   getCosmetic,
   getTitle,
+  resolveEquippedStyleId,
   TITLES,
   RARITY_WEIGHTS,
   type CosmeticDef,
@@ -127,6 +128,7 @@ export type ProfileCosmetics = {
   bannerUrl: string | null;
   profileFrame: string | null;
   profileBackground: string | null;
+  profileBackgroundRaw?: string | null;
   accentColor: string;
   activeTitle: string | null;
   activeTitleLabel: string | null;
@@ -146,10 +148,14 @@ export async function getProfileCosmetics(
     .maybeSingle();
 
   const titleId = (data?.active_title as string) ?? null;
+  const profileFrame = (data?.profile_frame as string) ?? null;
+  const profileBackgroundRaw = (data?.profile_background as string) ?? null;
+  const profileBackground = resolveEquippedStyleId(profileBackgroundRaw, profileFrame);
   return {
     bannerUrl: (data?.banner_url as string) ?? null,
-    profileFrame: (data?.profile_frame as string) ?? null,
-    profileBackground: (data?.profile_background as string) ?? null,
+    profileFrame,
+    profileBackground,
+    profileBackgroundRaw,
     accentColor: (data?.accent_color as string) ?? "#8b5cf6",
     activeTitle: titleId,
     activeTitleLabel: titleId ? (getTitle(titleId)?.label ?? null) : null,
@@ -173,7 +179,17 @@ export async function updateProfileCosmetics(
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.bannerUrl !== undefined) payload.banner_url = patch.bannerUrl;
   if (patch.profileFrame !== undefined) payload.profile_frame = patch.profileFrame;
-  if (patch.profileBackground !== undefined) payload.profile_background = patch.profileBackground;
+  if (patch.profileBackground !== undefined) {
+    payload.profile_background = patch.profileBackground;
+    payload.profile_frame = null;
+    if (patch.profileBackground) {
+      const inventory = await listInventory(admin, userId);
+      const owned = new Set(inventory.map((item) => item.id));
+      if (!owned.has(patch.profileBackground)) {
+        throw new Error("Profil-Hintergrund nicht im Inventar.");
+      }
+    }
+  }
   if (patch.accentColor !== undefined) payload.accent_color = patch.accentColor;
   if (patch.activeTitle !== undefined) {
     if (patch.activeTitle) {

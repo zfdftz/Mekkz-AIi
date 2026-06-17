@@ -7,7 +7,7 @@ import { FollowerStats, FollowersPanel, formatCount } from "@/components/communi
 import { PrimaryButton } from "@/components/community/shared";
 import { BadgeShowcase, ProfileIdentity } from "@/components/rewards/profile-identity";
 import { ProfileLikesStat } from "@/components/rewards/profile-rewards-panel";
-import { getProfileBackgroundClass } from "@/lib/rewards/catalog";
+import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { PublicUserProfile } from "@/lib/community/types";
@@ -249,14 +249,13 @@ function ProfileBanner({
   profile: PublicUserProfile | null;
   seasonClass: string;
 }) {
-  const bgClass = profile
-    ? getProfileBackgroundClass(profile.profileBackground)
-    : "reward-bg-mekkz";
   return (
-    <div className={`discord-profile-banner relative h-[120px] w-full bg-cover bg-center ${bgClass} ${seasonClass}-banner`}>
-      <div className="season-stars pointer-events-none absolute inset-0 opacity-60" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#232428] via-transparent to-transparent" />
-    </div>
+    <ProfileStyleBanner
+      styleId={profile?.profileBackground}
+      accentColor={profile?.accentColor}
+      seasonClass={seasonClass}
+      className="h-[120px] rounded-none border-0"
+    />
   );
 }
 

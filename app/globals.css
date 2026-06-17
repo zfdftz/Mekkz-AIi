@@ -612,9 +612,15 @@ body > * { position: relative; z-index: 1; }
 
 /* Frame cosmetics as Discord-style profile backgrounds */
 .reward-bg-galaxy-ring {
-  background: radial-gradient(ellipse at 30% 20%, rgba(167, 139, 250, 0.45), transparent 55%),
-    radial-gradient(ellipse at 70% 80%, rgba(99, 102, 241, 0.35), transparent 50%),
-    linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #0f172a 100%);
+  background-color: #0a0618;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 38%, rgba(167, 139, 250, 0.22) 39%, rgba(167, 139, 250, 0.22) 41%, transparent 42%),
+    radial-gradient(circle at 50% 50%, transparent 58%, rgba(139, 92, 246, 0.18) 59%, rgba(139, 92, 246, 0.18) 61%, transparent 62%),
+    radial-gradient(circle at 50% 50%, transparent 74%, rgba(99, 102, 241, 0.14) 75%, rgba(99, 102, 241, 0.14) 77%, transparent 78%),
+    radial-gradient(ellipse at 25% 25%, rgba(167, 139, 250, 0.45), transparent 50%),
+    radial-gradient(ellipse at 75% 75%, rgba(79, 70, 229, 0.35), transparent 45%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #0f172a 100%);
+  animation: reward-pulse 4s ease-in-out infinite;
 }
 .reward-bg-star-orbit {
   background: radial-gradient(circle at 50% 50%, rgba(253, 224, 71, 0.2), transparent 45%),
@@ -693,6 +699,9 @@ body > * { position: relative; z-index: 1; }
 }
 .discord-profile-banner {
   background-color: #5865f2;
+}
+.discord-profile-banner[class*="reward-bg-"]:not(.reward-bg-mekkz) {
+  background-color: transparent;
 }
 .season-tab-active {
   color: #fff;

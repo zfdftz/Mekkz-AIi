@@ -5,8 +5,11 @@ import { Gift, Heart, Loader2, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Panel, PrimaryButton } from "@/components/community/shared";
 import { BadgeShowcase } from "@/components/rewards/profile-identity";
+import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
+import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { readJsonResponse } from "@/lib/fetch-json";
-import { getProfileBackgroundClass, TITLES } from "@/lib/rewards/catalog";
+import { getSeasonUiClass } from "@/lib/rewards/season-theme";
+import { TITLES } from "@/lib/rewards/catalog";
 import { toggleShowcaseBadge } from "@/lib/rewards/showcase-rules";
 
 type RewardsState = {
@@ -130,7 +133,7 @@ export function ProfileRewardsPanel({
 
   if (!state) return null;
 
-  const bgClass = getProfileBackgroundClass(profileBackground);
+  const seasonClass = getSeasonUiClass();
   const styleItems = (state.inventory ?? []).filter(
     (i) => i.type === "frame" || i.type === "background"
   );
@@ -170,21 +173,21 @@ export function ProfileRewardsPanel({
           {(state.badges ?? []).map((b) => {
             const active = showcaseIds.includes(b.id);
             return (
-              <button
-                key={b.id}
-                type="button"
-                title={`${b.name} — ${b.description}`}
-                onClick={() => {
-                  const next = toggleShowcaseBadge(showcaseIds, b.id);
-                  setShowcaseIds(next);
-                  emitForm({ showcaseIds: next });
-                }}
-                className={`rounded-lg border px-2 py-1 text-xs ${
-                  active ? "border-primary bg-primary/20" : "border-white/10 bg-white/5"
-                }`}
-              >
-                {b.icon} {b.name}
-              </button>
+              <DiscordTooltip key={b.id} label={b.name} description={b.description}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = toggleShowcaseBadge(showcaseIds, b.id);
+                    setShowcaseIds(next);
+                    emitForm({ showcaseIds: next });
+                  }}
+                  className={`rounded-lg border px-2 py-1 text-xs ${
+                    active ? "border-primary bg-primary/20" : "border-white/10 bg-white/5"
+                  }`}
+                >
+                  {b.icon} {b.name}
+                </button>
+              </DiscordTooltip>
             );
           })}
         </div>
@@ -192,8 +195,11 @@ export function ProfileRewardsPanel({
 
       <div>
         <h4 className="mb-2 text-sm font-semibold">Profil-Hintergrund</h4>
-        <div
-          className={`mb-3 h-24 rounded-xl border border-white/10 bg-cover bg-center ${bgClass}`}
+        <ProfileStyleBanner
+          styleId={profileBackground}
+          accentColor={accentColor}
+          seasonClass={seasonClass}
+          className="mb-3 h-24"
         />
         <label className="mb-2 block text-xs text-muted">Akzentfarbe</label>
         <input

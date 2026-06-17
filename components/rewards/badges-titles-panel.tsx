@@ -1,8 +1,8 @@
 "use client";
 
-import { Loader2, Lock, Trophy } from "lucide-react";
+import { Loader2, Lock, RefreshCw, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Panel, PrimaryButton } from "@/components/community/shared";
+import { GhostButton, Panel } from "@/components/community/shared";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { TITLES } from "@/lib/rewards/catalog";
 
@@ -169,9 +169,9 @@ export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
         </div>
       )}
 
-      <PrimaryButton className="w-full season-btn" onClick={() => void load()}>
-        Aktualisieren
-      </PrimaryButton>
+      <GhostButton className="w-full" onClick={() => void load()}>
+        <RefreshCw size={14} className="mr-1 inline" /> Quests aktualisieren
+      </GhostButton>
     </Panel>
   );
 }

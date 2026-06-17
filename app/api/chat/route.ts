@@ -61,6 +61,7 @@ import {
   setUserAiPreferences
 } from "@/lib/user-ai-preferences";
 import { buildFollowUpQuestionPrompt } from "@/lib/chat-follow-ups";
+import { buildSongLyricsResponsePrompt, looksLikeSongLyrics } from "@/lib/song-lyrics-context";
 import { normalizePersonalityMode } from "@/lib/personality";
 import {
   applyChatLineFormat,
@@ -277,6 +278,7 @@ export async function POST(req: Request) {
 
   const userTurnCount = messages.filter((message) => message.role === "user").length;
   const followUpPrompt = buildFollowUpQuestionPrompt(userId, userTurnCount, userText);
+  const songLyricsPrompt = looksLikeSongLyrics(userText) ? buildSongLyricsResponsePrompt() : "";
 
   const stylePrompt = await getCommunicationStylePrompt(
     admin,
@@ -345,6 +347,7 @@ export async function POST(req: Request) {
       `${chatContext.prompt}\n` +
       `${activityContext}\n` +
       `${buildChatFormatInstructions(chatContext.username)}\n` +
+      `${songLyricsPrompt ? `${songLyricsPrompt}\n` : ""}` +
       `${followUpPrompt}\n` +
       `${buildPersonalityLock(aiPreferences.personalityMode, userLanguage)}\n` +
       `\n${buildReplyLanguageLock(replyLanguage)}`

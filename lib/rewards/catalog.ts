@@ -64,6 +64,7 @@ export const TITLES: Record<string, TitleDef> = {
     season1Only: true
   },
   social_star: { id: "social_star", label: "Social Star" },
+  ultra_creator: { id: "ultra_creator", label: "Ultra Creator" },
   season_2: { id: "season_2", label: "Cyber Future" },
   season_3: { id: "season_3", label: "Mythic Kingdoms" },
   season_4: { id: "season_4", label: "Frozen Legends" },

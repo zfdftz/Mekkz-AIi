@@ -201,6 +201,8 @@ export function MessageBubble({
   authorTitle,
   authorVerified,
   authorCreator,
+  authorChosen,
+  authorUltraCreator,
   content,
   highlight,
   time
@@ -210,6 +212,8 @@ export function MessageBubble({
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
   content: string;
   highlight?: boolean;
   time?: string;
@@ -231,6 +235,8 @@ export function MessageBubble({
               title={authorTitle}
               isVerified={authorVerified}
               isCreator={authorCreator}
+              isChosen={authorChosen}
+              isUltraCreator={authorUltraCreator}
             />
           </ProfileLink>
         ) : (

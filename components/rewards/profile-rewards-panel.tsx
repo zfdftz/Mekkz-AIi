@@ -169,7 +169,9 @@ export function ProfileRewardsPanel({
 
       <div>
         <h4 className="mb-1 text-sm font-semibold">Badge Showcase</h4>
-        <p className="mb-2 text-[10px] text-muted">Pro Kategorie nur ein Badge (z. B. nur ein Chat-Badge).</p>
+        <p className="mb-2 text-[10px] text-muted">
+          Chat- und Follower-Badges: pro Tier-Gruppe nur eins (z. B. 100 oder 500 Chats, 1k oder 10k Follower). Andere Badges unbegrenzt.
+        </p>
         <BadgeShowcase badges={state.showcased ?? []} />
         <div className="mt-2 flex flex-wrap gap-1">
           {(state.badges ?? []).map((b) => {

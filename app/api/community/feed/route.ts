@@ -16,7 +16,7 @@ import {
   toggleLike
 } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthorIdentityMap } from "@/lib/rewards/identity";
+import { getAuthorIdentityMap, authorFieldsFromIdentity } from "@/lib/rewards/identity";
 import { syncUserRewards } from "@/lib/rewards/sync";
 
 export async function GET(req: Request) {
@@ -34,9 +34,7 @@ export async function GET(req: Request) {
         const id = map.get(c.userId);
         return {
           ...c,
-          authorTitle: id?.titleLabel ?? null,
-          authorVerified: id?.isVerified ?? false,
-          authorCreator: id?.isCreator ?? false
+          ...authorFieldsFromIdentity(id)
         };
       })
     });
@@ -54,9 +52,7 @@ export async function GET(req: Request) {
       const id = map.get(p.userId);
       return {
         ...p,
-        authorTitle: id?.titleLabel ?? null,
-        authorVerified: id?.isVerified ?? false,
-        authorCreator: id?.isCreator ?? false
+        ...authorFieldsFromIdentity(id)
       };
     })
   });
@@ -144,9 +140,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       comment: {
         ...comment,
-        authorTitle: id?.titleLabel ?? null,
-        authorVerified: id?.isVerified ?? false,
-        authorCreator: id?.isCreator ?? false
+        ...authorFieldsFromIdentity(id)
       }
     });
   }

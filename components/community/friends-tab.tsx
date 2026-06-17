@@ -293,6 +293,8 @@ export function FriendsTab() {
                     authorTitle={isFriend ? msg.authorTitle : undefined}
                     authorVerified={isFriend ? msg.authorVerified : undefined}
                     authorCreator={isFriend ? msg.authorCreator : undefined}
+                    authorChosen={isFriend ? msg.authorChosen : undefined}
+                    authorUltraCreator={isFriend ? msg.authorUltraCreator : undefined}
                     content={msg.content}
                     time={msg.createdAt}
                   />

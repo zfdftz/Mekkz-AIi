@@ -8,6 +8,7 @@ export type AuthorIdentity = {
   isVerified: boolean;
   isCreator: boolean;
   isChosen: boolean;
+  isUltraCreator: boolean;
   titleLabel: string | null;
   showcasedBadges: UserBadge[];
   accentColor: string;
@@ -17,13 +18,17 @@ export type AuthorFields = {
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
 };
 
 export function authorFieldsFromIdentity(id: AuthorIdentity | undefined): AuthorFields {
   return {
     authorTitle: id?.titleLabel ?? null,
     authorVerified: id?.isVerified ?? false,
-    authorCreator: id?.isCreator ?? false
+    authorCreator: id?.isCreator ?? false,
+    authorChosen: id?.isChosen ?? false,
+    authorUltraCreator: id?.isUltraCreator ?? false
   };
 }
 
@@ -67,6 +72,7 @@ export async function getAuthorIdentity(
     isVerified: flags.isVerified,
     isCreator: flags.isCreator,
     isChosen: flags.isChosen,
+    isUltraCreator: flags.isUltraCreator,
     titleLabel: cosmetics.activeTitleLabel,
     showcasedBadges: showcased,
     accentColor: cosmetics.accentColor

@@ -201,11 +201,12 @@ export function ProfileTab() {
               <ProfileIdentity
                 username={profile?.username ?? "user"}
                 title={profile?.activeTitleLabel}
-                isVerified={profile?.isVerified}
-                isCreator={profile?.isCreator}
-                isChosen={profile?.isChosen}
-                badges={profile?.showcasedBadges}
-              />
+              isVerified={profile?.isVerified}
+              isCreator={profile?.isCreator}
+              isChosen={profile?.isChosen}
+              isUltraCreator={profile?.isUltraCreator}
+              badges={profile?.showcasedBadges}
+            />
               <p className="mt-1 text-sm font-medium text-primary">
                 {formatCount(profile?.followersCount ?? 0)} Follower
               </p>

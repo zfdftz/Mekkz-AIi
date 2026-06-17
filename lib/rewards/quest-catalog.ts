@@ -15,6 +15,8 @@ export type QuestDef = {
   category: QuestCategory;
   /** Shown in Badges & Titles UI; use "?" for secret until unlocked */
   requirement: string;
+  /** Only one showcased badge per group (e.g. chat tiers, follower tiers). */
+  showcaseGroup?: string;
   secret?: boolean;
   protected?: boolean;
   titleId?: string;
@@ -35,6 +37,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "100 Chats erstellt.",
     icon: "💬",
     category: "chat",
+    showcaseGroup: "chat_milestones",
     requirement: "100 Chats erstellen"
   },
   chats_500: {
@@ -43,6 +46,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "500 Chats erstellt.",
     icon: "💬",
     category: "chat",
+    showcaseGroup: "chat_milestones",
     requirement: "500 Chats erstellen"
   },
   chats_1000: {
@@ -51,6 +55,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "1000 Chats erstellt.",
     icon: "💬",
     category: "chat",
+    showcaseGroup: "chat_milestones",
     requirement: "1.000 Chats erstellen"
   },
   chats_5000: {
@@ -59,6 +64,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "5000 Chats erstellt.",
     icon: "💬",
     category: "chat",
+    showcaseGroup: "chat_milestones",
     requirement: "5.000 Chats erstellen"
   },
   chats_10000: {
@@ -67,6 +73,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "10000 Chats erstellt.",
     icon: "💬",
     category: "chat",
+    showcaseGroup: "chat_milestones",
     requirement: "10.000 Chats erstellen"
   },
   first_story: {
@@ -148,6 +155,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "Beliebter Creator.",
     icon: "🌟",
     category: "community",
+    showcaseGroup: "follower_milestones",
     requirement: "10.000 Follower erreichen"
   },
   verified_user: {
@@ -158,6 +166,16 @@ export const QUESTS: Record<string, QuestDef> = {
     category: "profile",
     requirement: "25.000 Follower erreichen",
     protected: true
+  },
+  ultra_creator: {
+    id: "ultra_creator",
+    name: "Ultra Creator",
+    description: "100.000 Follower erreicht.",
+    icon: "✕",
+    category: "profile",
+    requirement: "100.000 Follower erreichen",
+    protected: true,
+    titleId: "ultra_creator"
   },
   beta_tester: {
     id: "beta_tester",
@@ -290,6 +308,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "1.000 Follower.",
     icon: "⭐",
     category: "community",
+    showcaseGroup: "follower_milestones",
     requirement: "1.000 Follower",
     titleId: "social_star"
   },
@@ -308,6 +327,7 @@ export const QUESTS: Record<string, QuestDef> = {
     description: "500 Nachrichten.",
     icon: "⚔️",
     category: "chat",
+    showcaseGroup: "message_milestones",
     requirement: "500 Nachrichten senden"
   },
   loyal_member: {

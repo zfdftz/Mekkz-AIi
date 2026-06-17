@@ -180,6 +180,8 @@ export function RoomsTab() {
                   authorTitle={msg.authorTitle}
                   authorVerified={msg.authorVerified}
                   authorCreator={msg.authorCreator}
+                  authorChosen={msg.authorChosen}
+                  authorUltraCreator={msg.authorUltraCreator}
                   content={msg.content}
                   time={msg.createdAt}
                 />

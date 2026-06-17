@@ -7,6 +7,7 @@ export const MEKKZ_REWARDS_ADMIN_USERNAME = "mek";
 export const OG_MEMBER_CUTOFF = new Date("2026-07-31T23:59:59.999Z");
 
 export const VERIFIED_FOLLOWER_THRESHOLD = 25_000;
+export const ULTRA_CREATOR_FOLLOWER_THRESHOLD = 100_000;
 export const SOCIAL_STAR_THRESHOLD = 1_000;
 
 export const CRATE_COOLDOWN_MS = 24 * 60 * 60 * 1000;

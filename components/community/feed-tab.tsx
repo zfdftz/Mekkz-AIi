@@ -288,6 +288,8 @@ export function FeedTab() {
                       title={post.authorTitle}
                       isVerified={post.authorVerified}
                       isCreator={post.authorCreator}
+                      isChosen={post.authorChosen}
+                      isUltraCreator={post.authorUltraCreator}
                     />
                   </ProfileLink>
                   <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-[10px] uppercase">
@@ -343,6 +345,8 @@ export function FeedTab() {
                           title={c.authorTitle}
                           isVerified={c.authorVerified}
                           isCreator={c.authorCreator}
+                          isChosen={c.authorChosen}
+                          isUltraCreator={c.authorUltraCreator}
                         />
                       </ProfileLink>
                       <p className="text-muted">{c.content}</p>

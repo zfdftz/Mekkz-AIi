@@ -17,6 +17,7 @@ export type UserProfile = {
   isVerified?: boolean;
   isCreator?: boolean;
   isChosen?: boolean;
+  isUltraCreator?: boolean;
   activeTitle?: string | null;
   activeTitleLabel?: string | null;
   plan?: "free" | "pro" | "ultra";
@@ -57,6 +58,8 @@ export type RoomMessage = {
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
 };
 
 export type FriendRequest = {
@@ -88,6 +91,8 @@ export type FriendMessage = {
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
 };
 
 export type GroupChat = {
@@ -109,6 +114,8 @@ export type GroupMessage = {
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
 };
 
 export type FeedPost = {
@@ -125,6 +132,8 @@ export type FeedPost = {
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
   likedByMe?: boolean;
   imageUrl?: string | null;
   videoUrl?: string | null;
@@ -152,6 +161,7 @@ export type PublicUserProfile = {
   isVerified?: boolean;
   isCreator?: boolean;
   isChosen?: boolean;
+  isUltraCreator?: boolean;
   activeTitleLabel?: string | null;
   bannerUrl?: string | null;
   profileFrame?: string | null;
@@ -171,6 +181,8 @@ export type FeedComment = {
   authorTitle?: string | null;
   authorVerified?: boolean;
   authorCreator?: boolean;
+  authorChosen?: boolean;
+  authorUltraCreator?: boolean;
 };
 
 export type TaskItem = {

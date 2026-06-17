@@ -133,6 +133,7 @@ export function ProfileModal({
                   isVerified={profile.isVerified}
                   isCreator={profile.isCreator}
                   isChosen={profile.isChosen}
+                  isUltraCreator={profile.isUltraCreator}
                 />
                 <p className="text-xs text-muted">{formatCount(profile.followersCount)} Follower</p>
                 {typeof profile.totalLikes === "number" ? (

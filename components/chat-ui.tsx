@@ -33,6 +33,11 @@ import {
 } from "@/lib/chat-user-context";
 import { useVoiceChat } from "@/hooks/use-voice-chat";
 import type { UserAiPreferences } from "@/lib/user-ai-preferences";
+import { DEFAULT_AI_PREFERENCES } from "@/lib/user-ai-preferences";
+import {
+  readCachedAiPreferences,
+  writeCachedAiPreferences
+} from "@/lib/ai-preferences-client";
 
 type ChatApiResponse = {
   error?: string;
@@ -141,14 +146,9 @@ function ChatUIInner({
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [aiPreferences, setAiPreferences] = useState<UserAiPreferences>({
-    personalityMode: "normal",
-    tutorModeEnabled: false,
-    tutorLevel: "intermediate",
-    voiceOutputEnabled: false,
-    voiceAutoSend: true,
-    voiceGender: "female",
-    customInstructions: ""
+  const [aiPreferences, setAiPreferences] = useState<UserAiPreferences>(() => {
+    const cached = readCachedAiPreferences(userId);
+    return cached ?? DEFAULT_AI_PREFERENCES;
   });
   const [chatUsername, setChatUsername] = useState(
     () => userEmail.split("@")[0]?.replace(/[^\w.-]/g, "").slice(0, 21) || "user"
@@ -173,11 +173,17 @@ function ChatUIInner({
   }, [isGuest]);
 
   useEffect(() => {
+    const cached = readCachedAiPreferences(userId);
+    if (cached) setAiPreferences(cached);
+
     async function loadPreferences() {
-      const res = await fetch(`/api/ai-preferences?userId=${userId}`);
+      const res = await fetch(`/api/ai-preferences?userId=${userId}&_=${Date.now()}`, {
+        cache: "no-store"
+      });
       const data = await readJsonResponse<{ preferences?: UserAiPreferences }>(res);
       if (res.ok && data.preferences) {
         setAiPreferences(data.preferences);
+        writeCachedAiPreferences(userId, data.preferences);
       }
     }
 
@@ -188,7 +194,10 @@ function ChatUIInner({
 
     function onPreferences(event: Event) {
       const detail = (event as CustomEvent<UserAiPreferences>).detail;
-      if (detail) setAiPreferences(detail);
+      if (detail) {
+        setAiPreferences(detail);
+        writeCachedAiPreferences(userId, detail);
+      }
     }
 
     window.addEventListener("mekkz-ai-preferences", onPreferences);
@@ -619,6 +628,7 @@ function ChatUIInner({
         body: JSON.stringify({
           userId,
           language,
+          personalityMode: aiPreferences.personalityMode,
           generateImage: isImageGenRequest,
           stream: useStream,
           conversationId,

@@ -46,7 +46,7 @@ export const en: MessageTable = {
   "personality.genz": "Gen Z",
   "personality.genzDesc": "Casual, modern internet tone",
   "personality.hardcoreCoach": "Hardcore Coach",
-  "personality.hardcoreCoachDesc": "Tough love, zero excuses — AYRI vibe for German users",
+  "personality.hardcoreCoachDesc": "Direct tough-love coach, firm and motivating",
   "personality.philosopher": "Philosopher",
   "personality.philosopherDesc": "Thoughtful, deep questions",
   "personality.comedian": "Comedian",

@@ -12,7 +12,7 @@ export type UserAiPreferences = {
   customInstructions: string;
 };
 
-const DEFAULT_PREFERENCES: UserAiPreferences = {
+export const DEFAULT_AI_PREFERENCES: UserAiPreferences = {
   personalityMode: "normal",
   tutorModeEnabled: false,
   tutorLevel: "intermediate",
@@ -52,7 +52,7 @@ function isSchemaError(message: string) {
 }
 
 function mapRow(row: Record<string, unknown> | null): UserAiPreferences {
-  if (!row) return { ...DEFAULT_PREFERENCES };
+  if (!row) return { ...DEFAULT_AI_PREFERENCES };
   return {
     personalityMode: normalizePersonalityMode(row.personality_mode),
     tutorModeEnabled: Boolean(row.tutor_mode_enabled),
@@ -88,7 +88,7 @@ export async function getUserAiPreferences(
   }
 
   if (error) {
-    if (isMissingTableError(error.message)) return { ...DEFAULT_PREFERENCES };
+    if (isMissingTableError(error.message)) return { ...DEFAULT_AI_PREFERENCES };
     throw new Error(error.message);
   }
 

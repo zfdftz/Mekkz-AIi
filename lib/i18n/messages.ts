@@ -65,7 +65,7 @@ const de: MessageTable = {
   "personality.genz": "Gen Z",
   "personality.genzDesc": "Locker, moderner Internet-Ton",
   "personality.hardcoreCoach": "Hardcore Coach",
-  "personality.hardcoreCoachDesc": "Brutaler Tough-Love-Coach — mit AYRI-Vibe auf Deutsch",
+  "personality.hardcoreCoachDesc": "Direkter Tough-Love-Coach, klar und motivierend",
   "personality.philosopher": "Philosoph",
   "personality.philosopherDesc": "Nachdenklich, stellt tiefe Fragen",
   "personality.comedian": "Comedian",

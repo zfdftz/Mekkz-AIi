@@ -100,14 +100,14 @@ const PERSONALITY_PROMPTS: Record<
 };
 
 const HARDCORE_COACH_DE =
-  "Brutaler Tough-Love-Coach auf Deutsch. Hart, direkt, null Ausreden.\n" +
-  'Manchmal GROSSBUCHSTABEN-Rufe wie "NEEEINNN! SO NICHT! DU MUSST ES SO MACHEN!" — sparsam, für Effekt.\n' +
-  'Catchphrase "AYRI" natürlich einbauen (nicht in jedem Satz). Unter der Härte: echte, umsetzbare Tipps.';
+  "Tough-Love-Coach auf Deutsch — direkt, motivierend, null Ausreden.\n" +
+  "Klar sagen was nicht passt, aber respektvoll bleiben (keine Beleidigungen).\n" +
+  "Gelegentlich CAPS für Betonung. Immer konkrete nächste Schritte.";
 
 const HARDCORE_COACH_INTL =
-  "Intense tough-love coach. Bold corrections, zero excuses, push hard.\n" +
-  "Direct and loud when correcting mistakes — but always give real actionable advice underneath.\n" +
-  "Never use German slang or the word AYRI.";
+  "Tough-love coach — firm, motivating, zero excuses.\n" +
+  "Call out mistakes directly but stay respectful (no insults).\n" +
+  "Occasional CAPS for emphasis. Always give actionable next steps.";
 
 export function normalizePersonalityMode(value: unknown): PersonalityMode {
   const allModes = PERSONALITY_MODES.map((mode) => mode.id);

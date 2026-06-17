@@ -12,10 +12,16 @@ import {
   type ThemeMode
 } from "@/lib/theme-config";
 import type { LanguageCode } from "@/lib/languages";
-import { PERSONALITY_MODES, type PersonalityMode } from "@/lib/personality";
-import { TUTOR_LEVELS, type TutorLevel } from "@/lib/tutor";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { normalizePersonalityMode, PERSONALITY_MODES, type PersonalityMode } from "@/lib/personality";
+import { TUTOR_LEVELS, type TutorLevel } from "@/lib/tutor";
+import {
+  patchCachedAiPreferences,
+  readCachedAiPreferences,
+  writeCachedAiPreferences
+} from "@/lib/ai-preferences-client";
 import type { UserAiPreferences } from "@/lib/user-ai-preferences";
+import { DEFAULT_AI_PREFERENCES } from "@/lib/user-ai-preferences";
 
 type SettingsPanelProps = {
   open: boolean;
@@ -82,15 +88,26 @@ export function SettingsPanel({
   }, [open, userId]);
 
   useEffect(() => {
-    if (!open || !userId) return;
+    if (!userId) return;
+    const uid = userId;
+
+    const cached = readCachedAiPreferences(uid);
+    if (cached) {
+      setAiPreferences(cached);
+      setCustomInstructionsDraft(cached.customInstructions ?? "");
+      window.dispatchEvent(new CustomEvent("mekkz-ai-preferences", { detail: cached }));
+    }
 
     async function loadPreferences() {
       setPrefsLoading(true);
-      const res = await fetch(`/api/ai-preferences?userId=${userId}`);
+      const res = await fetch(`/api/ai-preferences?userId=${uid}&_=${Date.now()}`, {
+        cache: "no-store"
+      });
       const data = await readJsonResponse<AiPreferencesResponse>(res);
       if (res.ok && data.preferences) {
         setAiPreferences(data.preferences);
         setCustomInstructionsDraft(data.preferences.customInstructions ?? "");
+        writeCachedAiPreferences(uid, data.preferences);
         window.dispatchEvent(
           new CustomEvent("mekkz-ai-preferences", { detail: data.preferences })
         );
@@ -99,10 +116,24 @@ export function SettingsPanel({
     }
 
     void loadPreferences();
-  }, [open, userId]);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!open || !userId || aiPreferences) return;
+    const cached = readCachedAiPreferences(userId);
+    if (cached) setAiPreferences(cached);
+  }, [open, userId, aiPreferences]);
 
   async function updateAiPreferences(patch: Partial<UserAiPreferences>) {
     if (!userId) return;
+
+    const optimistic = patchCachedAiPreferences(
+      userId,
+      patch,
+      aiPreferences ?? readCachedAiPreferences(userId) ?? DEFAULT_AI_PREFERENCES
+    );
+    setAiPreferences(optimistic);
+    window.dispatchEvent(new CustomEvent("mekkz-ai-preferences", { detail: optimistic }));
     setPrefsLoading(true);
 
     const res = await fetch("/api/ai-preferences", {
@@ -114,6 +145,7 @@ export function SettingsPanel({
 
     if (res.ok && data.preferences) {
       setAiPreferences(data.preferences);
+      writeCachedAiPreferences(userId, data.preferences);
       window.dispatchEvent(
         new CustomEvent("mekkz-ai-preferences", { detail: data.preferences })
       );
@@ -366,18 +398,16 @@ export function SettingsPanel({
                   value={aiPreferences?.personalityMode ?? "normal"}
                   disabled={!userId || prefsLoading}
                   onChange={(event) => {
-                    const personalityMode = event.target.value as PersonalityMode;
-                    setAiPreferences((prev) =>
-                      prev ? { ...prev, personalityMode } : prev
-                    );
+                    const personalityMode = normalizePersonalityMode(
+                      event.target.value
+                    ) as PersonalityMode;
                     void updateAiPreferences({ personalityMode });
                   }}
                   className="w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm outline-none transition focus:border-primary/50 disabled:opacity-50"
                 >
                   {PERSONALITY_MODES.map((mode) => (
                     <option key={mode.id} value={mode.id} className="bg-neutral-900">
-                      {t(mode.labelKey as Parameters<typeof t>[0])} —{" "}
-                      {t(mode.descriptionKey as Parameters<typeof t>[0])}
+                      {t(mode.labelKey as Parameters<typeof t>[0])}
                     </option>
                   ))}
                 </select>

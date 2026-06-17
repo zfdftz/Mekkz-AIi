@@ -57,8 +57,11 @@ import {
 import { buildTutorSystemPrompt } from "@/lib/tutor";
 import {
   buildCustomInstructionsPrompt,
-  getUserAiPreferences
+  getUserAiPreferences,
+  setUserAiPreferences
 } from "@/lib/user-ai-preferences";
+import { buildFollowUpQuestionPrompt } from "@/lib/chat-follow-ups";
+import { normalizePersonalityMode } from "@/lib/personality";
 import {
   applyChatLineFormat,
   buildChatFormatInstructions,
@@ -88,6 +91,21 @@ const payloadSchema = z.object({
   conversationId: z.string().uuid().nullish(),
   messages: z.array(messageSchema).min(1),
   language: z.string().min(2).max(8).optional(),
+  personalityMode: z
+    .enum([
+      "normal",
+      "gamer",
+      "teacher",
+      "business",
+      "swiss",
+      "genz",
+      "hardcore_coach",
+      "philosopher",
+      "comedian",
+      "hype",
+      "sarcastic"
+    ])
+    .optional(),
   generateImage: z.boolean().optional(),
   stream: z.boolean().optional()
 });
@@ -123,8 +141,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const { userId, messages: rawMessages, language: requestedLanguage, generateImage: clientGenerateImage, stream: wantsStream } =
-    parsed.data;
+  const {
+    userId,
+    messages: rawMessages,
+    language: requestedLanguage,
+    personalityMode: clientPersonalityMode,
+    generateImage: clientGenerateImage,
+    stream: wantsStream
+  } = parsed.data;
   let { conversationId } = parsed.data;
 
   const supabase = await createClient();
@@ -218,7 +242,7 @@ export async function POST(req: Request) {
       userText
     );
 
-  const [memoryText, aiPreferences, planState, chatContext, activityContext] =
+  const [memoryText, storedAiPreferences, planState, chatContext, activityContext] =
     await Promise.all([
       getMemoriesForPrompt(admin, userId),
       getUserAiPreferences(admin, userId),
@@ -228,6 +252,32 @@ export async function POST(req: Request) {
         ? buildExtendedUserActivityContext(admin, userId, { searchHint: userText })
         : Promise.resolve("")
     ]);
+
+  const aiPreferences = clientPersonalityMode
+    ? {
+        ...storedAiPreferences,
+        personalityMode: normalizePersonalityMode(clientPersonalityMode)
+      }
+    : storedAiPreferences;
+
+  if (
+    clientPersonalityMode &&
+    normalizePersonalityMode(clientPersonalityMode) !== storedAiPreferences.personalityMode
+  ) {
+    after(async () => {
+      try {
+        await setUserAiPreferences(admin, userId, {
+          personalityMode: aiPreferences.personalityMode
+        });
+      } catch {
+        // Best-effort sync from client cache.
+      }
+    });
+  }
+
+  const userTurnCount = messages.filter((message) => message.role === "user").length;
+  const followUpPrompt = buildFollowUpQuestionPrompt(userId, userTurnCount, userText);
+
   const stylePrompt = await getCommunicationStylePrompt(
     admin,
     userId,
@@ -295,6 +345,7 @@ export async function POST(req: Request) {
       `${chatContext.prompt}\n` +
       `${activityContext}\n` +
       `${buildChatFormatInstructions(chatContext.username)}\n` +
+      `${followUpPrompt}\n` +
       `${buildPersonalityLock(aiPreferences.personalityMode, userLanguage)}\n` +
       `\n${buildReplyLanguageLock(replyLanguage)}`
   };

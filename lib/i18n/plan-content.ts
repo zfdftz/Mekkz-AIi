@@ -88,7 +88,7 @@ export function getProActionLabel(
   periodEnd?: string | null
 ) {
   if (current === "pro") return t(language, "plan.active");
-  if (current === "plus") return t(language, "plan.buyPro");
+  if (current === "plus") return t(language, "plan.upgradeProrated");
   if (current !== "ultra") return t(language, "plan.buyPro");
 
   const endIso = scheduledAt ?? periodEnd;
@@ -103,7 +103,7 @@ export function getProActionLabel(
 export function getUltraActionLabel(language: LanguageCode, current: PlanId) {
   if (current === "ultra") return t(language, "plan.active");
   if (current === "pro") return t(language, "plan.upgradeProrated");
-  if (current === "plus") return t(language, "plan.buyUltra");
+  if (current === "plus") return t(language, "plan.upgradeProrated");
   return t(language, "plan.buyUltra");
 }
 

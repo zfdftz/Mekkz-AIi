@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { generateAIResponse, streamAIResponse } from "@/lib/ai";
 import { encodeChatStreamEvent } from "@/lib/chat-stream";
-import { insertConversationMessage, messagesForAI } from "@/lib/chat-storage";
+import { insertConversationMessage, messagesForAI, selectRelevantChatHistory } from "@/lib/chat-storage";
 import { extractImagePrompt, generateImage } from "@/lib/image-gen";
 import { wantsImageGeneration as detectImageRequest } from "@/lib/image-intent";
 import { buildPollinationsImageProxyPath } from "@/lib/pollinations-url";
@@ -62,7 +62,7 @@ import {
   buildChatUserContextPrompt,
   stripAssistantChatPrefix
 } from "@/lib/chat-user-context";
-import { buildExtendedUserActivityContext } from "@/lib/chat-user-activity-context";
+import { buildExtendedUserActivityContext, looksLikeMessageLookup } from "@/lib/chat-user-activity-context";
 import {
   getDefaultConversationTitle,
   isDefaultConversationTitle
@@ -208,6 +208,12 @@ export async function POST(req: Request) {
 
   const hasImageInLastMessage = Boolean(lastUserMessage?.images?.length);
   const userText = lastUserMessage?.content?.trim() ?? "";
+  const contextMessages = selectRelevantChatHistory(messages);
+  const needsActivityContext =
+    looksLikeMessageLookup(userText) ||
+    /\b(notiz|notes?|feed|post|community|gruppe|freund|nachricht an|habe ich|did i|geschrieben|gesagt)\b/i.test(
+      userText
+    );
 
   const [memoryText, aiPreferences, stylePrompt, planState, chatContext, activityContext] =
     await Promise.all([
@@ -216,7 +222,9 @@ export async function POST(req: Request) {
       getCommunicationStylePrompt(admin, userId),
       getUserPlanState(admin, userId),
       buildChatUserContextPrompt(admin, userId, user.email),
-      buildExtendedUserActivityContext(admin, userId, { searchHint: userText })
+      needsActivityContext
+        ? buildExtendedUserActivityContext(admin, userId, { searchHint: userText })
+        : Promise.resolve("")
     ]);
   const chatLimitState = await getConversationLimitState(
     admin,
@@ -371,7 +379,7 @@ export async function POST(req: Request) {
 
       const aiMessages = [
         system,
-        ...applyChatLineFormat(messagesForAI(messages), chatContext.username)
+        ...applyChatLineFormat(messagesForAI(contextMessages), chatContext.username)
       ];
       const streamLanguage = replyLanguage;
       const streamTimeoutMs = hasImageInLastMessage ? 90000 : 45000;
@@ -516,7 +524,7 @@ export async function POST(req: Request) {
       }
       reply = await Promise.race([
         generateAIResponse(
-          [system, ...applyChatLineFormat(messagesForAI(messages), chatContext.username)],
+          [system, ...applyChatLineFormat(messagesForAI(contextMessages), chatContext.username)],
           {
             language: replyLanguage
           }

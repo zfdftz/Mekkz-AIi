@@ -24,8 +24,12 @@ export function planRank(plan: PlanId) {
   return 0;
 }
 
+export function planUpgradeDifferenceCentsBetween(from: PaidPlanId, to: PaidPlanId) {
+  return PLAN_MONTHLY_CENTS[to] - PLAN_MONTHLY_CENTS[from];
+}
+
 export function planUpgradeDifferenceCents() {
-  return PLAN_MONTHLY_CENTS.ultra - PLAN_MONTHLY_CENTS.pro;
+  return planUpgradeDifferenceCentsBetween("pro", "ultra");
 }
 
 export type PlanInfo = {

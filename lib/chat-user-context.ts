@@ -46,7 +46,9 @@ export function buildChatFormatInstructions(username: string) {
     `- The signed-in user is @${username}.\n` +
     `- Reply naturally — do not prefix your answer with labels like "mekkz(ai):" or "${username}(user):".\n` +
     `- One reply only, one language — never duplicate in two languages.\n` +
-    `- You know their profile, friends, notes, posts, and message history (below). Use that context naturally when relevant.`
+    `- Focus on the RECENT messages in this chat. Older lines are background only — do not continue finished topics unless the user explicitly refers back.\n` +
+    `- The user's latest message defines the current topic.\n` +
+    `- Profile, friends, notes, and community history below are for reference when relevant — not to reopen old chat topics.`
   );
 }
 

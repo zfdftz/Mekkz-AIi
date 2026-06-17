@@ -1,5 +1,52 @@
 import { ChatMessage } from "./types";
 
+/** Max message objects (user+assistant pairs ≈ count/2 turns) sent to the model. */
+const DEFAULT_MAX_CHAT_MESSAGES = 24;
+const NEW_TOPIC_MAX_CHAT_MESSAGES = 8;
+
+const NEW_TOPIC_PATTERNS =
+  /\b(neues?\s+thema|new topic|forget (that|this|about|it)|vergiss|lass uns|andere frage|something else|anyway|übrigens|jetzt (mal|eine?)|stattdessen|kurze frage|anderes thema|wechseln wir|change topic)\b/i;
+
+function significantWords(text: string) {
+  return new Set(text.toLowerCase().match(/\b[\p{L}\p{N}]{4,}\b/gu) ?? []);
+}
+
+function looksLikeNewTopic(currentUserText: string, previousUserTexts: string[]) {
+  if (NEW_TOPIC_PATTERNS.test(currentUserText)) return true;
+  if (previousUserTexts.length === 0) return false;
+
+  const currentWords = significantWords(currentUserText);
+  if (currentWords.size < 2) return false;
+
+  for (const previous of previousUserTexts.slice(-2)) {
+    const previousWords = significantWords(previous);
+    let overlap = 0;
+    for (const word of currentWords) {
+      if (previousWords.has(word)) overlap++;
+    }
+    if (overlap >= 2) return false;
+  }
+
+  return true;
+}
+
+/** Keeps recent chat only so finished topics do not dominate new questions. */
+export function selectRelevantChatHistory(messages: ChatMessage[]) {
+  const lastUser = [...messages].reverse().find((message) => message.role === "user");
+  const lastUserText = lastUser?.content?.trim() ?? "";
+  const previousUserTexts = messages
+    .filter((message) => message.role === "user")
+    .slice(0, -1)
+    .map((message) => message.content);
+
+  const limit = looksLikeNewTopic(lastUserText, previousUserTexts)
+    ? NEW_TOPIC_MAX_CHAT_MESSAGES
+    : DEFAULT_MAX_CHAT_MESSAGES;
+
+  if (messages.length <= limit) return messages;
+  return messages.slice(-limit);
+}
+
 type ChatRow = {
   user_message: string;
   assistant_message: string;

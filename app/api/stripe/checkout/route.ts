@@ -4,7 +4,7 @@ import { z } from "zod";
 import { isGuestUser } from "@/lib/auth/session";
 import {
   formatPlanChangeMessage,
-  completeProToUltraUpgrade,
+  completePlanUpgrade,
   hasStripePriceIds,
   scheduleUltraDowngradeToPro
 } from "@/lib/stripe-billing";
@@ -21,9 +21,9 @@ import {
 } from "@/lib/stripe";
 import {
   findActiveSubscriptionForUser,
-  findProSubscriptionForUser,
   reconcileUserPlanWithStripe
 } from "@/lib/stripe-sync";
+import { planRank, type PaidPlanId } from "@/lib/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -72,13 +72,14 @@ async function scheduleUltraToProDowngrade(
   }
 }
 
-async function respondProToUltraUpgrade(
+async function respondPlanUpgrade(
   stripe: NonNullable<ReturnType<typeof getStripe>>,
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
-  subscription: Stripe.Subscription
+  subscription: Stripe.Subscription,
+  targetPlan: PaidPlanId
 ) {
-  const outcome = await completeProToUltraUpgrade(stripe, admin, userId, subscription);
+  const outcome = await completePlanUpgrade(stripe, admin, userId, subscription, targetPlan);
 
   if (outcome.kind === "invoice") {
     return NextResponse.json({
@@ -99,21 +100,25 @@ async function respondProToUltraUpgrade(
   return NextResponse.json({ error: outcome.message }, { status: outcome.status });
 }
 
-async function tryProToUltraProrationUpgrade(
+async function tryProrationUpgrade(
   stripe: NonNullable<ReturnType<typeof getStripe>>,
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   email: string | null | undefined,
+  targetPlan: PaidPlanId,
   subscription?: Stripe.Subscription | null
 ) {
-  const proSubscription =
-    subscription && subscriptionPlan(subscription) === "pro"
-      ? subscription
-      : await findProSubscriptionForUser(admin, userId, email);
+  const activeSubscription =
+    subscription ?? (await findActiveSubscriptionForUser(admin, userId, email));
 
-  if (!proSubscription) return null;
+  if (!activeSubscription) return null;
 
-  return respondProToUltraUpgrade(stripe, admin, userId, proSubscription);
+  const currentPlan = subscriptionPlan(activeSubscription) ?? "free";
+  if (currentPlan === "free" || planRank(targetPlan) <= planRank(currentPlan)) {
+    return null;
+  }
+
+  return respondPlanUpgrade(stripe, admin, userId, activeSubscription, targetPlan);
 }
 
 export async function POST(req: Request) {
@@ -202,12 +207,13 @@ export async function POST(req: Request) {
         });
       }
 
-      if (currentPlan === "pro" && plan === "ultra") {
-        const upgradeResponse = await tryProToUltraProrationUpgrade(
+      if (planRank(plan) > planRank(currentPlan)) {
+        const upgradeResponse = await tryProrationUpgrade(
           stripe,
           admin,
           user.id,
           user.email,
+          plan,
           activeSubscription
         );
         if (upgradeResponse) return upgradeResponse;
@@ -219,19 +225,18 @@ export async function POST(req: Request) {
     }
 
     if (dbPlan !== "free" && plan !== dbPlan) {
-      return NextResponse.json({
-        error: "Planwechsel nur über die Buttons im Plan-Dialog (nicht als neuer Kauf)."
-      });
-    }
-
-    if (plan === "ultra") {
-      const upgradeResponse = await tryProToUltraProrationUpgrade(
+      const upgradeResponse = await tryProrationUpgrade(
         stripe,
         admin,
         user.id,
-        user.email
+        user.email,
+        plan
       );
       if (upgradeResponse) return upgradeResponse;
+
+      return NextResponse.json({
+        error: "Planwechsel nur über die Buttons im Plan-Dialog (nicht als neuer Kauf)."
+      });
     }
 
     const priceId = getStripePriceId(plan);

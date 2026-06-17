@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { planUpgradeDifferenceCents } from "./plans";
-import { isActiveSubscriptionStatus } from "./stripe";
+import {
+  PaidPlanId,
+  planUpgradeDifferenceCents,
+  planUpgradeDifferenceCentsBetween
+} from "./plans";
+import { getStripePriceId, isActiveSubscriptionStatus, subscriptionPlan } from "./stripe";
 import { setUserPlanFromStripe } from "./user-plans";
 
 export function hasStripePriceIds() {
@@ -67,21 +71,31 @@ export function upgradeDifferenceLabel() {
   return `${euros} €`;
 }
 
-/** Anteilige Differenz Pro→Ultra für die restlichen Abo-Tage (Schätzung für UI). */
-export function estimateProToUltraProrationCents(
+function planLabel(plan: PaidPlanId) {
+  if (plan === "plus") return "Plus";
+  if (plan === "pro") return "Pro";
+  return "Ultra";
+}
+
+/** Anteilige Differenz zwischen zwei Plänen für die restlichen Abo-Tage (Schätzung für UI). */
+export function estimatePlanUpgradeProrationCents(
+  fromPlan: PaidPlanId,
+  toPlan: PaidPlanId,
   periodEndUnix: number,
   periodStartUnix?: number
 ) {
+  const diff = planUpgradeDifferenceCentsBetween(fromPlan, toPlan);
+  if (diff <= 0) return 0;
+
   const nowSec = Math.floor(Date.now() / 1000);
   const total = Math.max(1, periodEndUnix - (periodStartUnix ?? periodEndUnix - 30 * 86400));
   const remaining = Math.max(0, periodEndUnix - nowSec);
-  return Math.max(
-    0,
-    Math.round(planUpgradeDifferenceCents() * (remaining / total))
-  );
+  return Math.max(0, Math.round(diff * (remaining / total)));
 }
 
-export function estimateProToUltraProrationFromIso(
+export function estimatePlanUpgradeProrationFromIso(
+  fromPlan: PaidPlanId,
+  toPlan: PaidPlanId,
   periodEndIso: string | null | undefined,
   periodStartIso?: string | null
 ) {
@@ -91,7 +105,22 @@ export function estimateProToUltraProrationFromIso(
   const start = periodStartIso
     ? Math.floor(new Date(periodStartIso).getTime() / 1000)
     : undefined;
-  return estimateProToUltraProrationCents(end, start);
+  return estimatePlanUpgradeProrationCents(fromPlan, toPlan, end, start);
+}
+
+/** Anteilige Differenz Pro→Ultra für die restlichen Abo-Tage (Schätzung für UI). */
+export function estimateProToUltraProrationCents(
+  periodEndUnix: number,
+  periodStartUnix?: number
+) {
+  return estimatePlanUpgradeProrationCents("pro", "ultra", periodEndUnix, periodStartUnix);
+}
+
+export function estimateProToUltraProrationFromIso(
+  periodEndIso: string | null | undefined,
+  periodStartIso?: string | null
+) {
+  return estimatePlanUpgradeProrationFromIso("pro", "ultra", periodEndIso, periodStartIso);
 }
 
 export function formatProrationEstimate(cents: number, locale = "de-DE") {
@@ -105,71 +134,73 @@ export function formatProrationEstimate(cents: number, locale = "de-DE") {
   return `~${Math.ceil(euros).toLocaleString(locale)} €`;
 }
 
-async function resolveUltraPriceId(stripe: Stripe) {
-  const fromEnv = process.env.STRIPE_PRICE_ULTRA?.trim();
-  if (fromEnv) return fromEnv;
-
-  const prices = await stripe.prices.list({ active: true, limit: 100 });
-  const match = prices.data.find(
-    (price) =>
-      price.recurring &&
-      price.currency === "eur" &&
-      price.unit_amount === 2900
-  );
-  if (match?.id) return match.id;
-
-  throw new Error(
-    "Ultra-Preis fehlt (STRIPE_PRICE_ULTRA in Vercel oder passender Stripe-Preis)."
-  );
-}
-
-export async function upgradeProToUltra(
+export async function upgradeSubscriptionPlan(
   stripe: Stripe,
-  subscription: Stripe.Subscription
+  subscription: Stripe.Subscription,
+  targetPlan: PaidPlanId
 ) {
   const item = subscription.items.data[0];
   if (!item?.id) {
     throw new Error("Stripe-Abo konnte nicht aktualisiert werden (keine Position).");
   }
 
-  const ultraPriceId = await resolveUltraPriceId(stripe);
+  const priceId = getStripePriceId(targetPlan);
+  if (!priceId) {
+    throw new Error(
+      targetPlan === "plus"
+        ? "Plus-Preis fehlt (STRIPE_PRICE_PLUS in Vercel)."
+        : targetPlan === "pro"
+          ? "Pro-Preis fehlt (STRIPE_PRICE_PRO in Vercel)."
+          : "Ultra-Preis fehlt (STRIPE_PRICE_ULTRA in Vercel)."
+    );
+  }
 
   return stripe.subscriptions.update(subscription.id, {
-    items: [{ id: item.id, price: ultraPriceId }],
+    items: [{ id: item.id, price: priceId }],
     proration_behavior: "always_invoice",
     billing_cycle_anchor: "unchanged",
     payment_behavior: "pending_if_incomplete",
-    metadata: { ...subscription.metadata, plan: "ultra" },
+    metadata: { ...subscription.metadata, plan: targetPlan },
     expand: ["latest_invoice"]
   });
 }
 
-export type ProToUltraUpgradeOutcome =
+export async function upgradeProToUltra(
+  stripe: Stripe,
+  subscription: Stripe.Subscription
+) {
+  return upgradeSubscriptionPlan(stripe, subscription, "ultra");
+}
+
+export type PlanUpgradeOutcome =
   | { kind: "success"; message: string }
   | { kind: "invoice"; url: string; message: string }
   | { kind: "error"; message: string; status: number };
 
-export async function completeProToUltraUpgrade(
+export type ProToUltraUpgradeOutcome = PlanUpgradeOutcome;
+
+export async function completePlanUpgrade(
   stripe: Stripe,
   admin: SupabaseClient,
   userId: string,
-  subscription: Stripe.Subscription
-): Promise<ProToUltraUpgradeOutcome> {
+  subscription: Stripe.Subscription,
+  targetPlan: PaidPlanId
+): Promise<PlanUpgradeOutcome> {
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : subscription.customer.id;
+  const targetLabel = planLabel(targetPlan);
 
   try {
-    const updated = await upgradeProToUltra(stripe, subscription);
+    const updated = await upgradeSubscriptionPlan(stripe, subscription, targetPlan);
     const invoice = await resolveLatestInvoice(stripe, updated);
 
     if (invoiceNeedsPayment(invoice) && invoice?.hosted_invoice_url) {
       return {
         kind: "invoice",
         url: invoice.hosted_invoice_url,
-        message:
-          "Bitte nur den anteiligen Unterschied für die restlichen Tage bezahlen. Ultra wird danach aktiv."
+        message: `Bitte nur den anteiligen Unterschied für die restlichen Tage bezahlen. ${targetLabel} wird danach aktiv.`
       };
     }
 
@@ -182,7 +213,7 @@ export async function completeProToUltraUpgrade(
       };
     }
 
-    await setUserPlanFromStripe(admin, userId, "ultra", {
+    await setUserPlanFromStripe(admin, userId, targetPlan, {
       customerId,
       subscriptionId: updated.id,
       subscriptionStatus: updated.status,
@@ -193,16 +224,36 @@ export async function completeProToUltraUpgrade(
 
     return {
       kind: "success",
-      message: `Ultra ist aktiv. Es wurde nur der anteilige Unterschied für die restlichen Tage berechnet — dein Abo erneuert sich weiter am ${renewDate}.`
+      message: `${targetLabel} ist aktiv. Es wurde nur der anteilige Unterschied für die restlichen Tage berechnet — dein Abo erneuert sich weiter am ${renewDate}.`
     };
   } catch (error) {
     return {
       kind: "error",
       status: 402,
       message:
-        error instanceof Error ? error.message : "Upgrade auf Ultra fehlgeschlagen."
+        error instanceof Error
+          ? error.message
+          : `Upgrade auf ${targetLabel} fehlgeschlagen.`
     };
   }
+}
+
+export async function completeProToUltraUpgrade(
+  stripe: Stripe,
+  admin: SupabaseClient,
+  userId: string,
+  subscription: Stripe.Subscription
+): Promise<ProToUltraUpgradeOutcome> {
+  const currentPlan = subscriptionPlan(subscription);
+  if (currentPlan !== "pro") {
+    return {
+      kind: "error",
+      status: 400,
+      message: "Upgrade auf Ultra ist nur von Pro aus möglich."
+    };
+  }
+
+  return completePlanUpgrade(stripe, admin, userId, subscription, "ultra");
 }
 
 export async function resolveLatestInvoice(

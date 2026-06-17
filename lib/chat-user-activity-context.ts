@@ -126,7 +126,7 @@ export function extractMessageSearchTerms(text: string): string[] {
   return unique;
 }
 
-function looksLikeMessageLookup(text: string) {
+export function looksLikeMessageLookup(text: string) {
   return /\b(habe ich|did i|geschrieben|geschickt|gesagt|ever write|ever say|ever send|ever post|wrote to|sent to|mal .+ (geschrieben|gesagt))\b/i.test(
     text
   );

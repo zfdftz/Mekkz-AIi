@@ -4,7 +4,7 @@ import { isGuestUser } from "@/lib/auth/session";
 import { PLANS, PlanId } from "@/lib/plans";
 import { isStripeConfigured } from "@/lib/stripe";
 import {
-  estimateProToUltraProrationFromIso,
+  estimatePlanUpgradeProrationFromIso,
   formatProrationEstimate
 } from "@/lib/stripe-billing";
 import { reconcileUserPlanWithStripe } from "@/lib/stripe-sync";
@@ -43,20 +43,44 @@ export async function GET(req: Request) {
 
   const state = await getUserPlanState(admin, userId);
 
-  const ultraUpgradeEstimateLabel =
-    state.plan === "pro" && state.hasActiveSubscription
+  const prorationSuffix = " jetzt (Rest der Periode)";
+
+  const proUpgradeEstimateLabel =
+    state.plan === "plus" && state.hasActiveSubscription
       ? (() => {
-          const cents = estimateProToUltraProrationFromIso(state.stripePeriodEnd);
+          const cents = estimatePlanUpgradeProrationFromIso(
+            "plus",
+            "pro",
+            state.stripePeriodEnd
+          );
           if (cents == null) return null;
-          return `${formatProrationEstimate(cents)} jetzt (Rest der Periode)`;
+          return `${formatProrationEstimate(cents)}${prorationSuffix}`;
+        })()
+      : null;
+
+  const ultraUpgradeEstimateLabel =
+    (state.plan === "plus" || state.plan === "pro") && state.hasActiveSubscription
+      ? (() => {
+          const cents = estimatePlanUpgradeProrationFromIso(
+            state.plan,
+            "ultra",
+            state.stripePeriodEnd
+          );
+          if (cents == null) return null;
+          return `${formatProrationEstimate(cents)}${prorationSuffix}`;
         })()
       : null;
 
   return NextResponse.json(
     {
-      plan: ultraUpgradeEstimateLabel
-        ? { ...state, ultraUpgradeEstimateLabel }
-        : state,
+      plan:
+        proUpgradeEstimateLabel || ultraUpgradeEstimateLabel
+          ? {
+              ...state,
+              ...(proUpgradeEstimateLabel ? { proUpgradeEstimateLabel } : {}),
+              ...(ultraUpgradeEstimateLabel ? { ultraUpgradeEstimateLabel } : {})
+            }
+          : state,
       plans: PLANS
     },
     {

@@ -38,20 +38,11 @@ export function ProfileStyleBackground({
       className={`profile-style-background ${bgClass} ${className} ${
         hasCustomStyle ? "profile-bg-animated" : seasonClass ? `${seasonClass}-banner` : ""
       }`}
-      style={accentColor ? ({ "--profile-accent": accentColor } as CSSProperties) : undefined}
       aria-hidden
     >
       {isFrameStyle ? <div className="profile-style-rings" /> : null}
       {!hasCustomStyle ? <div className="season-profile-fx" aria-hidden /> : null}
       {hasCustomStyle ? <div className="profile-bg-drift-layer" /> : null}
-      {accentColor ? (
-        <div
-          className="profile-style-accent"
-          style={{
-            background: `linear-gradient(135deg, ${accentColor}33 0%, transparent 45%, ${accentColor}22 100%)`
-          }}
-        />
-      ) : null}
     </div>
   );
 }

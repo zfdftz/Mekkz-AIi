@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { usernamesByIds } from "./profile";
 import type { Clan, ClanMember } from "./types";
 
-function missing(msg: string) {
+export function isClansSchemaMissing(msg: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(msg);
 }
 
@@ -28,11 +28,16 @@ export async function createClan(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  await admin.from("clan_members").insert({
+
+  const { error: memberError } = await admin.from("clan_members").insert({
     clan_id: data.id,
     user_id: ownerId,
     role: "owner"
   });
+  if (memberError) {
+    await admin.from("clans").delete().eq("id", data.id);
+    throw new Error(memberError.message);
+  }
   return mapClan(data);
 }
 
@@ -44,20 +49,35 @@ export async function listPublicClans(admin: SupabaseClient, limit = 30): Promis
     .order("member_count", { ascending: false })
     .limit(limit);
   if (error) {
-    if (missing(error.message)) return [];
+    if (isClansSchemaMissing(error.message)) return [];
     throw new Error(error.message);
   }
   return (data ?? []).map(mapClan);
 }
 
 export async function getUserClan(admin: SupabaseClient, userId: string): Promise<Clan | null> {
-  const { data: membership } = await admin
+  const { data: membership, error: memberError } = await admin
     .from("clan_members")
     .select("clan_id")
     .eq("user_id", userId)
+    .order("joined_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
+  if (memberError) {
+    if (isClansSchemaMissing(memberError.message)) return null;
+    throw new Error(memberError.message);
+  }
   if (!membership) return null;
-  const { data } = await admin.from("clans").select("*").eq("id", membership.clan_id).maybeSingle();
+
+  const { data, error } = await admin
+    .from("clans")
+    .select("*")
+    .eq("id", membership.clan_id)
+    .maybeSingle();
+  if (error) {
+    if (isClansSchemaMissing(error.message)) return null;
+    throw new Error(error.message);
+  }
   return data ? mapClan(data) : null;
 }
 
@@ -69,7 +89,10 @@ export async function listClanMembers(
     .from("clan_members")
     .select("user_id, role, joined_at")
     .eq("clan_id", clanId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isClansSchemaMissing(error.message)) return [];
+    throw new Error(error.message);
+  }
   const ids = (data ?? []).map((r) => r.user_id as string);
   const names = await usernamesByIds(admin, ids);
   return (data ?? []).map((row) => ({
@@ -81,6 +104,9 @@ export async function listClanMembers(
 }
 
 export async function requestJoinClan(admin: SupabaseClient, userId: string, clanId: string) {
+  const existing = await getUserClan(admin, userId);
+  if (existing) throw new Error("Du bist bereits in einem Clan.");
+
   const { error } = await admin.from("clan_join_requests").upsert({
     clan_id: clanId,
     user_id: userId,
@@ -90,14 +116,24 @@ export async function requestJoinClan(admin: SupabaseClient, userId: string, cla
 }
 
 export async function joinPublicClan(admin: SupabaseClient, userId: string, clanId: string) {
-  const { data: clan } = await admin.from("clans").select("is_public").eq("id", clanId).maybeSingle();
+  const existing = await getUserClan(admin, userId);
+  if (existing) throw new Error("Du bist bereits in einem Clan.");
+
+  const { data: clan, error: clanError } = await admin
+    .from("clans")
+    .select("is_public")
+    .eq("id", clanId)
+    .maybeSingle();
+  if (clanError) throw new Error(clanError.message);
   if (!clan?.is_public) throw new Error("Clan ist privat — Anfrage senden.");
+
   const { error } = await admin.from("clan_members").insert({
     clan_id: clanId,
     user_id: userId,
     role: "member"
   });
   if (error) throw new Error(error.message);
+
   const { data: c } = await admin.from("clans").select("member_count").eq("id", clanId).maybeSingle();
   await admin
     .from("clans")

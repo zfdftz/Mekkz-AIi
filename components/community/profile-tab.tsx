@@ -181,21 +181,11 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
       <Panel className="overflow-hidden !bg-transparent p-0 shadow-none">
         <ProfileStyleShell
           styleId={rewardsForm.profileBackground}
-          accentColor={rewardsForm.accentColor}
           seasonClass={seasonClass}
         >
         <form onSubmit={(e) => void save(e)} className="space-y-4 p-4 sm:p-5">
           <div className="flex items-end gap-4">
-            <div
-              className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-black/40 bg-black/30"
-              style={
-                rewardsForm.accentColor
-                  ? {
-                      boxShadow: `0 0 0 3px ${rewardsForm.accentColor}, 0 0 20px ${rewardsForm.accentColor}66`
-                    }
-                  : undefined
-              }
-            >
+            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-white/20 bg-black/30">
               {avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
@@ -209,12 +199,13 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
               <ProfileIdentity
                 username={profile?.username ?? "user"}
                 title={profile?.activeTitleLabel}
-              isVerified={profile?.isVerified}
-              isCreator={profile?.isCreator}
-              isChosen={profile?.isChosen}
-              isUltraCreator={profile?.isUltraCreator}
-              badges={profile?.showcasedBadges}
-            />
+                isVerified={profile?.isVerified}
+                isCreator={profile?.isCreator}
+                isChosen={profile?.isChosen}
+                isUltraCreator={profile?.isUltraCreator}
+                badges={profile?.showcasedBadges}
+                profileView
+              />
               <p className="mt-1 text-sm font-medium text-primary">
                 {formatCount(profile?.followersCount ?? 0)} Follower
               </p>

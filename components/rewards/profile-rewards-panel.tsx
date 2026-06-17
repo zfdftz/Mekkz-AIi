@@ -7,7 +7,6 @@ import { Panel, PrimaryButton } from "@/components/community/shared";
 import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
 import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { readJsonResponse } from "@/lib/fetch-json";
-import { storeAccent } from "@/lib/accent-color";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { TITLES } from "@/lib/rewards/catalog";
 import { toggleShowcaseBadge } from "@/lib/rewards/showcase-rules";
@@ -67,15 +66,13 @@ export function ProfileRewardsPanel({
 
   const emitForm = useCallback(
     (next: Partial<RewardsFormState>) => {
-      const merged = {
+      onFormChange?.({
         showcaseIds,
         profileBackground,
         accentColor,
         activeTitle,
         ...next
-      };
-      if (next.accentColor) storeAccent(next.accentColor);
-      onFormChange?.(merged);
+      });
     },
     [onFormChange, showcaseIds, profileBackground, accentColor, activeTitle]
   );
@@ -216,24 +213,16 @@ export function ProfileRewardsPanel({
 
       <div>
         <h4 className="mb-2 text-sm font-semibold">Profil-Hintergrund</h4>
+        <p className="mb-3 text-[10px] text-muted">
+          Jeder Effekt behält seine festen Farben (Galaxy, Flammen, Eis …).
+        </p>
         {!embedded ? (
           <ProfileStyleBanner
             styleId={profileBackground}
-            accentColor={accentColor}
             seasonClass={seasonClass}
             className="mb-3 h-20"
           />
         ) : null}
-        <label className="mb-2 block text-xs text-muted">Akzentfarbe</label>
-        <input
-          type="color"
-          value={accentColor}
-          onChange={(e) => {
-            setAccentColor(e.target.value);
-            emitForm({ accentColor: e.target.value });
-          }}
-          className="mb-3 h-9 w-full cursor-pointer rounded-lg border border-white/10 bg-transparent"
-        />
         <div className="flex flex-wrap gap-1">
           <button
             type="button"

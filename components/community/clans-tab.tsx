@@ -33,8 +33,9 @@ export function ClansTab() {
         clans?: Clan[];
         myClan?: Clan | null;
         members?: ClanMember[];
+        error?: string;
       }>(res);
-      if (!res.ok) throw new Error("Clans konnten nicht geladen werden.");
+      if (!res.ok) throw new Error(data.error || "Clans konnten nicht geladen werden.");
       setClans(data.clans ?? []);
       setMyClan(data.myClan ?? null);
       setMembers(data.members ?? []);
@@ -72,14 +73,19 @@ export function ClansTab() {
   }
 
   async function joinClan(clanId: string) {
-    const res = await fetch("/api/community/clans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "join", clanId })
-    });
-    const data = await readJsonResponse<{ error?: string }>(res);
-    if (!res.ok) setError(data.error || "Beitritt fehlgeschlagen.");
-    else await load();
+    setError(null);
+    try {
+      const res = await fetch("/api/community/clans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "join", clanId })
+      });
+      const data = await readJsonResponse<{ error?: string }>(res);
+      if (!res.ok) throw new Error(data.error || "Beitritt fehlgeschlagen.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler.");
+    }
   }
 
   if (loading) return <LoadingState />;

@@ -111,7 +111,6 @@ export function ProfileModal({
         <ProfileStyleShell
           styleId={profile?.profileBackground}
           profileFrame={profile?.profileFrame}
-          accentColor={profile?.accentColor}
           seasonClass={seasonClass}
           className="max-h-[92vh] min-h-[320px] overflow-y-auto"
         >
@@ -143,6 +142,8 @@ export function ProfileModal({
                   isCreator={profile.isCreator}
                   isChosen={profile.isChosen}
                   isUltraCreator={profile.isUltraCreator}
+                  badges={profile.showcasedBadges}
+                  profileView
                 />
                 <p className="text-xs text-muted">{formatCount(profile.followersCount)} Follower</p>
                 {typeof profile.totalLikes === "number" ? (
@@ -230,14 +231,7 @@ export function ProfileModal({
 
 function FramedAvatar({ profile }: { profile: PublicUserProfile }) {
   return (
-    <div
-      className="relative h-[80px] w-[80px] shrink-0 rounded-full border-2 border-black/40 bg-black/30 p-[2px]"
-      style={
-        profile.accentColor
-          ? { boxShadow: `0 0 0 3px ${profile.accentColor}, 0 0 18px ${profile.accentColor}55` }
-          : undefined
-      }
-    >
+    <div className="relative h-[80px] w-[80px] shrink-0 rounded-full border-2 border-white/20 bg-black/30 p-[2px]">
       <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} />
       {profile.isOnline ? (
         <span className="absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-[3px] border-[#232428] bg-emerald-500" />

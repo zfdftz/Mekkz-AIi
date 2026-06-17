@@ -54,7 +54,7 @@ export function GroupsTab() {
 
   usePoll(() => {
     if (activeGroup) return loadMessages(activeGroup.id);
-  }, 3000, Boolean(activeGroup));
+  }, 2000, Boolean(activeGroup));
 
   async function createGroup() {
     if (!newName.trim()) return;
@@ -82,8 +82,12 @@ export function GroupsTab() {
   }
 
   async function sendMessage() {
-    if (!activeGroup || !draft.trim()) return;
+    if (!activeGroup || !draft.trim() || sending) return;
+    const content = draft.trim();
+    const mentionAi = /@mekkz|@ai/i.test(content);
+    setDraft("");
     setSending(true);
+    setError(null);
     try {
       const res = await fetch("/api/community/groups", {
         method: "POST",
@@ -91,13 +95,20 @@ export function GroupsTab() {
         body: JSON.stringify({
           action: "message",
           groupId: activeGroup.id,
-          content: draft.trim()
+          content
         })
       });
-      const data = await readJsonResponse<{ error?: string }>(res);
-      if (!res.ok) throw new Error(data.error || "Senden fehlgeschlagen.");
-      setDraft("");
-      await loadMessages(activeGroup.id);
+      const data = await readJsonResponse<{ message?: GroupMessage; error?: string }>(res);
+      if (!res.ok) {
+        setDraft(content);
+        throw new Error(data.error || "Senden fehlgeschlagen.");
+      }
+      if (data.message) {
+        setMessages((prev) => [...prev, data.message!]);
+      }
+      if (mentionAi) {
+        window.setTimeout(() => void loadMessages(activeGroup.id), 1200);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {

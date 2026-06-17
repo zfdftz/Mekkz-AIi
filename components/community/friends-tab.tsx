@@ -82,11 +82,11 @@ export function FriendsTab() {
 
   usePoll(() => {
     void load();
-  }, 8000, true);
+  }, 5000, true);
 
   usePoll(() => {
     if (activeFriend) return loadMessages(activeFriend.userId);
-  }, 3000, Boolean(activeFriend));
+  }, 2000, Boolean(activeFriend));
 
   async function sendRequest() {
     const name = username.trim();
@@ -146,7 +146,9 @@ export function FriendsTab() {
   }
 
   async function sendMessage() {
-    if (!activeFriend || !draft.trim()) return;
+    if (!activeFriend || !draft.trim() || sending) return;
+    const content = draft.trim();
+    setDraft("");
     setSending(true);
     try {
       const res = await fetch("/api/community/friends", {
@@ -155,12 +157,17 @@ export function FriendsTab() {
         body: JSON.stringify({
           action: "message",
           friendId: activeFriend.userId,
-          content: draft.trim()
+          content
         })
       });
-      if (!res.ok) return;
-      setDraft("");
-      await loadMessages(activeFriend.userId);
+      const data = await readJsonResponse<{ message?: FriendMessage }>(res);
+      if (!res.ok) {
+        setDraft(content);
+        return;
+      }
+      if (data.message) {
+        setMessages((prev) => [...prev, data.message!]);
+      }
     } finally {
       setSending(false);
     }

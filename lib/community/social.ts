@@ -132,13 +132,18 @@ export async function postRoomMessage(
     .select("id, room_id, user_id, content, created_at")
     .single();
   if (error) throw new Error(error.message);
-  return {
-    id: data.id,
-    roomId: data.room_id,
-    userId: data.user_id,
-    content: data.content,
-    createdAt: data.created_at
-  };
+  const names = await usernamesByIds(admin, [userId]);
+  const [message] = await enrichWithAuthorFields(admin, [
+    {
+      id: data.id,
+      roomId: data.room_id,
+      userId: data.user_id,
+      content: data.content,
+      createdAt: data.created_at,
+      authorName: names.get(userId) ?? null
+    }
+  ]);
+  return message;
 }
 
 export async function listFriendRequests(admin: SupabaseClient, userId: string) {
@@ -424,14 +429,27 @@ export async function sendFriendMessage(
   senderId: string,
   receiverId: string,
   content: string
-) {
+): Promise<FriendMessage> {
   const { data, error } = await admin
     .from("friend_messages")
     .insert({ sender_id: senderId, receiver_id: receiverId, content })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  return data;
+  const names = await usernamesByIds(admin, [senderId]);
+  const enriched = await enrichWithAuthorFields(admin, [
+    {
+      id: data.id,
+      senderId: data.sender_id,
+      receiverId: data.receiver_id,
+      content: data.content,
+      createdAt: data.created_at,
+      authorName: names.get(senderId) ?? null,
+      userId: senderId
+    }
+  ]);
+  const { userId: _uid, ...message } = enriched[0];
+  return message as FriendMessage;
 }
 
 export async function listGroups(admin: SupabaseClient, userId: string): Promise<GroupChat[]> {
@@ -499,7 +517,7 @@ export async function postGroupMessage(
   userId: string,
   groupId: string,
   content: string
-) {
+): Promise<{ message: GroupMessage; mentionAi: boolean }> {
   const mentionAi = /@mekkz|@ai/i.test(content);
   const { data, error } = await admin
     .from("group_chat_messages")
@@ -507,30 +525,75 @@ export async function postGroupMessage(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
+  const message = await mapGroupMessageRow(admin, data);
+  return { message, mentionAi };
+}
 
-  if (mentionAi) {
-    const history = await listGroupMessages(admin, groupId);
-    const reply = await generateAIResponse([
-      {
-        role: "system",
-        content: "You are Mekkz AI in a group chat. Be concise and helpful."
-      },
-      ...history.slice(-12).map((m) => ({
-        role: (m.isAi ? "assistant" : "user") as "assistant" | "user",
-        content: `${m.authorName ?? "User"}: ${m.content}`
-      })),
-      { role: "user", content }
-    ]);
-    await admin.from("group_chat_messages").insert({
+export async function replyGroupAiIfMentioned(
+  admin: SupabaseClient,
+  groupId: string,
+  content: string,
+  parentMessageId: string
+) {
+  const history = await listGroupMessages(admin, groupId);
+  const reply = await generateAIResponse([
+    {
+      role: "system",
+      content: "You are Mekkz AI in a group chat. Be concise and helpful."
+    },
+    ...history.slice(-12).map((m) => ({
+      role: (m.isAi ? "assistant" : "user") as "assistant" | "user",
+      content: `${m.authorName ?? "User"}: ${m.content}`
+    })),
+    { role: "user", content }
+  ]);
+  const { data, error } = await admin
+    .from("group_chat_messages")
+    .insert({
       group_id: groupId,
       user_id: null,
       content: reply,
       is_ai: true,
-      thread_parent_id: data.id
-    });
-  }
+      thread_parent_id: parentMessageId
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapGroupMessageRow(admin, data);
+}
 
-  return data;
+async function mapGroupMessageRow(
+  admin: SupabaseClient,
+  row: Record<string, unknown>
+): Promise<GroupMessage> {
+  if (row.is_ai) {
+    return {
+      id: row.id as string,
+      groupId: row.group_id as string,
+      userId: null,
+      content: row.content as string,
+      isAi: true,
+      threadParentId: (row.thread_parent_id as string) ?? null,
+      createdAt: row.created_at as string,
+      authorName: "Mekkz AI"
+    };
+  }
+  const userId = row.user_id as string;
+  const names = await usernamesByIds(admin, [userId]);
+  const enriched = await enrichWithAuthorFields(admin, [
+    {
+      id: row.id as string,
+      groupId: row.group_id as string,
+      userId,
+      content: row.content as string,
+      isAi: false,
+      threadParentId: (row.thread_parent_id as string) ?? null,
+      createdAt: row.created_at as string,
+      authorName: names.get(userId) ?? null
+    }
+  ]);
+  const { userId: _uid, ...message } = enriched[0];
+  return message as GroupMessage;
 }
 
 export async function listFeed(

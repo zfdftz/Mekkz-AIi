@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart, MessageCircle, Repeat2, TrendingUp } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChatComposer,
   EmptyState,
@@ -39,6 +39,7 @@ export function FeedTab() {
   const [comments, setComments] = useState<Record<string, FeedComment[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
   const [actionBusy, setActionBusy] = useState<Record<string, boolean>>({});
+  const actionBusyRef = useRef(new Set<string>());
 
   const load = useCallback(async (append = false) => {
     setError(null);
@@ -140,10 +141,21 @@ export function FeedTab() {
     }
   }
 
+  function lockAction(key: string) {
+    if (actionBusyRef.current.has(key)) return false;
+    actionBusyRef.current.add(key);
+    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    return true;
+  }
+
+  function unlockAction(key: string) {
+    actionBusyRef.current.delete(key);
+    setActionBusy((prev) => ({ ...prev, [key]: false }));
+  }
+
   async function toggleLike(postId: string) {
     const key = `like:${postId}`;
-    if (actionBusy[key]) return;
-    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    if (!lockAction(key)) return;
     try {
       const res = await fetch("/api/community/feed", {
         method: "POST",
@@ -164,14 +176,13 @@ export function FeedTab() {
         )
       );
     } finally {
-      setActionBusy((prev) => ({ ...prev, [key]: false }));
+      unlockAction(key);
     }
   }
 
   async function repostPost(postId: string) {
     const key = `repost:${postId}`;
-    if (actionBusy[key]) return;
-    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    if (!lockAction(key)) return;
     try {
       const res = await fetch("/api/community/feed", {
         method: "POST",
@@ -186,7 +197,7 @@ export function FeedTab() {
         );
       }
     } finally {
-      setActionBusy((prev) => ({ ...prev, [key]: false }));
+      unlockAction(key);
     }
   }
 
@@ -205,8 +216,7 @@ export function FeedTab() {
     const text = commentDraft[postId]?.trim();
     if (!text) return;
     const key = `comment:${postId}`;
-    if (actionBusy[key]) return;
-    setActionBusy((prev) => ({ ...prev, [key]: true }));
+    if (!lockAction(key)) return;
     try {
       const res = await fetch("/api/community/feed", {
         method: "POST",
@@ -223,16 +233,16 @@ export function FeedTab() {
           ...prev,
           [postId]: [...(prev[postId] ?? []), data.comment!]
         }));
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === postId
-              ? { ...p, commentsCount: data.commentsCount ?? p.commentsCount + 1 }
-              : p
-          )
-        );
+        if (typeof data.commentsCount === "number") {
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === postId ? { ...p, commentsCount: data.commentsCount! } : p
+            )
+          );
+        }
       }
     } finally {
-      setActionBusy((prev) => ({ ...prev, [key]: false }));
+      unlockAction(key);
     }
   }
 

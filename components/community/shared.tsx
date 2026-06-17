@@ -284,7 +284,8 @@ export function ChatComposer({
   disabled?: boolean;
   sendLabel?: string;
 }) {
-  const blocked = loading || disabled;
+  const inputBlocked = Boolean(disabled);
+  const sendBlocked = Boolean(disabled || loading);
   return (
     <div className="flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:gap-3 sm:pt-5">
       <TextInput
@@ -292,9 +293,9 @@ export function ChatComposer({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        disabled={blocked}
+        disabled={inputBlocked}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && !blocked) {
+          if (e.key === "Enter" && !e.shiftKey && !sendBlocked) {
             e.preventDefault();
             onSend();
           }
@@ -304,7 +305,7 @@ export function ChatComposer({
         className="w-full shrink-0 sm:w-auto"
         onClick={onSend}
         loading={loading}
-        disabled={disabled}
+        disabled={sendBlocked}
       >
         {sendLabel}
       </PrimaryButton>

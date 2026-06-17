@@ -65,7 +65,7 @@ export function ClansTab() {
       .then((d: { messages?: ClanMessage[] }) => {
         if (d.messages) setMessages(d.messages);
       });
-  }, 4000, Boolean(myClan));
+  }, 2500, Boolean(myClan));
 
   async function createClan() {
     if (!name.trim()) return;
@@ -106,22 +106,25 @@ export function ClansTab() {
   }
 
   async function sendMessage() {
-    if (!draft.trim() || !myClan) return;
+    if (!draft.trim() || !myClan || sending) return;
+    const content = draft.trim();
+    setDraft("");
     setSending(true);
     setError(null);
     try {
       const res = await fetch("/api/community/clans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "message", content: draft.trim() })
+        body: JSON.stringify({ action: "message", content })
       });
       const data = await readJsonResponse<{ message?: ClanMessage; error?: string }>(res);
-      if (!res.ok) throw new Error(data.error || "Nachricht fehlgeschlagen.");
-      setDraft("");
-      if (data.message) {
-        setMessages((prev) => [...prev, { ...data.message!, authorName: null }]);
+      if (!res.ok) {
+        setDraft(content);
+        throw new Error(data.error || "Nachricht fehlgeschlagen.");
       }
-      await load();
+      if (data.message) {
+        setMessages((prev) => [...prev, data.message!]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {

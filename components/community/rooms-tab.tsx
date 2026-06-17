@@ -73,7 +73,7 @@ export function RoomsTab() {
 
   usePoll(() => {
     if (activeRoom) return loadMessages(activeRoom.id);
-  }, 3000, Boolean(activeRoom));
+  }, 2000, Boolean(activeRoom));
 
   async function joinRoom(room: ChatRoom) {
     setError(null);
@@ -105,27 +105,32 @@ export function RoomsTab() {
   }
 
   async function sendMessage() {
-    if (!activeRoom || !draft.trim() || cooldownSeconds > 0) return;
+    if (!activeRoom || !draft.trim() || cooldownSeconds > 0 || sending) return;
+    const content = draft.trim();
+    setDraft("");
     setSending(true);
     try {
       const res = await fetch("/api/community/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "message", roomId: activeRoom.id, content: draft.trim() })
+        body: JSON.stringify({ action: "message", roomId: activeRoom.id, content })
       });
       const data = await readJsonResponse<{
         error?: string;
         retryAfterSeconds?: number;
+        message?: RoomMessage;
       }>(res);
       if (!res.ok) {
+        setDraft(content);
         if (typeof data.retryAfterSeconds === "number" && data.retryAfterSeconds > 0) {
           setCooldownSeconds(data.retryAfterSeconds);
         }
         throw new Error(data.error || "Senden fehlgeschlagen.");
       }
-      setDraft("");
+      if (data.message) {
+        setMessages((prev) => [...prev, data.message!]);
+      }
       setCooldownSeconds(Math.ceil(PUBLIC_ROOM_MESSAGE_COOLDOWN_MS / 1000));
-      await loadMessages(activeRoom.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {

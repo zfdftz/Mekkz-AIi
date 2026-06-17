@@ -13,6 +13,7 @@ import {
   sendFriendRequestByUserId
 } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthorIdentityMap, authorFieldsFromIdentity } from "@/lib/rewards/identity";
 
 export async function GET(req: Request) {
   const auth = await requireRegisteredUser();
@@ -114,6 +115,17 @@ export async function POST(req: Request) {
       );
     }
   }
-  await sendFriendMessage(admin, userId, parsed.data.friendId, parsed.data.content);
-  return NextResponse.json({ ok: true });
+  const message = await sendFriendMessage(
+    admin,
+    userId,
+    parsed.data.friendId,
+    parsed.data.content
+  );
+  const identity = await getAuthorIdentityMap(admin, [userId]);
+  return NextResponse.json({
+    message: {
+      ...message,
+      ...authorFieldsFromIdentity(identity.get(userId))
+    }
+  });
 }

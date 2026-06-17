@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { requireRegisteredUser } from "@/lib/api/require-user";
-import { createGroup, listGroupMessages, listGroups, postGroupMessage } from "@/lib/community/social";
+import { createGroup, listGroupMessages, listGroups, postGroupMessage, replyGroupAiIfMentioned } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(req: Request) {
@@ -40,6 +40,22 @@ export async function POST(req: Request) {
   if (!parsed.data.groupId || !parsed.data.content?.trim()) {
     return NextResponse.json({ error: "Gruppe oder Nachricht fehlt." }, { status: 400 });
   }
-  await postGroupMessage(admin, auth.user!.id, parsed.data.groupId, parsed.data.content.trim());
-  return NextResponse.json({ ok: true });
+  const userId = auth.user!.id;
+  const content = parsed.data.content.trim();
+  const { message, mentionAi } = await postGroupMessage(
+    admin,
+    userId,
+    parsed.data.groupId,
+    content
+  );
+  if (mentionAi) {
+    after(async () => {
+      try {
+        await replyGroupAiIfMentioned(admin, parsed.data.groupId!, content, message.id);
+      } catch {
+        // AI reply is best-effort and must not block the user message.
+      }
+    });
+  }
+  return NextResponse.json({ message });
 }

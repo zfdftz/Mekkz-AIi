@@ -27,6 +27,7 @@ import {
 import { ProfileStyleShell } from "@/components/rewards/profile-style-banner";
 import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
+import { TITLES } from "@/lib/rewards/catalog";
 import { storeAccent } from "@/lib/accent-color";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
@@ -38,7 +39,8 @@ function profileToRewardsForm(profile: UserProfile | null): RewardsFormState {
     showcaseIds: (profile?.showcasedBadges ?? []).map((b) => b.id),
     profileBackground: profile?.profileBackground ?? null,
     accentColor: profile?.accentColor ?? "#8b5cf6",
-    activeTitle: profile?.activeTitle ?? null
+    activeTitle: profile?.activeTitle ?? null,
+    showcasedBadges: profile?.showcasedBadges ?? []
   };
 }
 
@@ -73,6 +75,13 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
   }, [usernameLocked, profile?.nextUsernameChangeAt]);
 
   const rewardsSeed = useMemo(() => profileToRewardsForm(profile), [profile]);
+
+  const previewTitle = useMemo(() => {
+    if (!rewardsForm.activeTitle) return null;
+    return TITLES[rewardsForm.activeTitle]?.label ?? profile?.activeTitleLabel ?? null;
+  }, [rewardsForm.activeTitle, profile?.activeTitleLabel]);
+
+  const previewBadges = rewardsForm.showcasedBadges ?? profile?.showcasedBadges ?? [];
 
   const planBadgeClass =
     profile?.plan === "ultra"
@@ -141,11 +150,14 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
       const profileData = await readJsonResponse<{ profile?: UserProfile; error?: string }>(profileRes);
       if (!profileRes.ok) throw new Error(profileData.error || "Speichern fehlgeschlagen.");
 
-      setProfile(profileData.profile ?? null);
-      setUsername(profileData.profile?.username ?? username);
-      if (profileData.profile?.accentColor) storeAccent(profileData.profile.accentColor);
+      const saved = profileData.profile ?? null;
+      setProfile(saved);
+      setUsername(saved?.username ?? username);
+      setBio(saved?.bio ?? bio);
+      setAvatarUrl(saved?.avatarUrl ?? "");
+      setRewardsForm(profileToRewardsForm(saved));
+      if (saved?.accentColor) storeAccent(saved.accentColor);
       setSuccess("Profil gespeichert.");
-      void load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
@@ -198,12 +210,12 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
             <div className="min-w-0 flex-1 pb-1">
               <ProfileIdentity
                 username={profile?.username ?? "user"}
-                title={profile?.activeTitleLabel}
+                title={previewTitle}
                 isVerified={profile?.isVerified}
                 isCreator={profile?.isCreator}
                 isChosen={profile?.isChosen}
                 isUltraCreator={profile?.isUltraCreator}
-                badges={profile?.showcasedBadges}
+                badges={previewBadges}
                 profileView
               />
               <p className="mt-1 text-sm font-medium text-primary">

@@ -8,10 +8,8 @@ import {
 } from "@/lib/community/profile-rules";
 import { fetchOwnProfile } from "@/lib/community/own-profile";
 import { updateProfile } from "@/lib/community/profile";
-import { getFollowerCounts, getTotalLikes } from "@/lib/community/public-profile";
-import { getAuthorIdentity } from "@/lib/rewards/identity";
 import { updateShowcasedBadges } from "@/lib/rewards/badges";
-import { getProfileCosmetics, updateProfileCosmetics } from "@/lib/rewards/cosmetics";
+import { updateProfileCosmetics } from "@/lib/rewards/cosmetics";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -70,9 +68,9 @@ export async function PATCH(req: Request) {
       ...profilePatch
     } = parsed.data;
 
-    const profile = await updateProfile(admin, auth.user!.id, profilePatch);
+    await updateProfile(admin, auth.user!.id, profilePatch);
 
-    if (showcasedBadgeIds) {
+    if (showcasedBadgeIds !== undefined) {
       await updateShowcasedBadges(admin, auth.user!.id, showcasedBadgeIds);
     }
 
@@ -88,36 +86,8 @@ export async function PATCH(req: Request) {
       });
     }
 
-    const [counts, identity, cosmetics, totalLikes] = await Promise.all([
-      getFollowerCounts(admin, auth.user!.id),
-      getAuthorIdentity(admin, auth.user!.id),
-      getProfileCosmetics(admin, auth.user!.id),
-      getTotalLikes(admin, auth.user!.id)
-    ]);
-
-    return NextResponse.json({
-      profile: profile
-        ? {
-            ...profile,
-            ...counts,
-            isVerified: identity.isVerified,
-            isCreator: identity.isCreator,
-            isChosen: identity.isChosen,
-            isUltraCreator: identity.isUltraCreator,
-            activeTitleLabel: identity.titleLabel,
-            accentColor: cosmetics.accentColor,
-            profileBackground: cosmetics.profileBackground,
-            activeTitle: cosmetics.activeTitle,
-            totalLikes,
-            showcasedBadges: identity.showcasedBadges.map((b) => ({
-              id: b.id,
-              name: b.name,
-              description: b.description,
-              icon: b.icon
-            }))
-          }
-        : null
-    });
+    const profile = await fetchOwnProfile(admin, auth.user!.id, auth.user!.email);
+    return NextResponse.json({ profile });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Speichern fehlgeschlagen." },

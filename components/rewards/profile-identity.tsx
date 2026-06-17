@@ -89,16 +89,11 @@ export function ProfileIdentity({
         </span>
       ) : null}
       {badges && badges.length > 0 && !compact ? (
-        <span className={`flex flex-wrap gap-1.5 ${profileView ? "mt-2" : "mt-1"}`}>
+        <span className={`flex flex-wrap gap-1 ${profileView ? "mt-2" : "mt-1"}`}>
           {badges.map((b) => (
             <DiscordTooltip key={b.id} label={b.name} description={b.description}>
-              <span
-                className={`inline-flex items-center gap-1 rounded-lg border border-white/10 bg-black/30 ${
-                  profileView ? "px-2 py-1 text-sm" : "px-1.5 py-0.5 text-xs"
-                }`}
-              >
-                <span>{b.icon}</span>
-                {profileView ? <span className="text-xs font-medium">{b.name}</span> : null}
+              <span className="inline-flex cursor-help rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs">
+                {b.icon}
               </span>
             </DiscordTooltip>
           ))}
@@ -113,13 +108,12 @@ export function BadgeShowcase({ badges }: { badges: BadgeChip[] }) {
     return <p className="text-xs text-muted">Noch keine Badges.</p>;
   }
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {badges.map((b) => (
         <DiscordTooltip key={b.id} label={b.name} description={b.description}>
-          <div className="flex cursor-help items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-2 py-1.5 text-sm backdrop-blur-sm">
-            <span>{b.icon}</span>
-            <span className="text-xs font-medium">{b.name}</span>
-          </div>
+          <span className="inline-flex cursor-help rounded-xl border border-white/10 bg-black/30 px-2 py-1.5 text-sm backdrop-blur-sm">
+            {b.icon}
+          </span>
         </DiscordTooltip>
       ))}
     </div>

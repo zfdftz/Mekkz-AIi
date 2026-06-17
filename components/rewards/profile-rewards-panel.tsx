@@ -36,6 +36,7 @@ export type RewardsFormState = {
   profileBackground: string | null;
   accentColor: string;
   activeTitle: string | null;
+  showcasedBadges?: { id: string; name: string; description: string; icon: string }[];
 };
 
 function formatCooldown(ms: number) {
@@ -66,15 +67,22 @@ export function ProfileRewardsPanel({
 
   const emitForm = useCallback(
     (next: Partial<RewardsFormState>) => {
+      const ids = next.showcaseIds ?? showcaseIds;
+      const showcasedBadges =
+        next.showcasedBadges ??
+        (state?.badges ?? [])
+          .filter((b) => ids.includes(b.id))
+          .map((b) => ({ id: b.id, name: b.name, description: b.description, icon: b.icon }));
+
       onFormChange?.({
-        showcaseIds,
-        profileBackground,
-        accentColor,
-        activeTitle,
-        ...next
+        showcaseIds: ids,
+        profileBackground: next.profileBackground ?? profileBackground,
+        accentColor: next.accentColor ?? accentColor,
+        activeTitle: next.activeTitle !== undefined ? next.activeTitle : activeTitle,
+        showcasedBadges
       });
     },
-    [onFormChange, showcaseIds, profileBackground, accentColor, activeTitle]
+    [onFormChange, showcaseIds, profileBackground, accentColor, activeTitle, state?.badges]
   );
 
   useEffect(() => {
@@ -83,7 +91,12 @@ export function ProfileRewardsPanel({
     setProfileBackground(profileSeed.profileBackground);
     setAccentColor(profileSeed.accentColor);
     setActiveTitle(profileSeed.activeTitle);
-  }, [profileSeed]);
+  }, [
+    profileSeed?.showcaseIds?.join(","),
+    profileSeed?.profileBackground,
+    profileSeed?.accentColor,
+    profileSeed?.activeTitle
+  ]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,25 +105,28 @@ export function ProfileRewardsPanel({
       const data = await readJsonResponse<RewardsState>(res);
       if (res.ok) {
         setState(data);
-        const ids = (data.showcased ?? []).map((b) => b.id);
-        const bg = data.cosmetics?.profileBackground ?? null;
-        const accent = data.cosmetics?.accentColor ?? "#8b5cf6";
-        const title = data.cosmetics?.activeTitle ?? null;
-        setShowcaseIds(ids);
-        setProfileBackground(bg);
-        setAccentColor(accent);
-        setActiveTitle(title);
-        onFormChange?.({
-          showcaseIds: ids,
-          profileBackground: bg,
-          accentColor: accent,
-          activeTitle: title
-        });
+        if (!embedded) {
+          const ids = (data.showcased ?? []).map((b) => b.id);
+          const bg = data.cosmetics?.profileBackground ?? null;
+          const accent = data.cosmetics?.accentColor ?? "#8b5cf6";
+          const title = data.cosmetics?.activeTitle ?? null;
+          setShowcaseIds(ids);
+          setProfileBackground(bg);
+          setAccentColor(accent);
+          setActiveTitle(title);
+          onFormChange?.({
+            showcaseIds: ids,
+            profileBackground: bg,
+            accentColor: accent,
+            activeTitle: title,
+            showcasedBadges: data.showcased ?? []
+          });
+        }
       }
     } finally {
       setLoading(false);
     }
-  }, [onFormChange]);
+  }, [embedded, onFormChange]);
 
   useEffect(() => {
     void load();

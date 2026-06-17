@@ -637,3 +637,63 @@ body > * { position: relative; z-index: 1; }
 .reward-rarity-rare { box-shadow: 0 0 40px rgba(59, 130, 246, 0.35); }
 .reward-rarity-epic { box-shadow: 0 0 50px rgba(168, 85, 247, 0.4); }
 .reward-rarity-legendary { box-shadow: 0 0 60px rgba(251, 191, 36, 0.45); }
+
+/* Discord-style profile */
+.discord-profile {
+  background: #232428;
+  color: #f2f3f5;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.discord-profile-banner {
+  background-color: #5865f2;
+}
+.season-tab-active {
+  color: #fff;
+  border-bottom: 2px solid var(--primary, #8b5cf6);
+}
+.season-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.season-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Season 0 — Cosmic stars */
+.season-ui-0 .season-stars {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, white, transparent),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.5px 1.5px at 70% 30%, white, transparent),
+    radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.6), transparent);
+  background-size: 100% 100%;
+  animation: twinkle 4s ease-in-out infinite;
+}
+.season-ui-0 .season-btn { box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.35); }
+.season-ui-0-banner { background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95); }
+
+.season-ui-1-banner { background: linear-gradient(135deg, #0f172a, #0891b2, #ec4899); }
+.season-ui-1 .season-btn { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.4); }
+
+.season-ui-2-banner { background: linear-gradient(135deg, #3b0764, #7c2d12, #581c87); }
+.season-ui-2 .season-btn { box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35); }
+
+.season-ui-3-banner { background: linear-gradient(135deg, #0c4a6e, #bae6fd, #1e3a8a); }
+.season-ui-3 .season-btn { box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.4); }
+
+.season-ui-4-banner { background: linear-gradient(135deg, #7c2d12, #ea580c, #450a0a); }
+.season-ui-4 .season-btn { box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.45); }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.limited-tag {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+}

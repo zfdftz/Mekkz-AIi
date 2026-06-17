@@ -4,46 +4,54 @@ import { Crown, UserMinus, UserPlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
-import { LoadingState, PrimaryButton } from "@/components/community/shared";
+import { PrimaryButton } from "@/components/community/shared";
 import { BadgeShowcase, ProfileIdentity } from "@/components/rewards/profile-identity";
 import { getCosmetic } from "@/lib/rewards/catalog";
+import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { PublicUserProfile } from "@/lib/community/types";
 
 export function ProfileModal({
   userId,
+  initialProfile,
+  onProfileLoaded,
   onClose,
   onOpenProfile
 }: {
   userId: string;
+  initialProfile?: PublicUserProfile | null;
+  onProfileLoaded?: (userId: string, profile: PublicUserProfile) => void;
   onClose: () => void;
   onOpenProfile?: (userId: string) => void;
 }) {
-  const [profile, setProfile] = useState<PublicUserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<PublicUserProfile | null>(initialProfile ?? null);
+  const [loading, setLoading] = useState(!initialProfile);
   const [error, setError] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
+  const [tab, setTab] = useState<"about" | "badges">("about");
+  const seasonClass = getSeasonUiClass();
 
   const load = useCallback(async () => {
-    setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/community/users/${userId}`);
       const data = await readJsonResponse<{ profile?: PublicUserProfile; error?: string }>(res);
       if (!res.ok) throw new Error(data.error || "Profil nicht gefunden.");
       setProfile(data.profile ?? null);
+      if (data.profile) onProfileLoaded?.(userId, data.profile);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, onProfileLoaded]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   async function toggleFollow() {
     if (!profile || profile.isSelf) return;
@@ -85,147 +93,166 @@ export function ProfileModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 24, opacity: 0 }}
+        initial={{ y: 32, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-card shadow-2xl"
+        className={`discord-profile ${seasonClass} max-h-[92vh] w-full max-w-[440px] overflow-hidden rounded-t-2xl shadow-2xl sm:rounded-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <h3 className="font-semibold">Profil</h3>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/10">
-            <X size={18} />
+        <div className="relative">
+          <ProfileBanner profile={profile} seasonClass={seasonClass} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 text-white/90 hover:bg-black/70"
+          >
+            <X size={16} />
           </button>
         </div>
 
-        {loading ? (
-          <LoadingState />
+        {loading && !profile ? (
+          <div className="space-y-3 p-5">
+            <div className="h-16 w-16 animate-pulse rounded-full bg-white/10" />
+            <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-48 animate-pulse rounded bg-white/10" />
+          </div>
         ) : error || !profile ? (
           <p className="p-6 text-center text-sm text-red-300">{error ?? "Nicht gefunden."}</p>
         ) : (
-          <>
-            <ProfileBanner profile={profile} />
-            <div className="relative px-5 pb-5">
-              <div className="-mt-10 flex gap-4">
-                <FramedAvatar profile={profile} />
-                <div className="min-w-0 flex-1 pt-8">
-                  <ProfileIdentity
-                    username={profile.username ?? "user"}
-                    title={profile.activeTitleLabel}
-                    isVerified={profile.isVerified}
-                    isCreator={profile.isCreator}
-                  />
-                  <p className="text-sm font-medium text-primary">
-                    {formatCount(profile.followersCount)} Follower
-                  </p>
-                  <span
-                    className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${planBadgeClass}`}
-                  >
-                    {profile.plan !== "free" ? <Crown size={12} /> : null}
-                    {profile.planLabel}
-                  </span>
-                  {profile.plan !== "free" && profile.planSince ? (
-                    <p className="mt-1 text-xs text-muted">
-                      {profile.planLabel} seit {profile.planSince}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-xs text-muted">Beigetreten {profile.joinedAt}</p>
-                </div>
+          <div className="max-h-[calc(92vh-120px)] overflow-y-auto px-4 pb-5">
+            <div className="-mt-12 flex items-end gap-3">
+              <FramedAvatar profile={profile} />
+              <div className="mb-1 min-w-0 flex-1">
+                <ProfileIdentity
+                  username={profile.username ?? "user"}
+                  title={profile.activeTitleLabel}
+                  isVerified={profile.isVerified}
+                  isCreator={profile.isCreator}
+                />
+                <p className="text-xs text-muted">{formatCount(profile.followersCount)} Follower</p>
               </div>
-
-            {profile.bio ? <p className="mt-4 text-sm text-muted">{profile.bio}</p> : null}
-
-            {profile.showcasedBadges && profile.showcasedBadges.length > 0 ? (
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">Badges</p>
-                <BadgeShowcase badges={profile.showcasedBadges} />
-              </div>
-            ) : null}
-
-            <FollowerStats
-              followersCount={profile.followersCount}
-              followingCount={profile.followingCount}
-              postsCount={profile.postsCount}
-              onFollowersClick={() => {
-                setFollowTab("followers");
-                setShowFollowList(true);
-              }}
-              onFollowingClick={() => {
-                setFollowTab("following");
-                setShowFollowList(true);
-              }}
-            />
-
-            {!profile.isSelf ? (
-              <PrimaryButton className="mt-4 w-full" loading={followBusy} onClick={toggleFollow}>
-                {profile.isFollowing ? (
-                  <>
-                    <UserMinus size={14} className="mr-1 inline" /> Entfolgen
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={14} className="mr-1 inline" /> Folgen
-                  </>
-                )}
-              </PrimaryButton>
-            ) : null}
-
-            {showFollowList ? (
-              <FollowersPanel
-                userId={profile.userId}
-                followersCount={profile.followersCount}
-                followingCount={profile.followingCount}
-                defaultTab={followTab}
-                onOpenProfile={onOpenProfile}
-                onCountsChange={(followers, following) =>
-                  setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
-                }
-              />
-            ) : null}
-
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
-                Top 3 Posts (Likes)
-              </p>
-              {profile.topPosts.length === 0 ? (
-                <p className="text-sm text-muted">Noch keine Posts.</p>
-              ) : (
-                <div className="space-y-2">
-                  {profile.topPosts.map((post) => (
-                    <div key={post.id} className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
-                      <p className="line-clamp-3 whitespace-pre-wrap">{post.content}</p>
-                      {post.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={post.imageUrl} alt="" className="mt-2 max-h-32 rounded-lg object-cover" />
-                      ) : null}
-                      {post.videoUrl ? (
-                        <video src={post.videoUrl} controls className="mt-2 max-h-40 w-full rounded-lg" />
-                      ) : null}
-                      <p className="mt-2 text-xs text-muted">❤ {post.likesCount} Likes</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {!profile.isSelf ? (
+                <PrimaryButton
+                  className={`season-btn shrink-0 px-3 py-1.5 text-xs ${profile.isFollowing ? "" : ""}`}
+                  loading={followBusy}
+                  onClick={toggleFollow}
+                >
+                  {profile.isFollowing ? (
+                    <>
+                      <UserMinus size={12} className="mr-1 inline" /> Entfolgen
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={12} className="mr-1 inline" /> Folgen
+                    </>
+                  )}
+                </PrimaryButton>
+              ) : null}
             </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${planBadgeClass}`}>
+                {profile.plan !== "free" ? <Crown size={10} /> : null}
+                {profile.planLabel}
+              </span>
+              {profile.isOnline ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Online
+                </span>
+              ) : null}
+              <span className="rounded-md bg-white/8 px-2 py-0.5 text-[11px] text-muted">
+                Seit {profile.joinedAt}
+              </span>
+            </div>
+
+            <div className="mt-4 flex gap-1 border-b border-white/10">
+              {(["about", "badges"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={`season-tab px-3 py-2 text-xs font-medium capitalize ${
+                    tab === t ? "season-tab-active" : "text-muted"
+                  }`}
+                >
+                  {t === "about" ? "Über mich" : "Badges"}
+                </button>
+              ))}
+            </div>
+
+            {tab === "about" ? (
+              <div className="mt-4 space-y-4">
+                {profile.bio ? (
+                  <div>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted">Bio</p>
+                    <p className="text-sm leading-relaxed text-[#dbdee1]">{profile.bio}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted">Keine Bio.</p>
+                )}
+                <FollowerStats
+                  followersCount={profile.followersCount}
+                  followingCount={profile.followingCount}
+                  postsCount={profile.postsCount}
+                  onFollowersClick={() => {
+                    setFollowTab("followers");
+                    setShowFollowList(true);
+                  }}
+                  onFollowingClick={() => {
+                    setFollowTab("following");
+                    setShowFollowList(true);
+                  }}
+                />
+                {showFollowList ? (
+                  <FollowersPanel
+                    userId={profile.userId}
+                    followersCount={profile.followersCount}
+                    followingCount={profile.followingCount}
+                    defaultTab={followTab}
+                    onOpenProfile={onOpenProfile}
+                    onCountsChange={(followers, following) =>
+                      setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
+                    }
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-4">
+                {profile.showcasedBadges && profile.showcasedBadges.length > 0 ? (
+                  <BadgeShowcase badges={profile.showcasedBadges} />
+                ) : (
+                  <p className="text-sm text-muted">Noch keine Badges im Showcase.</p>
+                )}
+              </div>
+            )}
           </div>
-          </>
         )}
       </motion.div>
     </motion.div>
   );
 }
 
-function ProfileBanner({ profile }: { profile: PublicUserProfile }) {
-  const bgClass = getCosmetic(profile.profileBackground ?? "")?.previewClass ?? "reward-bg-mekkz";
+function ProfileBanner({
+  profile,
+  seasonClass
+}: {
+  profile: PublicUserProfile | null;
+  seasonClass: string;
+}) {
+  const bgClass = profile
+    ? getCosmetic(profile.profileBackground ?? "")?.previewClass ?? "reward-bg-mekkz"
+    : "reward-bg-mekkz";
   return (
-    <div
-      className={`relative h-28 w-full bg-cover bg-center ${bgClass}`}
-      style={profile.bannerUrl ? { backgroundImage: `url(${profile.bannerUrl})` } : undefined}
-    >
-      <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
+    <div className={`discord-profile-banner relative h-[120px] w-full bg-cover bg-center ${bgClass} ${seasonClass}-banner`}>
+      {profile?.bannerUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={profile.bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : null}
+      <div className="season-stars pointer-events-none absolute inset-0 opacity-60" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#232428] via-transparent to-transparent" />
     </div>
   );
 }
@@ -234,32 +261,25 @@ function FramedAvatar({ profile }: { profile: PublicUserProfile }) {
   const frameClass = getCosmetic(profile.profileFrame ?? "")?.previewClass ?? "";
   return (
     <div
-      className={`relative h-20 w-20 shrink-0 rounded-full p-0.5 ${frameClass}`}
-      style={profile.accentColor ? { boxShadow: `0 0 0 2px ${profile.accentColor}` } : undefined}
+      className={`relative h-[80px] w-[80px] shrink-0 rounded-full p-[3px] ${frameClass}`}
+      style={profile.accentColor ? { boxShadow: `0 0 0 3px ${profile.accentColor}` } : undefined}
     >
-      <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} animated={false} />
+      <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} />
+      {profile.isOnline ? (
+        <span className="absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full border-[3px] border-[#232428] bg-emerald-500" />
+      ) : null}
     </div>
   );
 }
 
-function Avatar({
-  url,
-  name,
-  animated
-}: {
-  url: string | null;
-  name: string;
-  animated?: boolean;
-}) {
+function Avatar({ url, name }: { url: string | null; name: string }) {
   return (
-    <div
-      className={`h-full w-full overflow-hidden rounded-full border border-white/15 bg-primary/20 ${animated ? "reward-avatar-pulse" : ""}`}
-    >
+    <div className="h-full w-full overflow-hidden rounded-full bg-[#5865f2]/30">
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center text-xl font-bold text-primary">
+        <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-white">
           {name[0]?.toUpperCase()}
         </div>
       )}

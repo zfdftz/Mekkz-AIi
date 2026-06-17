@@ -1,25 +1,63 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 import { ProfileModal } from "@/components/community/profile-modal";
+import type { PublicUserProfile } from "@/lib/community/types";
+
+type CacheEntry = { profile: PublicUserProfile; at: number };
 
 type ProfileContextValue = {
   openProfile: (userId: string) => void;
 };
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
+const CACHE_TTL_MS = 90_000;
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
+  const cacheRef = useRef<Map<string, CacheEntry>>(new Map());
+  const [initialProfile, setInitialProfile] = useState<PublicUserProfile | null>(null);
+
   const openProfile = useCallback((id: string) => {
-    if (id) setUserId(id);
+    if (!id) return;
+    const cached = cacheRef.current.get(id);
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+      setInitialProfile(cached.profile);
+    } else {
+      setInitialProfile(null);
+      void fetch(`/api/community/users/${id}?quick=1`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.profile) {
+            cacheRef.current.set(id, { profile: d.profile, at: Date.now() });
+            setInitialProfile((prev) => prev ?? d.profile);
+          }
+        })
+        .catch(() => {});
+    }
+    setUserId(id);
+  }, []);
+
+  const closeProfile = useCallback(() => {
+    setUserId(null);
+    setInitialProfile(null);
+  }, []);
+
+  const onProfileLoaded = useCallback((id: string, profile: PublicUserProfile) => {
+    cacheRef.current.set(id, { profile, at: Date.now() });
   }, []);
 
   return (
     <ProfileContext.Provider value={{ openProfile }}>
       {children}
       {userId ? (
-        <ProfileModal userId={userId} onClose={() => setUserId(null)} onOpenProfile={openProfile} />
+        <ProfileModal
+          userId={userId}
+          initialProfile={initialProfile}
+          onProfileLoaded={onProfileLoaded}
+          onClose={closeProfile}
+          onOpenProfile={openProfile}
+        />
       ) : null}
     </ProfileContext.Provider>
   );

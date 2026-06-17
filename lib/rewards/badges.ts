@@ -73,7 +73,7 @@ export async function updateShowcasedBadges(
   badgeIds: string[]
 ) {
   const owned = new Set((await listUserBadges(admin, userId)).map((b) => b.id));
-  const valid = badgeIds.filter((id) => owned.has(id)).slice(0, 5);
+  const valid = badgeIds.filter((id) => owned.has(id));
   await admin.from("user_profiles").update({ showcased_badge_ids: valid }).eq("user_id", userId);
   return valid;
 }

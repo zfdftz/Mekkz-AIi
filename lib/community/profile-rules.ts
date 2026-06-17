@@ -1,5 +1,5 @@
 export const USERNAME_MIN_LENGTH = 3;
-export const USERNAME_MAX_LENGTH = 32;
+export const USERNAME_MAX_LENGTH = 21;
 export const USERNAME_CHANGE_COOLDOWN_DAYS = 30;
 export const USERNAME_CHANGE_COOLDOWN_MS = USERNAME_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -41,6 +41,17 @@ export function validateAvatarUrl(avatarUrl: string) {
       throw new Error(`Avatar: maximal ${Math.round(AVATAR_MAX_BYTES / (1024 * 1024))} MB.`);
     }
   }
+}
+
+export function validateBirthday(raw: string) {
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Ungültiges Geburtsdatum.");
+  }
+  const age = (Date.now() - date.getTime()) / (365.25 * 86400000);
+  if (age < 7) throw new Error("Du musst mindestens 7 Jahre alt sein.");
+  if (age > 105) throw new Error("Geburtsdatum ungültig (max. 105 Jahre).");
+  return date.toISOString().slice(0, 10);
 }
 
 export function usernameChangeEligibility(usernameChangedAt: string | null | undefined) {

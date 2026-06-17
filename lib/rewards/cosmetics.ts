@@ -8,6 +8,7 @@ import {
   type CosmeticRarity
 } from "./catalog";
 import { CRATE_COOLDOWN_MS } from "./constants";
+import { QUESTS } from "./quest-catalog";
 import { getCurrentSeasonInfo } from "./seasons";
 
 function missing(msg: string) {
@@ -203,17 +204,13 @@ export async function getUnlockedTitles(admin: SupabaseClient, userId: string, _
     .eq("user_id", userId)
     .maybeSingle();
 
-  const unlocked: string[] = [];
-
-  if (badgeIds.has("first_story")) unlocked.push("storyteller");
-  if (badgeIds.has("feed_legend")) unlocked.push("designer");
-  if (badgeIds.has("beta_tester")) unlocked.push("developer", "beta_tester");
-  if (badgeIds.has("og_member")) unlocked.push("og_member");
-  if (badgeIds.has("cosmic_genesis")) unlocked.push("cosmic_genesis");
-  if (badgeIds.has("social_star")) unlocked.push("social_star");
-  if (profile?.is_creator || badgeIds.has("mekkz_creator")) {
-    unlocked.push("mekkz_ai_creator", "founder");
+  const unlocked = new Set<string>();
+  for (const q of Object.values(QUESTS)) {
+    if (q.titleId && badgeIds.has(q.id)) unlocked.add(q.titleId);
   }
-
-  return [...new Set(unlocked)];
+  if (profile?.is_creator || badgeIds.has("mekkz_creator")) {
+    unlocked.add("mekkz_ai_creator");
+    unlocked.add("founder");
+  }
+  return [...unlocked];
 }

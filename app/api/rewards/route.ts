@@ -49,7 +49,7 @@ const patchSchema = z.object({
   accentColor: z.string().max(32).optional(),
   activeTitle: z.string().nullable().optional(),
   animatedAvatar: z.boolean().optional(),
-  showcasedBadgeIds: z.array(z.string()).max(5).optional()
+  showcasedBadgeIds: z.array(z.string()).optional()
 });
 
 export async function PATCH(req: Request) {

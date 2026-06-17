@@ -10,6 +10,7 @@ import {
   Layout,
   Menu,
   MessageCircle,
+  Shield,
   Sparkles,
   StickyNote,
   User,
@@ -24,6 +25,7 @@ import { FeedTab } from "@/components/community/feed-tab";
 import { LoadingState } from "@/components/community/shared";
 import { ProfileProvider } from "@/components/community/profile-context";
 import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
+import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { useReminderAlerts } from "@/hooks/use-reminder-alerts";
 import type { CommunityTab } from "@/lib/community/types";
 
@@ -37,6 +39,10 @@ const FriendsTab = dynamic(
 );
 const GroupsTab = dynamic(
   () => import("@/components/community/groups-tab").then((m) => ({ default: m.GroupsTab })),
+  { loading: () => <LoadingState /> }
+);
+const ClansTab = dynamic(
+  () => import("@/components/community/clans-tab").then((m) => ({ default: m.ClansTab })),
   { loading: () => <LoadingState /> }
 );
 const ProfileTab = dynamic(
@@ -81,6 +87,7 @@ const NAV: {
   { id: "rooms", label: "Räume", description: "Öffentliche Topic-Chats", icon: Hash, section: "community" },
   { id: "friends", label: "Freunde", description: "Anfragen & 1:1 Chat", icon: Users, section: "community" },
   { id: "groups", label: "Gruppen", description: "Team-Chats mit @mekkz", icon: UsersRound, section: "community" },
+  { id: "clans", label: "Clans", description: "Communities & Teams", icon: Shield, section: "community" },
   { id: "profile", label: "Profil", description: "Avatar, Bio & Stats", icon: User, section: "account" },
   { id: "tasks", label: "Tasks", description: "Kanban & KI-To-dos", icon: CheckSquare, section: "productivity" },
   { id: "calendar", label: "Kalender", description: "Termine & Events", icon: Calendar, section: "productivity" },
@@ -99,6 +106,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
   const [tab, setTab] = useState<TabId>("feed");
   const [navOpen, setNavOpen] = useState(false);
   const { alert, dismiss } = useReminderAlerts(true);
+  const seasonClass = getSeasonUiClass();
 
   const active = NAV.find((n) => n.id === tab)!;
 
@@ -112,6 +120,8 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
         return <FriendsTab />;
       case "groups":
         return <GroupsTab />;
+      case "clans":
+        return <ClansTab />;
       case "profile":
         return <ProfileTab />;
       case "tasks":
@@ -177,7 +187,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
   return (
     <ProfileProvider>
     <RewardsAdminButton />
-    <div className="community-hub mx-auto min-h-screen max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8">
+    <div className={`community-hub ${seasonClass} mx-auto min-h-screen max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8`}>
       {alert ? (
         <motion.div
           initial={{ opacity: 0, y: -8 }}

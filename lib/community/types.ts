@@ -226,11 +226,31 @@ export type BrainstormNode = {
   height: number;
 };
 
+export type Clan = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  logoUrl: string | null;
+  ownerId: string;
+  isPublic: boolean;
+  memberCount: number;
+  createdAt: string;
+};
+
+export type ClanMember = {
+  userId: string;
+  username: string | null;
+  role: "owner" | "moderator" | "member";
+  joinedAt: string;
+};
+
 export type CommunityTab =
   | "feed"
   | "rooms"
   | "friends"
   | "groups"
+  | "clans"
   | "profile"
   | "tasks"
   | "calendar"

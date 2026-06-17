@@ -1,3 +1,5 @@
+import { QUESTS } from "./quest-catalog";
+
 export type BadgeRarity = "common" | "rare" | "epic" | "legendary";
 export type CosmeticRarity = BadgeRarity;
 export type CosmeticType = "frame" | "theme" | "background" | "character";
@@ -37,108 +39,12 @@ export type SeasonDef = {
   accent: string;
 };
 
-export const BADGES: Record<string, BadgeDef> = {
-  first_story: {
-    id: "first_story",
-    name: "First Story Created",
-    description: "Deine erste Story im Community-Feed veröffentlicht.",
-    icon: "📖"
-  },
-  chats_100: {
-    id: "chats_100",
-    name: "100 Chats",
-    description: "100 gespeicherte Chats erstellt.",
-    icon: "💬"
-  },
-  first_website: {
-    id: "first_website",
-    name: "First Website Built",
-    description: "Erstes Website-Projekt mit AI Tools gebaut.",
-    icon: "🌐"
-  },
-  community_helper: {
-    id: "community_helper",
-    name: "Community Helper",
-    description: "Anderen in der Community geholfen (10+ Kommentare).",
-    icon: "🤝"
-  },
-  og_member: {
-    id: "og_member",
-    name: "OG Member",
-    description: "Registriert bis 31. Juli — Original Mekkz Mitglied.",
-    icon: "👑",
-    protected: true
-  },
-  beta_tester: {
-    id: "beta_tester",
-    name: "Beta Tester",
-    description: "Früher Beta-Zugang zu Mekkz AI.",
-    icon: "🧪"
-  },
-  verified_user: {
-    id: "verified_user",
-    name: "Verified User",
-    description: "25.000+ Follower erreicht.",
-    icon: "✓",
-    protected: true
-  },
-  mekkz_creator: {
-    id: "mekkz_creator",
-    name: "Mekkz AI Creator",
-    description: "Offizieller Mekkz AI Creator.",
-    icon: "✦",
-    protected: true
-  },
-  cosmic_genesis: {
-    id: "cosmic_genesis",
-    name: "Cosmic Genesis",
-    description: "Während Season 1 (Cosmic Genesis) dabei gewesen.",
-    icon: "🌌",
-    protected: true
-  },
-  social_star: {
-    id: "social_star",
-    name: "Social Star",
-    description: "1.000 Follower erreicht.",
-    icon: "⭐"
-  },
-  crate_hunter: {
-    id: "crate_hunter",
-    name: "Crate Hunter",
-    description: "10 Daily Crates geöffnet.",
-    icon: "📦"
-  },
-  feed_legend: {
-    id: "feed_legend",
-    name: "Feed Legend",
-    description: "25 Community-Posts veröffentlicht.",
-    icon: "🔥"
-  },
-  chat_warrior: {
-    id: "chat_warrior",
-    name: "Chat Warrior",
-    description: "500 Nachrichten gesendet.",
-    icon: "⚔️"
-  },
-  loyal_member: {
-    id: "loyal_member",
-    name: "Loyal Member",
-    description: "Seit 30+ Tagen Teil der Mekkz Community.",
-    icon: "💜"
-  },
-  trend_setter: {
-    id: "trend_setter",
-    name: "Trend Setter",
-    description: "Ein Post mit 50+ Likes.",
-    icon: "📈"
-  },
-  group_pioneer: {
-    id: "group_pioneer",
-    name: "Group Pioneer",
-    description: "Erste Gruppe erstellt.",
-    icon: "🚀"
-  }
-};
+export const BADGES: Record<string, BadgeDef> = Object.fromEntries(
+  Object.entries(QUESTS).map(([id, q]) => [
+    id,
+    { id: q.id, name: q.name, description: q.description, icon: q.icon, protected: q.protected }
+  ])
+);
 
 export const TITLES: Record<string, TitleDef> = {
   founder: { id: "founder", label: "Founder" },
@@ -157,7 +63,11 @@ export const TITLES: Record<string, TitleDef> = {
     label: "Cosmic Genesis",
     season1Only: true
   },
-  social_star: { id: "social_star", label: "Social Star" }
+  social_star: { id: "social_star", label: "Social Star" },
+  season_2: { id: "season_2", label: "Cyber Future" },
+  season_3: { id: "season_3", label: "Mythic Kingdoms" },
+  season_4: { id: "season_4", label: "Frozen Legends" },
+  season_5: { id: "season_5", label: "Inferno Rising" }
 };
 
 export const SEASONS: SeasonDef[] = [

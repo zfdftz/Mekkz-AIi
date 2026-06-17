@@ -158,7 +158,7 @@ export function ProfileRewardsPanel() {
                   title={`${b.name} — ${b.description}`}
                   onClick={() =>
                     setShowcaseIds((prev) =>
-                      active ? prev.filter((id) => id !== b.id) : [...prev, b.id].slice(0, 5)
+                      active ? prev.filter((id) => id !== b.id) : [...prev, b.id]
                     )
                   }
                   className={`rounded-lg border px-2 py-1 text-xs ${
@@ -178,13 +178,23 @@ export function ProfileRewardsPanel() {
             className={`mb-3 h-20 rounded-xl border border-white/10 bg-cover bg-center ${getCosmetic(previewFrame ?? "")?.previewClass ?? "reward-bg-mekkz"}`}
             style={bannerUrl ? { backgroundImage: `url(${bannerUrl})` } : undefined}
           />
-          <label className="mb-2 block text-xs text-muted">Banner-URL</label>
-          <input
-            value={bannerUrl}
-            onChange={(e) => setBannerUrl(e.target.value)}
-            placeholder="https://…"
-            className="mb-3 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm"
-          />
+          <label className="mb-3 flex cursor-pointer flex-col items-center rounded-xl border border-dashed border-white/20 bg-black/20 px-3 py-4 text-xs text-muted hover:border-primary/40">
+            Banner hochladen
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (typeof reader.result === "string") setBannerUrl(reader.result);
+                };
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
           <label className="mb-2 block text-xs text-muted">Akzentfarbe</label>
           <input
             type="color"

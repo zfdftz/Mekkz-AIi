@@ -40,7 +40,8 @@ export function decryptPassword(payload: string) {
 export async function upsertPendingRegistration(
   admin: SupabaseClient,
   email: string,
-  password: string
+  password: string,
+  extras?: { username?: string; birthday?: string }
 ) {
   const expiresAt = new Date(Date.now() + REGISTRATION_TTL_MS).toISOString();
   const { error } = await admin.from("pending_registrations").upsert(
@@ -50,7 +51,9 @@ export async function upsertPendingRegistration(
       code_hash: "supabase-otp",
       expires_at: expiresAt,
       attempts: 0,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      desired_username: extras?.username ?? null,
+      birthday: extras?.birthday ?? null
     },
     { onConflict: "email" }
   );
@@ -74,7 +77,7 @@ export async function getPendingRegistration(
   const normalized = email.toLowerCase().trim();
   const { data, error } = await admin
     .from("pending_registrations")
-    .select("email, password_hash, expires_at")
+    .select("email, password_hash, expires_at, desired_username, birthday")
     .eq("email", normalized)
     .maybeSingle();
 
@@ -93,7 +96,9 @@ export async function getPendingRegistration(
 
   return {
     email: normalized,
-    password: decryptPassword(data.password_hash as string)
+    password: decryptPassword(data.password_hash as string),
+    username: (data.desired_username as string) ?? null,
+    birthday: (data.birthday as string) ?? null
   };
 }
 

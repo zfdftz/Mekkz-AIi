@@ -3,6 +3,7 @@ import {
   normalizeUsername,
   usernameChangeEligibility,
   validateAvatarUrl,
+  validateBirthday,
   validateUsername
 } from "./profile-rules";
 import type { UserProfile } from "./types";
@@ -40,6 +41,28 @@ export async function ensureUserProfile(admin: SupabaseClient, userId: string, e
 
   if (error && !isMissingTable(error.message)) throw new Error(error.message);
   return data;
+}
+
+export async function createProfileFromRegistration(
+  admin: SupabaseClient,
+  userId: string,
+  username: string,
+  birthday: string
+) {
+  const normalized = normalizeUsername(username);
+  validateUsername(normalized);
+  validateBirthday(birthday);
+  if (await isUsernameTaken(admin, normalized, userId)) {
+    throw new Error("Benutzername ist bereits vergeben.");
+  }
+  const { error } = await admin.from("user_profiles").upsert({
+    user_id: userId,
+    username: normalized,
+    birthday,
+    bio: "",
+    updated_at: new Date().toISOString()
+  });
+  if (error && !isMissingTable(error.message)) throw new Error(error.message);
 }
 
 export async function getProfile(
@@ -84,7 +107,7 @@ export async function getProfile(
   };
 }
 
-async function isUsernameTaken(admin: SupabaseClient, username: string, userId: string) {
+export async function isUsernameTaken(admin: SupabaseClient, username: string, userId: string) {
   const { data, error } = await admin
     .from("user_profiles")
     .select("user_id, username")

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumePendingRegistration } from "@/lib/auth/verification";
+import { createProfileFromRegistration, ensureUserProfile } from "@/lib/community/profile";
+import { syncUserRewards } from "@/lib/rewards/sync";
 import { syncUserPlanFromStripe } from "@/lib/stripe-sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +46,14 @@ export async function POST(req: Request) {
     if (updateError) {
       throw new Error(updateError.message);
     }
+
+    if (pending.username && pending.birthday) {
+      await createProfileFromRegistration(admin, user.id, pending.username, pending.birthday);
+    } else {
+      await ensureUserProfile(admin, user.id, email);
+    }
+
+    await syncUserRewards(admin, user.id, email, undefined, true);
 
     try {
       await syncUserPlanFromStripe(admin, user.id, email);

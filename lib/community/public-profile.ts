@@ -173,20 +173,25 @@ function mapFeedRow(row: Record<string, unknown>, likedByMe: boolean): FeedPost 
 export async function getPublicProfile(
   admin: SupabaseClient,
   targetUserId: string,
-  viewerId?: string
+  viewerId?: string,
+  opts?: { quick?: boolean }
 ): Promise<PublicUserProfile | null> {
   const profile = await getProfile(admin, targetUserId);
   if (!profile) return null;
 
-  const { data: authUser } = await admin.auth.admin.getUserById(targetUserId);
+  const [{ data: authUser }, { data: planRow }, counts, identity, cosmetics] = await Promise.all([
+    admin.auth.admin.getUserById(targetUserId),
+    admin
+      .from("user_plans")
+      .select("plan, stripe_subscription_status, updated_at, plan_started_at")
+      .eq("user_id", targetUserId)
+      .maybeSingle(),
+    getFollowerCounts(admin, targetUserId),
+    getAuthorIdentity(admin, targetUserId),
+    getProfileCosmetics(admin, targetUserId)
+  ]);
+
   const joinedIso = authUser?.user?.created_at ?? profile.usernameChangedAt;
-
-  const { data: planRow } = await admin
-    .from("user_plans")
-    .select("plan, stripe_subscription_status, updated_at, plan_started_at")
-    .eq("user_id", targetUserId)
-    .maybeSingle();
-
   const plan = resolveEntitledPlan(planRow as Parameters<typeof resolveEntitledPlan>[0]);
   const planInfo = getPlanInfo(plan);
   const planSinceIso =
@@ -194,15 +199,12 @@ export async function getPublicProfile(
       ? (planRow?.plan_started_at as string | null) ?? (planRow?.updated_at as string | null)
       : null;
 
-  const counts = await getFollowerCounts(admin, targetUserId);
-  const topPosts = await getTopPosts(admin, targetUserId, 3);
   const following =
     viewerId && viewerId !== targetUserId
       ? await isFollowing(admin, viewerId, targetUserId)
       : false;
 
-  const identity = await getAuthorIdentity(admin, targetUserId);
-  const cosmetics = await getProfileCosmetics(admin, targetUserId);
+  const topPosts = opts?.quick ? [] : await getTopPosts(admin, targetUserId, 3);
   const showcasedBadges = identity.showcasedBadges.map((b) => ({
     id: b.id,
     name: b.name,

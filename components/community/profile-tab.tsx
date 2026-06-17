@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AVATAR_MAX_BYTES,
-  USERNAME_MIN_LENGTH
+  USERNAME_MIN_LENGTH,
+  USERNAME_MAX_LENGTH
 } from "@/lib/community/profile-rules";
 import {
   ErrorBanner,
@@ -18,6 +19,7 @@ import { useProfileModal } from "@/components/community/profile-context";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { ProfileIdentity } from "@/components/rewards/profile-identity";
 import { ProfileRewardsPanel } from "@/components/rewards/profile-rewards-panel";
+import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
 
@@ -35,13 +37,14 @@ export function ProfileTab() {
   const [success, setSuccess] = useState<string | null>(null);
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
+  const [showBadgesPanel, setShowBadgesPanel] = useState(false);
 
   const usernameLocked = profile?.canChangeUsername === false;
   const usernameHint = useMemo(() => {
     if (usernameLocked && profile?.nextUsernameChangeAt) {
       return `Nächste Änderung ab ${new Date(profile.nextUsernameChangeAt).toLocaleDateString("de-DE")} (30-Tage-Limit).`;
     }
-    return `Mindestens ${USERNAME_MIN_LENGTH} Zeichen. Jeder Name ist einmalig.`;
+    return `Mindestens ${USERNAME_MIN_LENGTH}, maximal ${USERNAME_MAX_LENGTH} Zeichen. Jeder Name ist einmalig.`;
   }, [usernameLocked, profile?.nextUsernameChangeAt]);
 
   const load = useCallback(async () => {
@@ -203,6 +206,7 @@ export function ProfileTab() {
             <TextInput
               value={username}
               minLength={USERNAME_MIN_LENGTH}
+              maxLength={USERNAME_MAX_LENGTH}
               disabled={usernameLocked}
               onChange={(e) => setUsername(e.target.value)}
             />
@@ -215,24 +219,36 @@ export function ProfileTab() {
             <TextArea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
           </div>
           <div>
-            <FieldLabel>Avatar (URL oder Upload, max. {AVATAR_MAX_MB} MB)</FieldLabel>
-            <TextInput
-              value={avatarUrl.startsWith("data:") ? "" : avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://…"
-            />
-            <input
-              type="file"
-              accept="image/*"
-              className="mt-2 block w-full text-xs text-muted"
-              onChange={(e) => onAvatarFile(e.target.files?.[0] ?? null)}
-            />
+            <FieldLabel>Avatar (Upload / Fotomediathek, max. {AVATAR_MAX_MB} MB)</FieldLabel>
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-black/20 px-4 py-6 text-sm text-muted transition hover:border-primary/40 hover:bg-black/30">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Avatar Vorschau" className="mb-2 h-20 w-20 rounded-full object-cover" />
+              ) : null}
+              <span>{avatarUrl ? "Anderes Bild wählen" : "Bild auswählen"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => onAvatarFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowBadgesPanel((v) => !v)}
+            className="season-btn w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium"
+          >
+            Badges & Titles
+          </button>
           <PrimaryButton loading={saving} onClick={save} className="w-full">
             Speichern
           </PrimaryButton>
         </div>
       </Panel>
+
+      {showBadgesPanel ? <BadgesTitlesPanel onClose={() => setShowBadgesPanel(false)} /> : null}
 
       <ProfileRewardsPanel />
     </div>

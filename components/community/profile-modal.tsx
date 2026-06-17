@@ -1,10 +1,10 @@
 "use client";
 
-import { Crown, UserMinus, UserPlus, X } from "lucide-react";
+import { Crown, UserCheck, UserMinus, UserPlus, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
-import { PrimaryButton } from "@/components/community/shared";
+import { PrimaryButton, GhostButton } from "@/components/community/shared";
 import { ProfileIdentity } from "@/components/rewards/profile-identity";
 import { ProfileLikesStat } from "@/components/rewards/profile-rewards-panel";
 import { ProfileStyleShell } from "@/components/rewards/profile-style-banner";
@@ -29,6 +29,11 @@ export function ProfileModal({
   const [loading, setLoading] = useState(!initialProfile);
   const [error, setError] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
+  const [friendBusy, setFriendBusy] = useState(false);
+  const [friendStatus, setFriendStatus] = useState<
+    "none" | "friends" | "pending_outgoing" | "pending_incoming"
+  >("none");
+  const [incomingRequestId, setIncomingRequestId] = useState<string | null>(null);
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const seasonClass = getSeasonUiClass();
@@ -59,6 +64,16 @@ export function ProfileModal({
     void load(false);
   }, [userId, initialProfile, load]);
 
+  useEffect(() => {
+    if (!profile || profile.isSelf) return;
+    void fetch(`/api/community/friends?withUserId=${encodeURIComponent(profile.userId)}`)
+      .then((r) => r.json())
+      .then((d: { status?: typeof friendStatus; requestId?: string }) => {
+        if (d.status) setFriendStatus(d.status);
+        setIncomingRequestId(d.requestId ?? null);
+      });
+  }, [profile?.userId, profile?.isSelf]);
+
   async function toggleFollow() {
     if (!profile || profile.isSelf) return;
     setFollowBusy(true);
@@ -84,6 +99,46 @@ export function ProfileModal({
       }
     } finally {
       setFollowBusy(false);
+    }
+  }
+
+  async function sendFriendRequest() {
+    if (!profile || profile.isSelf) return;
+    setFriendBusy(true);
+    try {
+      const res = await fetch("/api/community/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "request", userId: profile.userId })
+      });
+      const data = await readJsonResponse<{ status?: string; message?: string }>(res);
+      if (res.ok) {
+        if (data.status === "mutual_accepted" || data.status === "already_friends") {
+          setFriendStatus("friends");
+        } else {
+          setFriendStatus("pending_outgoing");
+        }
+      }
+    } finally {
+      setFriendBusy(false);
+    }
+  }
+
+  async function respondFriendRequest(accept: boolean) {
+    if (!incomingRequestId) return;
+    setFriendBusy(true);
+    try {
+      const res = await fetch("/api/community/friends", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "respond", requestId: incomingRequestId, accept })
+      });
+      if (res.ok) {
+        setFriendStatus(accept ? "friends" : "none");
+        setIncomingRequestId(null);
+      }
+    } finally {
+      setFriendBusy(false);
     }
   }
 
@@ -142,6 +197,7 @@ export function ProfileModal({
                   isCreator={profile.isCreator}
                   isChosen={profile.isChosen}
                   isUltraCreator={profile.isUltraCreator}
+                  isFounder={profile.isFounder}
                   badges={profile.showcasedBadges}
                   profileView
                 />
@@ -153,21 +209,48 @@ export function ProfileModal({
                 ) : null}
               </div>
               {!profile.isSelf ? (
-                <PrimaryButton
-                  className={`season-btn shrink-0 px-3 py-1.5 text-xs ${profile.isFollowing ? "" : ""}`}
-                  loading={followBusy}
-                  onClick={toggleFollow}
-                >
-                  {profile.isFollowing ? (
-                    <>
-                      <UserMinus size={12} className="mr-1 inline" /> Entfolgen
-                    </>
+                <div className="flex shrink-0 flex-col gap-1.5">
+                  <PrimaryButton
+                    className="season-btn px-3 py-1.5 text-xs"
+                    loading={followBusy}
+                    onClick={toggleFollow}
+                  >
+                    {profile.isFollowing ? (
+                      <>
+                        <UserMinus size={12} className="mr-1 inline" /> Entfolgen
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus size={12} className="mr-1 inline" /> Folgen
+                      </>
+                    )}
+                  </PrimaryButton>
+                  {friendStatus === "friends" ? (
+                    <GhostButton className="px-3 py-1.5 text-xs text-emerald-300" disabled>
+                      <UserCheck size={12} className="mr-1 inline" /> Freunde
+                    </GhostButton>
+                  ) : friendStatus === "pending_outgoing" ? (
+                    <GhostButton className="px-3 py-1.5 text-xs" disabled>
+                      Anfrage gesendet
+                    </GhostButton>
+                  ) : friendStatus === "pending_incoming" ? (
+                    <PrimaryButton
+                      className="season-btn px-3 py-1.5 text-xs"
+                      loading={friendBusy}
+                      onClick={() => void respondFriendRequest(true)}
+                    >
+                      Anfrage annehmen
+                    </PrimaryButton>
                   ) : (
-                    <>
-                      <UserPlus size={12} className="mr-1 inline" /> Folgen
-                    </>
+                    <GhostButton
+                      className="px-3 py-1.5 text-xs"
+                      disabled={friendBusy}
+                      onClick={() => void sendFriendRequest()}
+                    >
+                      <UserPlus size={12} className="mr-1 inline" /> Freund hinzufügen
+                    </GhostButton>
                   )}
-                </PrimaryButton>
+                </div>
               ) : null}
             </div>
 

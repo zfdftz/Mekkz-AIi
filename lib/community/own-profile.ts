@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ensureUserProfile, getProfile, touchPresence } from "@/lib/community/profile";
+import { getProfile, touchPresence } from "@/lib/community/profile";
 import { getFollowerCounts, getTotalLikes } from "@/lib/community/public-profile";
 import type { UserProfile } from "@/lib/community/types";
 import { getPlanInfo } from "@/lib/plans";
@@ -13,7 +13,6 @@ export async function fetchOwnProfile(
   userId: string,
   email?: string | null
 ): Promise<UserProfile | null> {
-  await ensureUserProfile(admin, userId, email);
   void touchPresence(admin, userId, true);
 
   const [profile, counts, identity, isRewardsAdmin, totalLikes, cosmetics, planResult] =
@@ -44,6 +43,7 @@ export async function fetchOwnProfile(
     isCreator: identity.isCreator,
     isChosen: identity.isChosen,
     isUltraCreator: identity.isUltraCreator,
+    isFounder: identity.isFounder,
     activeTitleLabel: identity.titleLabel,
     accentColor: cosmetics.accentColor,
     profileBackground: cosmetics.profileBackground,

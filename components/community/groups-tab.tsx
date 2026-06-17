@@ -106,7 +106,7 @@ export function GroupsTab() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
       <div className="space-y-4">
         <Panel>
           <FieldLabel>Neue Gruppe</FieldLabel>
@@ -117,16 +117,16 @@ export function GroupsTab() {
               placeholder="Gruppenname"
             />
             <PrimaryButton loading={sending} onClick={createGroup}>
-              <Plus size={14} />
+              <Plus size={16} />
             </PrimaryButton>
           </div>
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-2 text-sm text-muted">
             Schreibe <code className="text-primary">@mekkz</code> oder <code className="text-primary">@ai</code>{" "}
             um die KI zu aktivieren.
           </p>
         </Panel>
 
-        <Panel className="max-h-[50vh] overflow-y-auto">
+        <Panel className="max-h-[55vh] overflow-y-auto">
           <FieldLabel>Meine Gruppen</FieldLabel>
           {loading ? (
             <LoadingState />
@@ -142,11 +142,11 @@ export function GroupsTab() {
                     setActiveGroup(group);
                     void loadMessages(group.id);
                   }}
-                  className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                  className={`w-full rounded-xl px-4 py-3 text-left text-base transition ${
                     activeGroup?.id === group.id ? "bg-primary/20" : "hover:bg-white/10"
                   }`}
                 >
-                  <UsersRound size={14} className="mr-1 inline" />
+                  <UsersRound size={16} className="mr-1.5 inline" />
                   {group.name}
                 </button>
               ))}
@@ -155,14 +155,14 @@ export function GroupsTab() {
         </Panel>
       </div>
 
-      <Panel className="flex max-h-[70vh] flex-col">
+      <Panel className="flex min-h-[560px] max-h-[85vh] flex-col">
         {!activeGroup ? (
           <EmptyState>Gruppe auswählen oder erstellen.</EmptyState>
         ) : (
           <>
-            <h3 className="mb-3 border-b border-white/10 pb-3 font-semibold">{activeGroup.name}</h3>
+            <h3 className="mb-4 border-b border-white/10 pb-4 text-2xl font-semibold">{activeGroup.name}</h3>
             <ErrorBanner message={error} />
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
               {messages.map((msg) => (
                 <MessageBubble
                   key={msg.id}

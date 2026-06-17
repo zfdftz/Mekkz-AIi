@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateAIResponse } from "@/lib/ai";
+import type { LanguageCode } from "@/lib/languages";
 import type {
   ChatRoom,
   FeedComment,
@@ -17,6 +18,60 @@ import { normalizeUsername, validateUsername } from "./profile-rules";
 
 function missing(msg: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(msg);
+}
+
+export const PUBLIC_ROOM_MESSAGE_COOLDOWN_MS = 7000;
+
+export class RoomMessageCooldownError extends Error {
+  readonly code = "ROOM_MESSAGE_COOLDOWN" as const;
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super("ROOM_MESSAGE_COOLDOWN");
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export function roomMessageCooldownText(language: LanguageCode, seconds: number) {
+  if (language === "de") {
+    return `Bitte ${seconds} Sekunde${seconds === 1 ? "" : "n"} warten, bevor du erneut schreibst.`;
+  }
+  return `Please wait ${seconds} second${seconds === 1 ? "" : "s"} before sending again.`;
+}
+
+export async function getRoomMessageCooldownSeconds(
+  admin: SupabaseClient,
+  userId: string,
+  roomId: string
+): Promise<number> {
+  const { data, error } = await admin
+    .from("chat_room_messages")
+    .select("created_at")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (missing(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  if (!data?.created_at) return 0;
+
+  const elapsed = Date.now() - new Date(data.created_at).getTime();
+  const remaining = PUBLIC_ROOM_MESSAGE_COOLDOWN_MS - elapsed;
+  return remaining > 0 ? Math.ceil(remaining / 1000) : 0;
+}
+
+async function assertRoomMessageCooldown(
+  admin: SupabaseClient,
+  userId: string,
+  roomId: string
+) {
+  const retryAfterSeconds = await getRoomMessageCooldownSeconds(admin, userId, roomId);
+  if (retryAfterSeconds > 0) {
+    throw new RoomMessageCooldownError(retryAfterSeconds);
+  }
 }
 
 export async function listRooms(admin: SupabaseClient, search?: string): Promise<ChatRoom[]> {
@@ -69,6 +124,8 @@ export async function postRoomMessage(
   roomId: string,
   content: string
 ) {
+  await assertRoomMessageCooldown(admin, userId, roomId);
+
   const { data, error } = await admin
     .from("chat_room_messages")
     .insert({ room_id: roomId, user_id: userId, content })
@@ -153,6 +210,69 @@ export async function sendFriendRequest(
   if (!target?.user_id) {
     throw new Error("USER_NOT_FOUND");
   }
+  return sendFriendRequestToUser(admin, fromUserId, target);
+}
+
+export async function sendFriendRequestByUserId(
+  admin: SupabaseClient,
+  fromUserId: string,
+  toUserId: string
+): Promise<FriendRequestResult> {
+  const { data: target } = await admin
+    .from("user_profiles")
+    .select("user_id, username")
+    .eq("user_id", toUserId)
+    .maybeSingle();
+  if (!target?.user_id) {
+    throw new Error("USER_NOT_FOUND");
+  }
+  return sendFriendRequestToUser(admin, fromUserId, target);
+}
+
+export type FriendshipStatus = "none" | "friends" | "pending_outgoing" | "pending_incoming";
+
+export async function getFriendshipStatus(
+  admin: SupabaseClient,
+  userId: string,
+  otherUserId: string
+): Promise<{ status: FriendshipStatus; requestId?: string }> {
+  if (userId === otherUserId) return { status: "none" };
+
+  const { data: existingFriend } = await admin
+    .from("friendships")
+    .select("friend_id")
+    .eq("user_id", userId)
+    .eq("friend_id", otherUserId)
+    .maybeSingle();
+  if (existingFriend) return { status: "friends" };
+
+  const { data: incoming } = await admin
+    .from("friend_requests")
+    .select("id")
+    .eq("from_user_id", otherUserId)
+    .eq("to_user_id", userId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (incoming) return { status: "pending_incoming", requestId: incoming.id as string };
+
+  const { data: outgoing } = await admin
+    .from("friend_requests")
+    .select("id")
+    .eq("from_user_id", userId)
+    .eq("to_user_id", otherUserId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (outgoing) return { status: "pending_outgoing", requestId: outgoing.id as string };
+
+  return { status: "none" };
+}
+
+async function sendFriendRequestToUser(
+  admin: SupabaseClient,
+  fromUserId: string,
+  target: { user_id: string; username: string | null }
+): Promise<FriendRequestResult> {
+  const targetUsername = target.username ?? undefined;
   if (target.user_id === fromUserId) {
     throw new Error("SELF_ADD");
   }
@@ -168,7 +288,7 @@ export async function sendFriendRequest(
       status: "already_friends",
       message: "Ihr seid bereits Freunde.",
       friendUserId: target.user_id,
-      targetUsername: target.username
+      targetUsername
     };
   }
 
@@ -185,7 +305,7 @@ export async function sendFriendRequest(
       status: "mutual_accepted",
       message: "Ihr seid jetzt Freunde!",
       friendUserId: target.user_id,
-      targetUsername: target.username
+      targetUsername
     };
   }
 
@@ -200,7 +320,7 @@ export async function sendFriendRequest(
     return {
       status: "already_pending",
       message: "Freundschaftsanfrage bereits gesendet.",
-      targetUsername: target.username
+      targetUsername
     };
   }
 
@@ -214,7 +334,7 @@ export async function sendFriendRequest(
   return {
     status: "sent",
     message: "Freundschaftsanfrage gesendet.",
-    targetUsername: target.username
+    targetUsername
   };
 }
 
@@ -246,13 +366,16 @@ export async function respondFriendRequest(
 export async function listFriends(admin: SupabaseClient, userId: string) {
   const { data, error } = await admin
     .from("friendships")
-    .select("friend_id")
+    .select("friend_id, created_at")
     .eq("user_id", userId);
   if (error) {
     if (missing(error.message)) return [];
     throw new Error(error.message);
   }
   const ids = (data ?? []).map((r) => r.friend_id as string);
+  const friendsSinceMap = new Map(
+    (data ?? []).map((r) => [r.friend_id as string, r.created_at as string | null])
+  );
   const names = await usernamesByIds(admin, ids);
   const { data: presence } = await admin.from("user_presence").select("*").in("user_id", ids);
   const presenceMap = new Map((presence ?? []).map((p) => [p.user_id, p]));
@@ -260,7 +383,8 @@ export async function listFriends(admin: SupabaseClient, userId: string) {
     userId: id,
     username: names.get(id) ?? "user",
     isOnline: presenceMap.get(id)?.is_online ?? false,
-    lastSeenAt: presenceMap.get(id)?.last_seen_at ?? null
+    lastSeenAt: presenceMap.get(id)?.last_seen_at ?? null,
+    friendsSince: friendsSinceMap.get(id) ?? null
   }));
 }
 

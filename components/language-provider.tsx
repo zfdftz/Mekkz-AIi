@@ -70,39 +70,45 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     async function bootstrap() {
       const stored = readStoredLanguage();
+      let resolved = stored ?? DEFAULT_LANGUAGE;
+
       if (stored) {
-        if (!cancelled) {
-          setLanguageState(stored);
-          document.documentElement.lang = stored;
-        }
-      } else {
-        const detectRes = await fetch("/api/language", { method: "PUT" }).catch(() => null);
-        if (detectRes?.ok) {
-          const data = (await detectRes.json()) as { language?: string };
-          const detected = normalizeLanguage(data.language);
-          if (!cancelled) {
-            setLanguageState(detected);
-            persistLanguage(detected);
-            await fetch("/api/language", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ language: detected, autoDetected: true })
-            }).catch(() => undefined);
-          }
-        }
+        document.documentElement.lang = stored;
       }
 
       const syncRes = await fetch("/api/language").catch(() => null);
       if (syncRes?.ok) {
-        const data = (await syncRes.json()) as { language?: string };
+        const data = (await syncRes.json()) as {
+          language?: string;
+          source?: string;
+          autoDetected?: boolean;
+        };
         const synced = normalizeLanguage(data.language);
-        if (!cancelled) {
-          setLanguageState(synced);
-          persistLanguage(synced);
+        const explicitSaved = data.source === "saved" && data.autoDetected === false;
+        // Explicit DB preference wins; auto-detected server values must not clobber localStorage.
+        if (explicitSaved || !stored) {
+          resolved = synced;
+          if (!cancelled) persistLanguage(synced);
+        }
+      } else if (!stored) {
+        const detectRes = await fetch("/api/language", { method: "PUT" }).catch(() => null);
+        if (detectRes?.ok) {
+          const data = (await detectRes.json()) as { language?: string };
+          resolved = normalizeLanguage(data.language);
+          if (!cancelled) persistLanguage(resolved);
+          await fetch("/api/language", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ language: resolved, autoDetected: true })
+          }).catch(() => undefined);
         }
       }
 
-      if (!cancelled) setReady(true);
+      if (!cancelled) {
+        setLanguageState(resolved);
+        document.documentElement.lang = resolved;
+        setReady(true);
+      }
     }
 
     void bootstrap();

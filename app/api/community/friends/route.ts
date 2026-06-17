@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRegisteredUser } from "@/lib/api/require-user";
 import {
+  getFriendshipStatus,
   listFriendMessages,
   listFriendRequests,
   listFriends,
   listIncomingFriendRequests,
   respondFriendRequest,
   sendFriendMessage,
-  sendFriendRequest
+  sendFriendRequest,
+  sendFriendRequestByUserId
 } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -17,8 +19,15 @@ export async function GET(req: Request) {
   if (auth.error) return auth.error;
   const { searchParams } = new URL(req.url);
   const friendId = searchParams.get("friendId");
+  const withUserId = searchParams.get("withUserId");
   const admin = createAdminClient();
   const userId = auth.user!.id;
+
+  if (withUserId) {
+    const friendship = await getFriendshipStatus(admin, userId, withUserId);
+    return NextResponse.json(friendship);
+  }
+
   if (friendId) {
     const messages = await listFriendMessages(admin, userId, friendId);
     return NextResponse.json({ messages });
@@ -35,7 +44,11 @@ export async function GET(req: Request) {
 }
 
 const postSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("request"), username: z.string().min(3).max(32) }),
+  z.object({
+    action: z.literal("request"),
+    username: z.string().min(3).max(32).optional(),
+    userId: z.string().uuid().optional()
+  }),
   z.object({ action: z.literal("respond"), requestId: z.string().uuid(), accept: z.boolean() }),
   z.object({
     action: z.literal("message"),
@@ -75,8 +88,13 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const userId = auth.user!.id;
   if (parsed.data.action === "request") {
+    if (!parsed.data.username && !parsed.data.userId) {
+      return NextResponse.json({ error: "username oder userId erforderlich." }, { status: 400 });
+    }
     try {
-      const result = await sendFriendRequest(admin, userId, parsed.data.username);
+      const result = parsed.data.userId
+        ? await sendFriendRequestByUserId(admin, userId, parsed.data.userId)
+        : await sendFriendRequest(admin, userId, parsed.data.username!);
       return NextResponse.json({ ok: true, ...result });
     } catch (error) {
       return mapFriendRequestError(error);

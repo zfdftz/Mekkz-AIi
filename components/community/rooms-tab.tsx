@@ -16,6 +16,7 @@ import {
 } from "@/components/community/shared";
 import { usePoll } from "@/hooks/use-poll";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { PUBLIC_ROOM_MESSAGE_COOLDOWN_MS } from "@/lib/community/social";
 import type { ChatRoom, RoomMessage } from "@/lib/community/types";
 
 export function RoomsTab() {
@@ -26,7 +27,16 @@ export function RoomsTab() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setCooldownSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownSeconds > 0]);
 
   const loadRooms = useCallback(async () => {
     setError(null);
@@ -45,8 +55,16 @@ export function RoomsTab() {
 
   const loadMessages = useCallback(async (roomId: string) => {
     const res = await fetch(`/api/community/rooms?roomId=${roomId}`);
-    const data = await readJsonResponse<{ messages?: RoomMessage[] }>(res);
-    if (res.ok) setMessages(data.messages ?? []);
+    const data = await readJsonResponse<{
+      messages?: RoomMessage[];
+      messageCooldownSeconds?: number;
+    }>(res);
+    if (res.ok) {
+      setMessages(data.messages ?? []);
+      if (typeof data.messageCooldownSeconds === "number" && data.messageCooldownSeconds > 0) {
+        setCooldownSeconds(data.messageCooldownSeconds);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -59,6 +77,7 @@ export function RoomsTab() {
 
   async function joinRoom(room: ChatRoom) {
     setError(null);
+    setCooldownSeconds(0);
     const res = await fetch("/api/community/rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,10 +101,11 @@ export function RoomsTab() {
     });
     setActiveRoom(null);
     setMessages([]);
+    setCooldownSeconds(0);
   }
 
   async function sendMessage() {
-    if (!activeRoom || !draft.trim()) return;
+    if (!activeRoom || !draft.trim() || cooldownSeconds > 0) return;
     setSending(true);
     try {
       const res = await fetch("/api/community/rooms", {
@@ -93,9 +113,18 @@ export function RoomsTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "message", roomId: activeRoom.id, content: draft.trim() })
       });
-      const data = await readJsonResponse<{ error?: string }>(res);
-      if (!res.ok) throw new Error(data.error || "Senden fehlgeschlagen.");
+      const data = await readJsonResponse<{
+        error?: string;
+        retryAfterSeconds?: number;
+      }>(res);
+      if (!res.ok) {
+        if (typeof data.retryAfterSeconds === "number" && data.retryAfterSeconds > 0) {
+          setCooldownSeconds(data.retryAfterSeconds);
+        }
+        throw new Error(data.error || "Senden fehlgeschlagen.");
+      }
       setDraft("");
+      setCooldownSeconds(Math.ceil(PUBLIC_ROOM_MESSAGE_COOLDOWN_MS / 1000));
       await loadMessages(activeRoom.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
@@ -114,9 +143,9 @@ export function RoomsTab() {
       sidebar={
         <>
           <div className="relative mb-3">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
             <TextInput
-              className="pl-9"
+              className="pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Räume suchen…"
@@ -136,8 +165,8 @@ export function RoomsTab() {
                   title={room.name}
                   subtitle={room.topic}
                   leading={
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                      <Hash size={14} />
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                      <Hash size={16} />
                     </span>
                   }
                 />
@@ -151,27 +180,27 @@ export function RoomsTab() {
           <EmptyState>Wähle einen Chat-Raum aus der Liste.</EmptyState>
         ) : (
           <>
-            <div className="mb-3 flex items-start justify-between gap-2 border-b border-white/10 pb-3">
+            <div className="mb-4 flex items-start justify-between gap-2 border-b border-white/10 pb-4">
               <div>
-                <h3 className="text-lg font-semibold">{activeRoom.name}</h3>
-                <p className="text-sm text-muted">{activeRoom.description}</p>
+                <h3 className="text-2xl font-semibold">{activeRoom.name}</h3>
+                <p className="text-lg text-muted">{activeRoom.description}</p>
               </div>
               <GhostButton onClick={leaveRoom}>Verlassen</GhostButton>
             </div>
             {activeRoom.rules ? (
-              <details className="mb-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs">
+              <details className="mb-4 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm">
                 <summary className="cursor-pointer font-medium">Raumregeln</summary>
                 <p className="mt-2 whitespace-pre-wrap text-muted">{activeRoom.rules}</p>
               </details>
             ) : null}
             {pinned ? (
-              <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
-                <Pin size={14} className="mt-0.5 shrink-0 text-amber-300" />
+              <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-base">
+                <Pin size={16} className="mt-0.5 shrink-0 text-amber-300" />
                 <span>{pinned.content}</span>
               </div>
             ) : null}
             <ErrorBanner message={error} />
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {messages.map((msg) => (
                 <MessageBubble
                   key={msg.id}
@@ -193,6 +222,8 @@ export function RoomsTab() {
               onSend={sendMessage}
               placeholder={`Nachricht in ${activeRoom.name}…`}
               loading={sending}
+              disabled={cooldownSeconds > 0}
+              sendLabel={cooldownSeconds > 0 ? `${cooldownSeconds}s` : "Senden"}
             />
           </>
         )

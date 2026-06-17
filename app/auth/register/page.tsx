@@ -8,7 +8,6 @@ import { GuestEntryButton } from "@/components/guest-entry-button";
 import { MekkzLogo } from "@/components/mekkz-logo";
 import { OAuthSignInButtons } from "@/components/oauth-sign-in-buttons";
 import { readJsonResponse } from "@/lib/fetch-json";
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@/lib/community/profile-rules";
 import { createClient } from "@/lib/supabase/client";
 import { WavyBackground } from "@/components/wavy-background";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -18,8 +17,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [birthday, setBirthday] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +29,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, birthday })
+        body: JSON.stringify({ email, password })
       });
       const data = await readJsonResponse<{ error?: string; email?: string }>(res);
 
@@ -73,8 +70,9 @@ export default function RegisterPage() {
           </div>
           <h1 className="text-2xl font-semibold">Registrieren</h1>
           <p className="text-sm text-muted">
-            Wähle deinen Profilnamen und gib dein Geburtsdatum an. Danach erhältst du einen{" "}
-            <strong>6-stelligen Code per E-Mail</strong>.
+            Erstelle dein Konto mit E-Mail und Passwort. Danach erhältst du einen{" "}
+            <strong>6-stelligen Code per E-Mail</strong>. Profilname und Geburtstag legst du nach
+            der Anmeldung fest.
           </p>
 
           <OAuthSignInButtons />
@@ -87,29 +85,6 @@ export default function RegisterPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <div>
-            <input
-              className="w-full rounded-xl bg-white/10 p-3"
-              placeholder={`Profilname (${USERNAME_MIN_LENGTH}–${USERNAME_MAX_LENGTH} Zeichen)`}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              minLength={USERNAME_MIN_LENGTH}
-              maxLength={USERNAME_MAX_LENGTH}
-              pattern="[\w.-]+"
-              required
-            />
-            <p className="mt-1 text-[11px] text-muted">Das ist dein @Name im Profil und in der Community.</p>
-          </div>
-          <div>
-            <input
-              className="w-full rounded-xl bg-white/10 p-3"
-              type="date"
-              value={birthday}
-              onChange={(e) => setBirthday(e.target.value)}
-              required
-            />
-            <p className="mt-1 text-[11px] text-muted">Mindestens 7 Jahre alt, maximal 105.</p>
-          </div>
           <input
             className="w-full rounded-xl bg-white/10 p-3"
             type="password"

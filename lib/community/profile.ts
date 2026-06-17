@@ -16,6 +16,31 @@ function isDuplicateUsername(message: string) {
   return /duplicate|unique|user_profiles_username/i.test(message);
 }
 
+export function isProfileComplete(profile: {
+  username?: string | null;
+  birthday?: string | null;
+}) {
+  const username = profile.username?.trim();
+  const birthday = profile.birthday?.trim();
+  return Boolean(username && birthday);
+}
+
+export async function userNeedsOnboarding(admin: SupabaseClient, userId: string) {
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("username, birthday")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error && !isMissingTable(error.message)) throw new Error(error.message);
+  if (!data) return true;
+  return !isProfileComplete(data);
+}
+
+export async function hasUserProfile(admin: SupabaseClient, userId: string) {
+  return !(await userNeedsOnboarding(admin, userId));
+}
+
 export async function ensureUserProfile(admin: SupabaseClient, userId: string, email?: string | null) {
   const { data: existing } = await admin
     .from("user_profiles")
@@ -49,19 +74,38 @@ export async function createProfileFromRegistration(
   username: string,
   birthday: string
 ) {
+  return completeProfileFromOnboarding(admin, userId, username, birthday);
+}
+
+export async function completeProfileFromOnboarding(
+  admin: SupabaseClient,
+  userId: string,
+  username: string,
+  birthday: string
+) {
   const normalized = normalizeUsername(username);
   validateUsername(normalized);
-  validateBirthday(birthday);
+  const validatedBirthday = validateBirthday(birthday);
+
   if (await isUsernameTaken(admin, normalized, userId)) {
     throw new Error("Benutzername ist bereits vergeben.");
   }
-  const { error } = await admin.from("user_profiles").upsert({
+
+  const { data: existing } = await admin
+    .from("user_profiles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const payload: Record<string, unknown> = {
     user_id: userId,
     username: normalized,
-    birthday,
-    bio: "",
+    birthday: validatedBirthday,
     updated_at: new Date().toISOString()
-  });
+  };
+  if (!existing) payload.bio = "";
+
+  const { error } = await admin.from("user_profiles").upsert(payload);
   if (error && !isMissingTable(error.message)) throw new Error(error.message);
 }
 
@@ -72,7 +116,7 @@ export async function getProfile(
   const { data, error } = await admin
     .from("user_profiles")
     .select(
-      "user_id, username, bio, avatar_url, messages_sent, posts_count, xp, updated_at, username_changed_at"
+      "user_id, username, bio, avatar_url, birthday, messages_sent, posts_count, xp, updated_at, username_changed_at"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -96,6 +140,7 @@ export async function getProfile(
     username: data.username,
     bio: data.bio ?? "",
     avatarUrl: data.avatar_url,
+    birthday: (data.birthday as string | null) ?? null,
     messagesSent: data.messages_sent ?? 0,
     postsCount: data.posts_count ?? 0,
     xp: data.xp ?? 0,

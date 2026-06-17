@@ -3,23 +3,29 @@
 import { Shield, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ChatComposer,
   EmptyState,
   ErrorBanner,
   FieldLabel,
   LoadingState,
+  MessageBubble,
   Panel,
   PrimaryButton,
   TextArea,
   TextInput
 } from "@/components/community/shared";
+import { usePoll } from "@/hooks/use-poll";
 import { readJsonResponse } from "@/lib/fetch-json";
-import type { Clan, ClanMember } from "@/lib/community/types";
+import type { Clan, ClanMember, ClanMessage } from "@/lib/community/types";
 
 export function ClansTab() {
   const [clans, setClans] = useState<Clan[]>([]);
   const [myClan, setMyClan] = useState<Clan | null>(null);
   const [members, setMembers] = useState<ClanMember[]>([]);
+  const [messages, setMessages] = useState<ClanMessage[]>([]);
+  const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -33,12 +39,14 @@ export function ClansTab() {
         clans?: Clan[];
         myClan?: Clan | null;
         members?: ClanMember[];
+        messages?: ClanMessage[];
         error?: string;
       }>(res);
       if (!res.ok) throw new Error(data.error || "Clans konnten nicht geladen werden.");
       setClans(data.clans ?? []);
       setMyClan(data.myClan ?? null);
       setMembers(data.members ?? []);
+      setMessages(data.messages ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
@@ -49,6 +57,15 @@ export function ClansTab() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  usePoll(() => {
+    if (!myClan) return;
+    void fetch("/api/community/clans")
+      .then((r) => r.json())
+      .then((d: { messages?: ClanMessage[] }) => {
+        if (d.messages) setMessages(d.messages);
+      });
+  }, 4000, Boolean(myClan));
 
   async function createClan() {
     if (!name.trim()) return;
@@ -88,6 +105,30 @@ export function ClansTab() {
     }
   }
 
+  async function sendMessage() {
+    if (!draft.trim() || !myClan) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/community/clans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "message", content: draft.trim() })
+      });
+      const data = await readJsonResponse<{ message?: ClanMessage; error?: string }>(res);
+      if (!res.ok) throw new Error(data.error || "Nachricht fehlgeschlagen.");
+      setDraft("");
+      if (data.message) {
+        setMessages((prev) => [...prev, { ...data.message!, authorName: null }]);
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   if (loading) return <LoadingState />;
 
   return (
@@ -95,22 +136,50 @@ export function ClansTab() {
       <ErrorBanner message={error} />
 
       {myClan ? (
-        <Panel>
-          <div className="mb-3 flex items-center gap-2">
-            <Shield className="text-primary" size={20} />
-            <h3 className="text-lg font-semibold">{myClan.name}</h3>
-          </div>
-          <p className="mb-3 text-sm text-muted">{myClan.description || "Keine Beschreibung."}</p>
-          <p className="mb-2 text-xs text-primary">{myClan.memberCount} Mitglieder</p>
-          <div className="space-y-1">
-            {members.map((m) => (
-              <div key={m.userId} className="flex justify-between rounded-lg bg-black/20 px-3 py-2 text-sm">
-                <span>@{m.username ?? "user"}</span>
-                <span className="text-xs capitalize text-muted">{m.role}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
+        <>
+          <Panel>
+            <div className="mb-3 flex items-center gap-2">
+              <Shield className="text-primary" size={20} />
+              <h3 className="text-lg font-semibold">{myClan.name}</h3>
+            </div>
+            <p className="mb-3 text-sm text-muted">{myClan.description || "Keine Beschreibung."}</p>
+            <p className="mb-2 text-xs text-primary">{myClan.memberCount} Mitglieder</p>
+            <div className="space-y-1">
+              {members.map((m) => (
+                <div key={m.userId} className="flex justify-between rounded-lg bg-black/20 px-3 py-2 text-sm">
+                  <span>@{m.username ?? "user"}</span>
+                  <span className="text-xs capitalize text-muted">{m.role}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel className="flex min-h-[280px] flex-col">
+            <FieldLabel>Clan-Chat</FieldLabel>
+            <div className="mb-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+              {messages.length === 0 ? (
+                <EmptyState>Noch keine Nachrichten — schreib die erste!</EmptyState>
+              ) : (
+                messages.map((msg) => (
+                  <MessageBubble
+                    key={msg.id}
+                    author={msg.authorName ?? "user"}
+                    authorUserId={msg.userId}
+                    content={msg.content}
+                    time={msg.createdAt}
+                  />
+                ))
+              )}
+            </div>
+            <ChatComposer
+              value={draft}
+              onChange={setDraft}
+              onSend={() => void sendMessage()}
+              loading={sending}
+              placeholder="Nachricht an den Clan…"
+            />
+          </Panel>
+        </>
       ) : (
         <Panel>
           <h3 className="mb-3 font-semibold">Clan gründen</h3>

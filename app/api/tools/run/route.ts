@@ -97,7 +97,7 @@ export async function POST(req: Request) {
     const replyLanguage = resolveReplyLanguage(userPrompt, userLanguage);
     const systemContent =
       `You are MEKKZ AI Tool: ${tool.name}. ${tool.systemPrompt}\n` +
-      (replyLanguage ? `\n${buildReplyLanguageLock(replyLanguage)}` : "");
+      `\n${buildReplyLanguageLock(replyLanguage)}`;
 
     const logoImagePrompt =
       toolId === "logo-generator" ? buildLogoImagePrompt(values) : undefined;
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
         { role: "system", content: systemContent },
         { role: "user", content: enrichedPrompt }
       ],
-      { language: replyLanguage ?? userLanguage }
+      { language: replyLanguage }
     );
 
     let image: string | undefined;

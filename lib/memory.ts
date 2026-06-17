@@ -165,13 +165,23 @@ export async function listUserMemories(
   return (data ?? []) as UserMemory[];
 }
 
+function formatMemoryDate(iso: string) {
+  try {
+    return new Date(iso).toISOString().slice(0, 10);
+  } catch {
+    return iso.slice(0, 10);
+  }
+}
+
 export async function getMemoriesForPrompt(
   admin: SupabaseClient,
   userId: string
 ): Promise<string> {
   const memories = await listUserMemories(admin, userId, PROMPT_MEMORY_LIMIT);
   if (memories.length === 0) return "";
-  return memories.map((m) => `- ${m.memory}`).join("\n");
+  return memories
+    .map((m) => `- [${formatMemoryDate(m.created_at)} · ${m.category}] ${m.memory}`)
+    .join("\n");
 }
 
 export async function saveUserMemory(

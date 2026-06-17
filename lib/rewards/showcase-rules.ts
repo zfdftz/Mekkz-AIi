@@ -4,7 +4,8 @@ import { QUESTS } from "./quest-catalog";
 export const IDENTITY_BADGE_IDS = new Set([
   "verified_user",
   "mekkz_creator",
-  "ultra_creator"
+  "ultra_creator",
+  "founder"
 ]);
 
 export function isIdentityBadge(badgeId: string) {

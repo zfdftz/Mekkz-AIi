@@ -247,6 +247,7 @@ export async function getPublicProfile(
     isCreator: identity.isCreator,
     isChosen: identity.isChosen,
     isUltraCreator: identity.isUltraCreator,
+    isFounder: identity.isFounder,
     activeTitleLabel: identity.titleLabel,
     bannerUrl: cosmetics.bannerUrl,
     profileFrame: cosmetics.profileFrame,

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getDefaultConversationTitle } from "@/lib/i18n/conversation-title";
+import { resolveUserLanguage } from "@/lib/user-language";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(req: Request) {
@@ -22,7 +24,8 @@ export async function GET(req: Request) {
 }
 
 const createSchema = z.object({
-  userId: z.string().uuid()
+  userId: z.string().uuid(),
+  language: z.string().min(2).max(8).optional()
 });
 
 export async function POST(req: Request) {
@@ -33,9 +36,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
+  const language = await resolveUserLanguage(
+    admin,
+    parsed.data.userId,
+    req,
+    parsed.data.language
+  );
+  const title = getDefaultConversationTitle(language);
+
   const { data, error } = await admin
     .from("conversations")
-    .insert({ user_id: parsed.data.userId, title: "Neuer Chat" })
+    .insert({ user_id: parsed.data.userId, title })
     .select("id, title, created_at, updated_at")
     .single();
 

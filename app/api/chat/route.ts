@@ -27,6 +27,7 @@ import {
   tryGetUserPlanState
 } from "@/lib/user-plans";
 import { isGuestUser } from "@/lib/auth/session";
+import { hasUserProfile } from "@/lib/community/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isStripeConfigured } from "@/lib/stripe";
@@ -35,8 +36,8 @@ import {
   buildImageAnalysisLanguagePrompt,
   buildLanguageSystemPrompt,
   buildReplyLanguageLock,
-  detectLanguageFromText,
-  resolveReplyLanguage
+  resolveReplyLanguage,
+  type LanguageCode
 } from "@/lib/languages";
 import { resolveUserLanguage } from "@/lib/user-language";
 import {
@@ -51,7 +52,21 @@ import {
 } from "@/lib/memory";
 import { buildPersonalityPrompt } from "@/lib/personality";
 import { buildTutorSystemPrompt } from "@/lib/tutor";
-import { getUserAiPreferences } from "@/lib/user-ai-preferences";
+import {
+  buildCustomInstructionsPrompt,
+  getUserAiPreferences
+} from "@/lib/user-ai-preferences";
+import {
+  applyChatLineFormat,
+  buildChatFormatInstructions,
+  buildChatUserContextPrompt,
+  stripAssistantChatPrefix
+} from "@/lib/chat-user-context";
+import { buildExtendedUserActivityContext } from "@/lib/chat-user-activity-context";
+import {
+  getDefaultConversationTitle,
+  isDefaultConversationTitle
+} from "@/lib/i18n/conversation-title";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -74,9 +89,11 @@ const payloadSchema = z.object({
   stream: z.boolean().optional()
 });
 
-function buildTitle(text: string) {
+function buildTitle(text: string, language: LanguageCode) {
   const clean = text.trim().replace(/\s+/g, " ");
-  return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean || "Neuer Chat";
+  return clean.length > 42
+    ? `${clean.slice(0, 42)}...`
+    : clean || getDefaultConversationTitle(language);
 }
 
 function normalizeGeneratedImageForClient(
@@ -116,6 +133,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Nicht autorisiert." }, { status: 401 });
   }
 
+  if (!isGuestUser(user)) {
+    const hasProfile = await hasUserProfile(admin, user.id);
+    if (!hasProfile) {
+      return NextResponse.json(
+        { error: "Bitte zuerst dein Profil einrichten.", needsOnboarding: true },
+        { status: 403 }
+      );
+    }
+  }
+
   if (!isGuestUser(user) && isStripeConfigured() && user.email) {
     after(async () => {
       try {
@@ -133,16 +160,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Keine gültige Nachricht gesendet." }, { status: 400 });
   }
   const lastUserMessage = messages.filter((m) => m.role === "user").at(-1);
+  const userLanguage = await resolveUserLanguage(
+    admin,
+    userId,
+    req,
+    requestedLanguage
+  );
 
   if (!conversationId) {
     const titleSource =
       lastUserMessage?.content?.trim() ||
-      (lastUserMessage?.imageName ? `Bild: ${lastUserMessage.imageName}` : "Neuer Chat");
+      (lastUserMessage?.imageName ? `Bild: ${lastUserMessage.imageName}` : "");
     const { data: created, error: createError } = await admin
       .from("conversations")
       .insert({
         user_id: userId,
-        title: buildTitle(titleSource)
+        title: titleSource
+          ? buildTitle(titleSource, userLanguage)
+          : getDefaultConversationTitle(userLanguage)
       })
       .select("id")
       .single();
@@ -171,13 +206,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const [memoryText, userLanguage, aiPreferences, stylePrompt, planState] =
+  const hasImageInLastMessage = Boolean(lastUserMessage?.images?.length);
+  const userText = lastUserMessage?.content?.trim() ?? "";
+
+  const [memoryText, aiPreferences, stylePrompt, planState, chatContext, activityContext] =
     await Promise.all([
       getMemoriesForPrompt(admin, userId),
-      resolveUserLanguage(admin, userId, req, requestedLanguage),
       getUserAiPreferences(admin, userId),
       getCommunicationStylePrompt(admin, userId),
-      getUserPlanState(admin, userId)
+      getUserPlanState(admin, userId),
+      buildChatUserContextPrompt(admin, userId, user.email),
+      buildExtendedUserActivityContext(admin, userId, { searchHint: userText })
     ]);
   const chatLimitState = await getConversationLimitState(
     admin,
@@ -186,8 +225,6 @@ export async function POST(req: Request) {
     planState.plan
   );
   const planRules = buildPlanSystemPrompt(planState, chatLimitState);
-  const hasImageInLastMessage = Boolean(lastUserMessage?.images?.length);
-  const userText = lastUserMessage?.content?.trim() ?? "";
   const replyLanguage = resolveReplyLanguage(userText, userLanguage);
   const willGenerateImage =
     !lastUserMessage?.images?.length &&
@@ -233,13 +270,17 @@ export async function POST(req: Request) {
     content:
       systemContent +
       `${planRules}\n` +
-      `${buildPersonalityPrompt(aiPreferences.personalityMode)}\n` +
+      `${buildPersonalityPrompt(aiPreferences.personalityMode, userLanguage)}\n` +
       (aiPreferences.tutorModeEnabled
         ? `${buildTutorSystemPrompt(aiPreferences.tutorLevel)}\n`
         : "") +
       (stylePrompt ? `${stylePrompt}\n` : "") +
+      `${buildCustomInstructionsPrompt(aiPreferences.customInstructions)}\n` +
       `${buildMemorySystemPrompt(memoryText)}\n` +
-      (replyLanguage ? `\n${buildReplyLanguageLock(replyLanguage)}` : "")
+      `${chatContext.prompt}\n` +
+      `${activityContext}\n` +
+      `${buildChatFormatInstructions(chatContext.username)}\n` +
+      `\n${buildReplyLanguageLock(replyLanguage)}`
   };
 
   let reply = "";
@@ -328,8 +369,11 @@ export async function POST(req: Request) {
         lastUserMessage?.content?.trim() ||
         (lastUserMessage?.imageName ? `[Bild: ${lastUserMessage.imageName}]` : "");
 
-      const aiMessages = [system, ...messagesForAI(messages)];
-      const streamLanguage = replyLanguage ?? userLanguage;
+      const aiMessages = [
+        system,
+        ...applyChatLineFormat(messagesForAI(messages), chatContext.username)
+      ];
+      const streamLanguage = replyLanguage;
       const streamTimeoutMs = hasImageInLastMessage ? 90000 : 45000;
 
       const body = new ReadableStream<Uint8Array>({
@@ -376,6 +420,7 @@ export async function POST(req: Request) {
 
             const parsedCategory = parseCategoryFromAnalysis(fullReply);
             if (parsedCategory) imageCategory = parsedCategory;
+            fullReply = stripAssistantChatPrefix(fullReply);
 
             const { error: insertError } = await insertConversationMessage(admin, {
               user_id: userId,
@@ -403,11 +448,11 @@ export async function POST(req: Request) {
                     .eq("id", conversationId)
                     .single();
 
-                  if (conversation?.title === "Neuer Chat") {
+                  if (isDefaultConversationTitle(conversation?.title)) {
                     await admin
                       .from("conversations")
                       .update({
-                        title: buildTitle(storedUserText),
+                        title: buildTitle(storedUserText, userLanguage),
                         updated_at: new Date().toISOString()
                       })
                       .eq("id", conversationId);
@@ -464,9 +509,12 @@ export async function POST(req: Request) {
       });
     } else {
       reply = await Promise.race([
-        generateAIResponse([system, ...messagesForAI(messages)], {
-          language: replyLanguage ?? userLanguage
-        }),
+        generateAIResponse(
+          [system, ...applyChatLineFormat(messagesForAI(messages), chatContext.username)],
+          {
+            language: replyLanguage
+          }
+        ),
         new Promise<string>((_, reject) =>
           setTimeout(
             () =>
@@ -482,6 +530,7 @@ export async function POST(req: Request) {
 
       const parsedCategory = parseCategoryFromAnalysis(reply);
       if (parsedCategory) imageCategory = parsedCategory;
+      reply = stripAssistantChatPrefix(reply);
     }
   } catch (error) {
     const message =
@@ -570,11 +619,11 @@ export async function POST(req: Request) {
           .eq("id", conversationId)
           .single();
 
-        if (conversation?.title === "Neuer Chat") {
+        if (isDefaultConversationTitle(conversation?.title)) {
           await admin
             .from("conversations")
             .update({
-              title: buildTitle(storedUserText),
+              title: buildTitle(storedUserText, userLanguage),
               updated_at: new Date().toISOString()
             })
             .eq("id", conversationId);

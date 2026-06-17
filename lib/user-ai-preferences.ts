@@ -9,6 +9,7 @@ export type UserAiPreferences = {
   voiceOutputEnabled: boolean;
   voiceAutoSend: boolean;
   voiceGender: "female" | "male";
+  customInstructions: string;
 };
 
 const DEFAULT_PREFERENCES: UserAiPreferences = {
@@ -17,8 +18,25 @@ const DEFAULT_PREFERENCES: UserAiPreferences = {
   tutorLevel: "intermediate",
   voiceOutputEnabled: false,
   voiceAutoSend: true,
-  voiceGender: "female"
+  voiceGender: "female",
+  customInstructions: ""
 };
+
+const MAX_CUSTOM_INSTRUCTIONS_LENGTH = 800;
+
+export function normalizeCustomInstructions(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, MAX_CUSTOM_INSTRUCTIONS_LENGTH);
+}
+
+export function buildCustomInstructionsPrompt(instructions: string) {
+  const clean = instructions.trim();
+  if (!clean) return "";
+  return (
+    `User-defined behavior preferences:\n${clean}\n` +
+    "Follow these preferences in every reply when compatible with safety and app rules."
+  );
+}
 
 function isMissingTableError(message: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(message);
@@ -32,7 +50,8 @@ function mapRow(row: Record<string, unknown> | null): UserAiPreferences {
     tutorLevel: normalizeTutorLevel(row.tutor_level),
     voiceOutputEnabled: Boolean(row.voice_output_enabled),
     voiceAutoSend: row.voice_auto_send !== false,
-    voiceGender: row.voice_gender === "male" ? "male" : "female"
+    voiceGender: row.voice_gender === "male" ? "male" : "female",
+    customInstructions: normalizeCustomInstructions(row.custom_instructions)
   };
 }
 
@@ -43,7 +62,7 @@ export async function getUserAiPreferences(
   const { data, error } = await admin
     .from("user_ai_preferences")
     .select(
-      "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender"
+      "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender, custom_instructions"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -62,7 +81,13 @@ export async function setUserAiPreferences(
   patch: Partial<UserAiPreferences>
 ) {
   const current = await getUserAiPreferences(admin, userId);
-  const next: UserAiPreferences = { ...current, ...patch };
+  const next: UserAiPreferences = {
+    ...current,
+    ...patch,
+    ...(typeof patch.customInstructions === "string"
+      ? { customInstructions: normalizeCustomInstructions(patch.customInstructions) }
+      : {})
+  };
 
   const payload = {
     user_id: userId,
@@ -72,6 +97,7 @@ export async function setUserAiPreferences(
     voice_output_enabled: next.voiceOutputEnabled,
     voice_auto_send: next.voiceAutoSend,
     voice_gender: next.voiceGender,
+    custom_instructions: next.customInstructions,
     updated_at: new Date().toISOString()
   };
 

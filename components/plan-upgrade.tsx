@@ -250,33 +250,6 @@ export function PlanUpgrade({
     }
   }
 
-  async function syncPlanFromStripe() {
-    if (isGuest) return;
-    setMessage(null);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/stripe/sync", { method: "POST" });
-      const data = await readJsonResponse<{
-        error?: string;
-        message?: string;
-        synced?: boolean;
-      }>(res);
-      if (!res.ok) {
-        setMessage(data.error || "Plan-Sync fehlgeschlagen.");
-        return;
-      }
-      setMessage(
-        data.message ||
-          (data.synced ? "Plan von Stripe synchronisiert." : "Kein aktives Abo gefunden.")
-      );
-      void loadPlan();
-    } catch {
-      setMessage("Netzwerkfehler beim Plan-Sync.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function openBillingPortal() {
     if (isGuest) {
       setAuthModalOpen(true);
@@ -436,16 +409,6 @@ export function PlanUpgrade({
             </div>
 
             <div className="mt-4 shrink-0 space-y-2">
-              {!isGuest ? (
-                <button
-                  type="button"
-                  onClick={() => void syncPlanFromStripe()}
-                  disabled={loading}
-                  className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2.5 text-sm transition hover:bg-white/10 disabled:opacity-50"
-                >
-                  {loading ? t("plan.loading") : "Plan von Stripe synchronisieren"}
-                </button>
-              ) : null}
               {canManageBilling ? (
                 <button
                   type="button"

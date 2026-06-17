@@ -249,6 +249,23 @@ export async function getUnlockedTitles(admin: SupabaseClient, userId: string, _
   return [...unlocked];
 }
 
+export async function adminGrantAllStyleItems(admin: SupabaseClient, userId: string) {
+  const season = getCurrentSeasonInfo();
+  for (const item of COSMETICS) {
+    if (item.type === "background" || item.type === "frame") {
+      await addToInventory(admin, userId, item, item.seasonIndex >= 0 ? item.seasonIndex : season.index);
+    }
+  }
+}
+
+export async function adminGrantAllTitles(admin: SupabaseClient, userId: string) {
+  const { error } = await admin
+    .from("user_profiles")
+    .update({ admin_granted_titles: Object.keys(TITLES) })
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
 export async function adminGrantTitle(admin: SupabaseClient, userId: string, titleId: string) {
   if (!TITLES[titleId]) throw new Error("Unbekannter Titel.");
   const { data } = await admin

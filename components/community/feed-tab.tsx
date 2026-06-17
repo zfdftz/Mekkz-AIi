@@ -205,7 +205,7 @@ export function FeedTab() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PillTabs
         items={[
           { id: "latest", label: "Neueste" },
@@ -236,18 +236,18 @@ export function FeedTab() {
             </GhostButton>
           ))}
         </div>
-        <TextArea rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Was möchtest du teilen?" />
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted">
-          <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 hover:bg-white/5">
+        <TextArea rows={5} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Was möchtest du teilen?" />
+        <div className="mt-3 flex flex-wrap gap-3 text-base text-muted">
+          <label className="cursor-pointer rounded-lg border border-white/10 px-4 py-2.5 hover:bg-white/5">
             📷 Bild
             <input type="file" accept="image/*" className="hidden" onChange={(e) => onImagePick(e.target.files?.[0] ?? null)} />
           </label>
-          <label className="cursor-pointer rounded-lg border border-white/10 px-3 py-2 hover:bg-white/5">
+          <label className="cursor-pointer rounded-lg border border-white/10 px-4 py-2.5 hover:bg-white/5">
             🎬 Video (&lt;30s)
             <input type="file" accept="video/*" className="hidden" onChange={(e) => onVideoPick(e.target.files?.[0] ?? null)} />
           </label>
           {mediaBusy ? <span>KI Safety-Check beim Upload…</span> : null}
-          <span className="text-[10px]">Medien werden per KI auf unangemessene Inhalte geprüft.</span>
+          <span className="text-sm">Medien werden per KI auf unangemessene Inhalte geprüft.</span>
         </div>
         {imagePreview ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -261,7 +261,7 @@ export function FeedTab() {
             value={tagsInput}
             onChange={(e) => setTagsInput(e.target.value)}
             placeholder="Tags (kommagetrennt)"
-            className="flex-1 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm"
+            className="flex-1 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-base"
           />
           <PrimaryButton loading={posting} onClick={createPost}>
             Posten
@@ -276,10 +276,10 @@ export function FeedTab() {
       ) : posts.length === 0 ? (
         <EmptyState>Noch keine Posts — sei der Erste!</EmptyState>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {posts.map((post) => (
             <Panel key={post.id} className="animate-in fade-in">
-              <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <ProfileLink userId={post.userId} className="min-w-0">
                     <ProfileIdentity
@@ -292,13 +292,13 @@ export function FeedTab() {
                       isUltraCreator={post.authorUltraCreator}
                     />
                   </ProfileLink>
-                  <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-[10px] uppercase">
+                  <span className="shrink-0 rounded-md bg-white/10 px-2.5 py-0.5 text-xs uppercase">
                     {post.postType}
                   </span>
                 </div>
-                <span className="text-xs text-muted">{new Date(post.createdAt).toLocaleString()}</span>
+                <span className="text-sm text-muted">{new Date(post.createdAt).toLocaleString()}</span>
               </div>
-              <p className="whitespace-pre-wrap text-sm">{post.content}</p>
+              <p className="whitespace-pre-wrap text-[17px] leading-relaxed sm:text-lg">{post.content}</p>
               {post.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={post.imageUrl} alt="" className="mt-2 max-h-80 w-full rounded-xl object-cover" />
@@ -313,31 +313,31 @@ export function FeedTab() {
                       key={t}
                       type="button"
                       onClick={() => setTag(t)}
-                      className="rounded-full bg-primary/15 px-2 py-0.5 text-xs text-primary"
+                      className="rounded-full bg-primary/15 px-3 py-1 text-sm text-primary"
                     >
                       #{t}
                     </button>
                   ))}
                 </div>
               ) : null}
-              <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
                 <GhostButton onClick={() => toggleLike(post.id)}>
-                  <Heart size={14} className={`mr-1 inline ${post.likedByMe ? "fill-red-400 text-red-400" : ""}`} />
+                  <Heart size={16} className={`mr-1.5 inline ${post.likedByMe ? "fill-red-400 text-red-400" : ""}`} />
                   {post.likesCount}
                 </GhostButton>
                 <GhostButton onClick={() => loadComments(post.id)}>
-                  <MessageCircle size={14} className="mr-1 inline" />
+                  <MessageCircle size={16} className="mr-1.5 inline" />
                   {post.commentsCount}
                 </GhostButton>
                 <GhostButton onClick={() => repostPost(post.id)}>
-                  <Repeat2 size={14} className="mr-1 inline" />
+                  <Repeat2 size={16} className="mr-1.5 inline" />
                   {post.repostsCount}
                 </GhostButton>
               </div>
               {expanded === post.id ? (
-                <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
                   {(comments[post.id] ?? []).map((c) => (
-                    <div key={c.id} className="rounded-lg bg-black/20 px-3 py-2 text-sm">
+                    <div key={c.id} className="rounded-lg bg-black/20 px-4 py-3.5 text-[17px] sm:text-lg">
                       <ProfileLink userId={c.userId} className="mb-1 block">
                         <ProfileIdentity
                           compact

@@ -85,10 +85,20 @@ export async function getShowcasedBadges(admin: SupabaseClient, userId: string):
     .select("showcased_badge_ids")
     .eq("user_id", userId)
     .maybeSingle();
-  const ids = stripIdentityBadgeIds((data?.showcased_badge_ids as string[]) ?? []);
+  const raw = (data?.showcased_badge_ids as string[]) ?? [];
+  const ids = stripIdentityBadgeIds(raw);
+  if (ids.length !== raw.length) {
+    await admin.from("user_profiles").update({ showcased_badge_ids: ids }).eq("user_id", userId);
+  }
   const all = await listUserBadges(admin, userId);
   const map = new Map(all.map((b) => [b.id, b]));
   return filterShowcaseBadges(
     ids.map((id) => map.get(id)).filter(Boolean) as UserBadge[]
   );
+}
+
+export async function adminGrantAllBadges(admin: SupabaseClient, userId: string, grantedBy: string) {
+  for (const badgeId of Object.keys(BADGES)) {
+    await grantBadge(admin, userId, badgeId, grantedBy);
+  }
 }

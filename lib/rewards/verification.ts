@@ -93,17 +93,26 @@ export async function syncVerification(
 }
 
 export async function getVerificationFlags(admin: SupabaseClient, userId: string) {
-  const { data, error } = await admin
-    .from("user_profiles")
-    .select("is_verified, is_creator, is_chosen, is_ultra_creator")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const [{ data, error }, { data: founderRow }] = await Promise.all([
+    admin
+      .from("user_profiles")
+      .select("is_verified, is_creator, is_chosen, is_ultra_creator")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    admin
+      .from("user_badges")
+      .select("badge_id")
+      .eq("user_id", userId)
+      .eq("badge_id", "founder")
+      .maybeSingle()
+  ]);
   if (error && !missing(error.message)) throw new Error(error.message);
   return {
     isVerified: Boolean(data?.is_verified),
     isCreator: Boolean(data?.is_creator),
     isChosen: Boolean(data?.is_chosen),
-    isUltraCreator: Boolean(data?.is_ultra_creator)
+    isUltraCreator: Boolean(data?.is_ultra_creator),
+    isFounder: Boolean(founderRow)
   };
 }
 
@@ -117,4 +126,54 @@ export async function setChosenStatus(
     .update({ is_chosen: chosen })
     .eq("user_id", userId);
   if (error && !missing(error.message)) throw new Error(error.message);
+}
+
+export async function adminSetIdentityFlags(
+  admin: SupabaseClient,
+  userId: string,
+  flags: Partial<{
+    isVerified: boolean;
+    isCreator: boolean;
+    isUltraCreator: boolean;
+    isChosen: boolean;
+  }>
+) {
+  const payload: Record<string, boolean> = {};
+  if (flags.isVerified !== undefined) payload.is_verified = flags.isVerified;
+  if (flags.isCreator !== undefined) payload.is_creator = flags.isCreator;
+  if (flags.isUltraCreator !== undefined) payload.is_ultra_creator = flags.isUltraCreator;
+  if (flags.isChosen !== undefined) payload.is_chosen = flags.isChosen;
+
+  if (Object.keys(payload).length > 0) {
+    const { error } = await admin.from("user_profiles").update(payload).eq("user_id", userId);
+    if (error && !missing(error.message)) throw new Error(error.message);
+  }
+
+  if (flags.isVerified === true) await grantBadge(admin, userId, "verified_user", "admin");
+  if (flags.isVerified === false) {
+    try {
+      await revokeBadge(admin, userId, "verified_user");
+    } catch {
+      /* protected */
+    }
+  }
+  if (flags.isCreator === true) {
+    await grantBadge(admin, userId, "mekkz_creator", "admin");
+    await grantBadge(admin, userId, "founder", "admin");
+  }
+  if (flags.isCreator === false) {
+    try {
+      await revokeBadge(admin, userId, "mekkz_creator");
+    } catch {
+      /* protected */
+    }
+  }
+  if (flags.isUltraCreator === true) await grantBadge(admin, userId, "ultra_creator", "admin");
+  if (flags.isUltraCreator === false) {
+    try {
+      await revokeBadge(admin, userId, "ultra_creator");
+    } catch {
+      /* protected */
+    }
+  }
 }

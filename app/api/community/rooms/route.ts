@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRegisteredUser } from "@/lib/api/require-user";
 import {
+  getRoomMessageCooldownSeconds,
   joinRoom,
   leaveRoom,
   listRoomMessages,
   listRooms,
-  postRoomMessage
+  postRoomMessage,
+  RoomMessageCooldownError,
+  roomMessageCooldownText
 } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveUserLanguage } from "@/lib/user-language";
 
 export async function GET(req: Request) {
   const auth = await requireRegisteredUser();
@@ -17,8 +21,11 @@ export async function GET(req: Request) {
   const roomId = searchParams.get("roomId");
   const admin = createAdminClient();
   if (roomId) {
-    const messages = await listRoomMessages(admin, roomId);
-    return NextResponse.json({ messages });
+    const [messages, messageCooldownSeconds] = await Promise.all([
+      listRoomMessages(admin, roomId),
+      getRoomMessageCooldownSeconds(admin, auth.user!.id, roomId)
+    ]);
+    return NextResponse.json({ messages, messageCooldownSeconds });
   }
   const rooms = await listRooms(admin, searchParams.get("q") ?? undefined);
   return NextResponse.json({ rooms });
@@ -48,6 +55,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
   if (!content?.trim()) return NextResponse.json({ error: "Nachricht fehlt." }, { status: 400 });
-  const message = await postRoomMessage(admin, userId, roomId, content.trim());
-  return NextResponse.json({ message });
+  try {
+    const message = await postRoomMessage(admin, userId, roomId, content.trim());
+    return NextResponse.json({ message });
+  } catch (err) {
+    if (err instanceof RoomMessageCooldownError) {
+      const language = await resolveUserLanguage(admin, userId, req);
+      return NextResponse.json(
+        {
+          error: roomMessageCooldownText(language, err.retryAfterSeconds),
+          code: err.code,
+          retryAfterSeconds: err.retryAfterSeconds
+        },
+        { status: 429 }
+      );
+    }
+    throw err;
+  }
 }

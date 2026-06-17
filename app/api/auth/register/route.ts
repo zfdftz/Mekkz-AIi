@@ -5,17 +5,13 @@ import {
   registrationExpiryMinutes,
   upsertPendingRegistration
 } from "@/lib/auth/verification";
-import { normalizeUsername, validateBirthday, validateUsername } from "@/lib/community/profile-rules";
-import { isUsernameTaken } from "@/lib/community/profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen haben."),
-  username: z.string().min(3).max(21),
-  birthday: z.string().min(8)
+  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen haben.")
 });
 
 async function emailAlreadyRegistered(admin: ReturnType<typeof createAdminClient>, email: string) {
@@ -47,21 +43,6 @@ export async function POST(req: Request) {
 
     const email = parsed.data.email.trim().toLowerCase();
     const password = parsed.data.password;
-    const username = normalizeUsername(parsed.data.username);
-    const birthday = validateBirthday(parsed.data.birthday);
-
-    try {
-      validateUsername(username);
-    } catch (err) {
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Ungültiger Benutzername." },
-        { status: 400 }
-      );
-    }
-
-    if (await isUsernameTaken(admin, username, "00000000-0000-0000-0000-000000000000")) {
-      return NextResponse.json({ error: "Dieser Benutzername ist bereits vergeben." }, { status: 409 });
-    }
 
     if (await emailAlreadyRegistered(admin, email)) {
       return NextResponse.json(
@@ -70,7 +51,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await upsertPendingRegistration(admin, email, password, { username, birthday });
+    await upsertPendingRegistration(admin, email, password);
 
     return NextResponse.json({
       ok: true,

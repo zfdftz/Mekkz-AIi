@@ -343,29 +343,23 @@ export function detectLanguageFromText(text: string): LanguageCode | null {
   return bestScore >= 4 ? best : null;
 }
 
-/** Latest message wins; settings language only for very short/ambiguous messages. */
+/** Message language wins when detectable; otherwise UI/settings language. */
 export function resolveReplyLanguage(
   userText: string,
-  settingsLanguage?: LanguageCode
-): LanguageCode | null {
+  settingsLanguage: LanguageCode = DEFAULT_LANGUAGE
+): LanguageCode {
   const fromLatest = detectLanguageFromText(userText);
   if (fromLatest) return fromLatest;
-
-  const words = userText.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= 4 && settingsLanguage) {
-    return settingsLanguage;
-  }
-
-  return null;
+  return settingsLanguage;
 }
 
 export function buildReplyLanguageLock(language: LanguageCode) {
   const name = getLanguageAiName(language);
   return (
-    `FINAL RULE (overrides everything above): The user's latest message is in ${name}. ` +
-    `Write your ENTIRE reply in ${name} only — every sentence. ` +
-    `Never reply in Turkish, German, or any other language if the user wrote in ${name}. ` +
-    `Internal plan/billing notes above may be in German — translate them into ${name} for the user.`
+    `FINAL RULE (overrides everything above): Reply in ${name} only — one single answer, no duplicates. ` +
+    `Write exactly ONE cohesive reply in ${name}. Never write the same answer twice in different languages. ` +
+    `Never mix English with ${name} or any other language in one reply. ` +
+    `Internal notes above may be in another language — never quote them; translate facts into ${name} only.`
   );
 }
 

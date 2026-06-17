@@ -18,6 +18,7 @@ export type UserProfile = {
   isCreator?: boolean;
   isChosen?: boolean;
   isUltraCreator?: boolean;
+  isFounder?: boolean;
   activeTitle?: string | null;
   activeTitleLabel?: string | null;
   plan?: "free" | "pro" | "ultra";
@@ -28,6 +29,7 @@ export type UserProfile = {
   profileBackground?: string | null;
   accentColor?: string;
   showcasedBadges?: { id: string; name: string; description: string; icon: string }[];
+  birthday?: string | null;
 };
 
 export type FollowUser = {
@@ -162,6 +164,7 @@ export type PublicUserProfile = {
   isCreator?: boolean;
   isChosen?: boolean;
   isUltraCreator?: boolean;
+  isFounder?: boolean;
   activeTitleLabel?: string | null;
   bannerUrl?: string | null;
   profileFrame?: string | null;
@@ -261,6 +264,15 @@ export type ClanMember = {
   username: string | null;
   role: "owner" | "moderator" | "member";
   joinedAt: string;
+};
+
+export type ClanMessage = {
+  id: string;
+  clanId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  authorName?: string | null;
 };
 
 export type CommunityTab =

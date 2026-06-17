@@ -24,7 +24,12 @@ import { MekkzLogo } from "./mekkz-logo";
 import { PlanUpgrade, type PlanState } from "./plan-upgrade";
 import { VoiceModeOverlay } from "./voice-mode-overlay";
 import { PLANS, type PlanId } from "@/lib/plans";
+import { displayConversationTitle } from "@/lib/i18n/conversation-title";
 import { useLanguage } from "@/components/language-provider";
+import {
+  displayAssistantChatContent,
+  displayUserChatContent
+} from "@/lib/chat-user-context";
 import { useVoiceChat } from "@/hooks/use-voice-chat";
 import type { UserAiPreferences } from "@/lib/user-ai-preferences";
 
@@ -141,8 +146,12 @@ function ChatUIInner({
     tutorLevel: "intermediate",
     voiceOutputEnabled: false,
     voiceAutoSend: true,
-    voiceGender: "female"
+    voiceGender: "female",
+    customInstructions: ""
   });
+  const [chatUsername, setChatUsername] = useState(
+    () => userEmail.split("@")[0]?.replace(/[^\w.-]/g, "").slice(0, 21) || "user"
+  );
   const sendMessageRef = useRef<(textOverride?: string) => Promise<void>>(async () => {});
 
   const chatFull = hasFiniteChatLimit(chatLimit) && chatLimit.remaining <= 0;
@@ -150,6 +159,17 @@ function ChatUIInner({
   useEffect(() => {
     setLoadingHint(t("chat.aiWriting"));
   }, [t]);
+
+  useEffect(() => {
+    if (isGuest) return;
+    void fetch("/api/community/profile")
+      .then((r) => r.json())
+      .then((d: { profile?: { username?: string | null } }) => {
+        const name = d.profile?.username?.trim();
+        if (name) setChatUsername(name);
+      })
+      .catch(() => undefined);
+  }, [isGuest]);
 
   useEffect(() => {
     async function loadPreferences() {
@@ -208,7 +228,7 @@ function ChatUIInner({
     const res = await fetch(`/api/conversations?userId=${userId}`);
     const data = await readJsonResponse<ConversationsResponse>(res);
     if (!res.ok) {
-      setLoadError(data.error || "Chats konnten nicht geladen werden.");
+      setLoadError(data.error || t("chat.loadListError"));
       return [] as Conversation[];
     }
     setLoadError(null);
@@ -223,7 +243,7 @@ function ChatUIInner({
       );
       const data = await readJsonResponse<HistoryResponse>(res);
       if (!res.ok) {
-        setLoadError(data.error || "Chat-Verlauf konnte nicht geladen werden.");
+        setLoadError(data.error || t("chat.loadHistoryError"));
         setMessages([]);
         return;
       }
@@ -241,11 +261,11 @@ function ChatUIInner({
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId })
+      body: JSON.stringify({ userId, language })
     });
     const data = await readJsonResponse<ConversationCreateResponse>(res);
     if (!res.ok || !data.conversation) {
-      setLoadError(data.error || "Neuer Chat konnte nicht erstellt werden.");
+      setLoadError(data.error || t("chat.createError"));
       return null;
     }
 
@@ -255,17 +275,17 @@ function ChatUIInner({
     setConversations((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
     setChatLimit({ used: 0, limit: null, remaining: null });
     return created.id;
-  }, [activeConversationId, userId]);
+  }, [activeConversationId, userId, language, t]);
 
   const startNewChat = useCallback(async () => {
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId })
+      body: JSON.stringify({ userId, language })
     });
     const data = await readJsonResponse<ConversationCreateResponse>(res);
     if (!res.ok || !data.conversation) {
-      setLoadError(data.error || "Neuer Chat konnte nicht erstellt werden.");
+      setLoadError(data.error || t("chat.createError"));
       return;
     }
 
@@ -286,7 +306,7 @@ function ChatUIInner({
     if (limitRes.ok) {
       setChatLimit(limitData.conversationLimit ?? null);
     }
-  }, [userId, loadConversations]);
+  }, [userId, language, t, loadConversations]);
 
   useEffect(() => {
     let cancelled = false;
@@ -301,7 +321,7 @@ function ChatUIInner({
       if (cancelled) return;
 
       if (!res.ok) {
-        setLoadError(data.error || "Chats konnten nicht geladen werden.");
+        setLoadError(data.error || t("chat.loadListError"));
         return;
       }
 
@@ -387,8 +407,10 @@ function ChatUIInner({
 
   async function deleteConversation(conversationId: string) {
     const chat = conversations.find((item) => item.id === conversationId);
-    const label = chat?.title || "diesen Chat";
-    const confirmed = window.confirm(`„${label}“ wirklich löschen?`);
+    const label = chat
+      ? displayConversationTitle(chat.title, language)
+      : t("chat.thisChat");
+    const confirmed = window.confirm(t("chat.deleteConfirm", { title: label }));
     if (!confirmed) return;
 
     setDeletingConversationId(conversationId);
@@ -402,7 +424,7 @@ function ChatUIInner({
       const data = await readJsonResponse<{ error?: string }>(res);
 
       if (!res.ok) {
-        setLoadError(data.error || "Chat konnte nicht gelöscht werden.");
+        setLoadError(data.error || t("chat.deleteError"));
         return;
       }
 
@@ -494,7 +516,7 @@ function ChatUIInner({
 
     if (chatFull) {
       await streamAssistantMessage(
-        "Fehler: Dieser Chat ist voll. Bitte starte links einen neuen Chat."
+        t("chat.chatFullError")
       );
       return;
     }
@@ -505,7 +527,7 @@ function ChatUIInner({
 
     if (isGuest && (isImageGenRequest || pendingImage)) {
       openAuthRequired(
-        "Als Gast kannst du chatten, aber keine Bilder erstellen oder senden. Melde dich an oder registriere dich — dauert nur eine Minute."
+        t("chat.guestImagesOnly")
       );
       return;
     }
@@ -708,7 +730,7 @@ function ChatUIInner({
 
       const data = await readJsonResponse<ChatApiResponse>(res);
       if (!res.ok) {
-        const message = data?.error || "Serverfehler bei der KI-Antwort.";
+        const message = data?.error || t("chat.serverError");
         if (res.status === 403 && data.code === "AUTH_REQUIRED") {
           openAuthRequired(message);
           if (isImageGenRequest) {
@@ -782,7 +804,7 @@ function ChatUIInner({
       } else {
         const aiContent =
           data.reply ??
-          (data.generatedImage ? "" : "Keine Antwort erhalten.");
+          (data.generatedImage ? "" : t("chat.noReply"));
         voice.resetSpeech();
         await streamAssistantMessage(
           aiContent,
@@ -835,7 +857,7 @@ function ChatUIInner({
       syncPlanBadge(data.plan);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Unbekannter Netzwerkfehler.";
+        error instanceof Error ? error.message : t("chat.networkError");
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last?.role === "assistant" && !last.content.trim()) {
@@ -878,7 +900,7 @@ function ChatUIInner({
     if (isImageFile(file)) {
       if (isGuest) {
         openAuthRequired(
-          "Bilder senden geht erst nach der Anmeldung. Registriere dich oder logge dich ein."
+          t("chat.imagesLoginRequired")
         );
         return;
       }
@@ -890,13 +912,13 @@ function ChatUIInner({
           preview: `data:image/jpeg;base64,${base64}`
         });
       } catch {
-        await streamAssistantMessage("Fehler: Bild konnte nicht geladen werden.");
+        await streamAssistantMessage(t("chat.imageLoadError"));
       }
       return;
     }
 
     const text = await file.text();
-    await sendMessage(`Dateikontext (${file.name}):\n${text.slice(0, 8000)}`);
+    await sendMessage(`${t("chat.fileContext", { name: file.name })}\n${text.slice(0, 8000)}`);
   }
 
   async function handleLogout() {
@@ -923,7 +945,7 @@ function ChatUIInner({
             <>
               <motion.button
                 type="button"
-                aria-label="Chat-Menü schließen"
+                aria-label={t("chat.closeMenu")}
                 className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] lg:hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -932,7 +954,7 @@ function ChatUIInner({
                 onClick={closeSidebar}
               />
               <motion.aside
-                aria-label="Gespeicherte Chats"
+                aria-label={t("chat.savedChats")}
                 className="glass fixed left-0 top-0 z-50 flex h-full w-[min(88vw,20rem)] max-w-[20rem] flex-col rounded-r-2xl border-r border-white/10 p-4 shadow-2xl sm:w-80 lg:hidden"
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
@@ -974,7 +996,7 @@ function ChatUIInner({
             <button
               type="button"
               onClick={toggleSidebar}
-              aria-label={sidebarOpen ? "Chat-Menü schließen" : "Chat-Menü öffnen"}
+              aria-label={sidebarOpen ? t("chat.closeMenu") : t("chat.openMenu")}
               aria-expanded={sidebarOpen}
               className="shrink-0 rounded-xl bg-white/10 p-2 transition hover:bg-white/15 lg:hidden"
             >
@@ -990,13 +1012,10 @@ function ChatUIInner({
                 <button
                   type="button"
                   onClick={() =>
-                    openAuthRequired(
-                      "Die Community ist nur mit Konto nutzbar. Melde dich an oder registriere dich, um Feed, Freunde und Gruppen zu nutzen.",
-                      "/community"
-                    )
+                    openAuthRequired(t("chat.communityLoginRequired"), "/community")
                   }
-                  aria-label="Community"
-                  title="Community"
+                  aria-label={t("chat.community")}
+                  title={t("chat.community")}
                   className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
                 >
                   <Users size={18} />
@@ -1005,8 +1024,8 @@ function ChatUIInner({
                 <Link
                   href="/community"
                   prefetch
-                  aria-label="Community"
-                  title="Community"
+                  aria-label={t("chat.community")}
+                  title={t("chat.community")}
                   className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
                 >
                   <Users size={18} />
@@ -1016,8 +1035,8 @@ function ChatUIInner({
                 <Link
                   href="/profile"
                   prefetch
-                  aria-label="Mein Profil"
-                  title="Mein Profil"
+                  aria-label={t("chat.myProfile")}
+                  title={t("chat.myProfile")}
                   className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
                 >
                   <User size={18} />
@@ -1025,7 +1044,7 @@ function ChatUIInner({
               ) : null}
               <button
                 onClick={() => setSettingsOpen(true)}
-                aria-label="Einstellungen"
+                aria-label={t("chat.settings")}
                 className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
               >
                 <Settings size={18} />
@@ -1048,8 +1067,8 @@ function ChatUIInner({
               </div>
             ) : messages.length === 0 ? (
               <p className="text-center text-xs text-muted sm:text-sm">
-                <span className="lg:hidden">Tippe oben links auf ☰ für deine Chats.</span>
-                <span className="hidden lg:inline">Wähle einen gespeicherten Chat links.</span>
+                <span className="lg:hidden">{t("chat.pickChatHintMobile")}</span>
+                <span className="hidden lg:inline">{t("chat.pickChatHintDesktop")}</span>
               </p>
             ) : null}
             {messages.map((m, i) => {
@@ -1069,7 +1088,7 @@ function ChatUIInner({
                   {m.images?.[0] ? (
                     <ChatImage
                       src={m.images[0]}
-                      alt={m.imageName || "Hochgeladenes Bild"}
+                      alt={m.imageName || t("chat.uploadedImage")}
                       className="mb-2 max-h-40 w-full rounded-lg object-cover sm:max-h-56 sm:rounded-xl"
                     />
                   ) : null}
@@ -1077,7 +1096,7 @@ function ChatUIInner({
                     <ChatImage
                       src={m.generatedImage}
                       imageGenPrompt={m.imageGenPrompt}
-                      alt="Generiertes Bild"
+                      alt={t("chat.generatedImage")}
                       className={`max-h-48 w-full rounded-lg object-contain sm:max-h-72 sm:rounded-xl ${
                         showContent ? "mb-2" : ""
                       }`}
@@ -1085,7 +1104,9 @@ function ChatUIInner({
                   ) : null}
                   {showContent || isLiveAssistant ? (
                     <p className="whitespace-pre-wrap">
-                      {m.content}
+                      {m.role === "user"
+                        ? displayUserChatContent(chatUsername, m.content)
+                        : displayAssistantChatContent(m.content)}
                       {isLiveAssistant ? (
                         <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
                       ) : null}
@@ -1110,15 +1131,18 @@ function ChatUIInner({
                 }`}
               >
                 {chatLimit.remaining > 0
-                  ? `Noch ${chatLimit.remaining} von ${chatLimit.limit} Nachrichten in diesem Chat`
-                  : `Chat-Limit erreicht (${chatLimit.limit} Nachrichten). Starte einen neuen Chat.`}
+                  ? t("chat.messagesRemaining", {
+                      remaining: chatLimit.remaining,
+                      limit: chatLimit.limit
+                    })
+                  : t("chat.chatLimitReached", { limit: chatLimit.limit })}
               </p>
             ) : null}
             {pendingImage ? (
               <div className="mb-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2">
                 <img
                   src={pendingImage.preview}
-                  alt="Vorschau"
+                  alt={t("chat.preview")}
                   className="h-16 w-16 rounded-lg object-cover"
                 />
                 <div className="flex-1">
@@ -1131,7 +1155,7 @@ function ChatUIInner({
                   onClick={() => setPendingImage(null)}
                   className="rounded-lg bg-white/10 px-3 py-1 text-sm"
                 >
-                  Entfernen
+                  {t("chat.removeAttachment")}
                 </button>
               </div>
             ) : null}
@@ -1140,14 +1164,14 @@ function ChatUIInner({
                 onClick={() => {
                   if (isGuest) {
                     openAuthRequired(
-                      "Bilder senden geht erst nach der Anmeldung. Registriere dich oder logge dich ein."
+                      t("chat.imagesLoginRequired")
                     );
                     return;
                   }
                   fileRef.current?.click();
                 }}
                 className="shrink-0 rounded-xl bg-white/10 p-2.5 lg:p-3"
-                aria-label="Datei anhängen"
+                aria-label={t("chat.attachFile")}
               >
                 <Paperclip size={18} />
               </button>
@@ -1185,7 +1209,7 @@ function ChatUIInner({
                 onClick={() => sendMessage()}
                 disabled={!canSend && !voice.interimText}
                 className="shrink-0 rounded-xl btn-primary p-2.5 disabled:opacity-50 lg:p-3"
-                aria-label="Senden"
+                aria-label={t("chat.send")}
               >
                 <Send size={18} />
               </button>
@@ -1251,7 +1275,7 @@ function ChatSidebarPanel({
   onClose?: () => void;
   mobile?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   return (
     <>
@@ -1261,7 +1285,7 @@ function ChatSidebarPanel({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Menü schließen"
+            aria-label={t("community.closeMenu")}
             className="rounded-lg bg-white/10 p-2 transition hover:bg-white/15"
           >
             <X size={16} />
@@ -1283,13 +1307,13 @@ function ChatSidebarPanel({
         className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-medium transition hover:bg-white/10"
       >
         <Wrench size={16} />
-        AI Tools
+        {t("chat.aiTools")}
       </Link>
 
-      <p className="mb-2 text-xs uppercase tracking-wide text-muted">Gespeicherte Chats</p>
+      <p className="mb-2 text-xs uppercase tracking-wide text-muted">{t("chat.savedChats")}</p>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
         {conversations.length === 0 ? (
-          <p className="text-sm text-muted">Noch keine Chats</p>
+          <p className="text-sm text-muted">{t("chat.noSavedChats")}</p>
         ) : (
           conversations.map((chat) => (
             <div
@@ -1306,11 +1330,13 @@ function ChatSidebarPanel({
                 disabled={deletingConversationId === chat.id}
                 className="min-w-0 flex-1 rounded-xl px-3 py-2 text-left text-sm disabled:opacity-50"
               >
-                <span className="line-clamp-2">{chat.title}</span>
+                <span className="line-clamp-2">
+                  {displayConversationTitle(chat.title, language)}
+                </span>
               </button>
               <button
                 type="button"
-                aria-label={`Chat „${chat.title}“ löschen`}
+                aria-label={t("chat.deleteChatAria", { title: chat.title })}
                 disabled={deletingConversationId === chat.id}
                 onClick={() => onDeleteConversation(chat.id)}
                 className="mr-1 shrink-0 self-center rounded-lg p-1.5 text-muted opacity-100 transition hover:bg-white/10 hover:text-fg disabled:opacity-40 lg:opacity-0 lg:group-hover:opacity-100"

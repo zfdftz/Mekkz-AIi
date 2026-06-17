@@ -41,13 +41,26 @@ export async function GET(req: Request) {
 const updateSchema = z.object({
   userId: z.string().uuid(),
   personalityMode: z
-    .enum(["normal", "gamer", "teacher", "business", "swiss", "genz"])
+    .enum([
+      "normal",
+      "gamer",
+      "teacher",
+      "business",
+      "swiss",
+      "genz",
+      "hardcore_coach",
+      "philosopher",
+      "comedian",
+      "hype",
+      "sarcastic"
+    ])
     .optional(),
   tutorModeEnabled: z.boolean().optional(),
   tutorLevel: z.enum(["beginner", "intermediate", "advanced"]).optional(),
   voiceOutputEnabled: z.boolean().optional(),
   voiceAutoSend: z.boolean().optional(),
-  voiceGender: z.enum(["female", "male"]).optional()
+  voiceGender: z.enum(["female", "male"]).optional(),
+  customInstructions: z.string().max(800).optional()
 });
 
 export async function POST(req: Request) {
@@ -77,7 +90,10 @@ export async function POST(req: Request) {
       ? { voiceOutputEnabled: patch.voiceOutputEnabled }
       : {}),
     ...(typeof patch.voiceAutoSend === "boolean" ? { voiceAutoSend: patch.voiceAutoSend } : {}),
-    ...(patch.voiceGender ? { voiceGender: patch.voiceGender } : {})
+    ...(patch.voiceGender ? { voiceGender: patch.voiceGender } : {}),
+    ...(typeof patch.customInstructions === "string"
+      ? { customInstructions: patch.customInstructions }
+      : {})
   });
 
   return NextResponse.json({ preferences });

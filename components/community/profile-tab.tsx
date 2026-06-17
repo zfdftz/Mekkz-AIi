@@ -217,6 +217,7 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
                 isCreator={profile?.isCreator}
                 isChosen={profile?.isChosen}
                 isUltraCreator={profile?.isUltraCreator}
+                isFounder={profile?.isFounder}
                 badges={previewBadges}
                 profileView
               />

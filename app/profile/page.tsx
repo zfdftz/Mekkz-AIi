@@ -4,6 +4,7 @@ import { ProfileProvider } from "@/components/community/profile-context";
 import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
 import { WavyBackground } from "@/components/wavy-background";
 import { fetchOwnProfile } from "@/lib/community/own-profile";
+import { hasUserProfile } from "@/lib/community/profile";
 import { isGuestUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -17,6 +18,9 @@ export default async function ProfilePage() {
   if (isGuestUser(data.user)) redirect("/auth/register?next=/profile");
 
   const admin = createAdminClient();
+  if (!(await hasUserProfile(admin, data.user.id))) {
+    redirect("/auth/onboarding");
+  }
   const initialProfile = await fetchOwnProfile(admin, data.user.id, data.user.email);
 
   return (

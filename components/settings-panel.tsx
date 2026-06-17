@@ -2,8 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Moon, Sun, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { MemoryManager } from "@/components/memory-manager";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
 import {
   applyAppearance,
@@ -54,6 +53,8 @@ export function SettingsPanel({
   const [languageSaving, setLanguageSaving] = useState(false);
   const [aiPreferences, setAiPreferences] = useState<UserAiPreferences | null>(null);
   const [prefsLoading, setPrefsLoading] = useState(false);
+  const [customInstructionsDraft, setCustomInstructionsDraft] = useState("");
+  const customInstructionsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const styleLearningEnabled = styleProfile?.enabled ?? true;
 
@@ -89,6 +90,7 @@ export function SettingsPanel({
       const data = await readJsonResponse<AiPreferencesResponse>(res);
       if (res.ok && data.preferences) {
         setAiPreferences(data.preferences);
+        setCustomInstructionsDraft(data.preferences.customInstructions ?? "");
         window.dispatchEvent(
           new CustomEvent("mekkz-ai-preferences", { detail: data.preferences })
         );
@@ -118,6 +120,29 @@ export function SettingsPanel({
     }
     setPrefsLoading(false);
   }
+
+  function scheduleCustomInstructionsSave(nextValue: string) {
+    if (!userId) return;
+    if (customInstructionsSaveTimer.current) {
+      clearTimeout(customInstructionsSaveTimer.current);
+    }
+    customInstructionsSaveTimer.current = setTimeout(() => {
+      void updateAiPreferences({ customInstructions: nextValue });
+    }, 700);
+  }
+
+  function handleCustomInstructionsChange(nextValue: string) {
+    setCustomInstructionsDraft(nextValue);
+    scheduleCustomInstructionsSave(nextValue);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (customInstructionsSaveTimer.current) {
+        clearTimeout(customInstructionsSaveTimer.current);
+      }
+    };
+  }, []);
 
   async function toggleStyleLearning(enabled: boolean) {
     if (!userId) return;
@@ -301,7 +326,34 @@ export function SettingsPanel({
                 </div>
               </section>
 
-              <MemoryManager userId={userId} open={open} />
+              <section className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                    {t("settings.customInstructions")}
+                  </h3>
+                  <p className="text-base leading-relaxed text-muted">
+                    {t("settings.customInstructionsHint")}
+                  </p>
+                </div>
+                {!userId ? (
+                  <p className="rounded-xl bg-white/5 px-3 py-2 text-sm text-muted">
+                    {t("settings.customInstructionsLoginRequired")}
+                  </p>
+                ) : (
+                  <textarea
+                    value={customInstructionsDraft}
+                    onChange={(event) => handleCustomInstructionsChange(event.target.value)}
+                    onBlur={() =>
+                      void updateAiPreferences({ customInstructions: customInstructionsDraft })
+                    }
+                    disabled={prefsLoading}
+                    rows={5}
+                    maxLength={800}
+                    placeholder={t("settings.customInstructionsPlaceholder")}
+                    className="w-full resize-y rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-base leading-relaxed outline-none transition focus:border-primary/50 disabled:opacity-50"
+                  />
+                )}
+              </section>
 
               <section className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
                 <div className="space-y-1">
@@ -397,70 +449,6 @@ export function SettingsPanel({
                         {t(`tutor.${level}` as Parameters<typeof t>[0])}
                       </button>
                     ))}
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                    {t("settings.voice")}
-                  </h3>
-                  <p className="text-sm text-muted">{t("settings.voiceHint")}</p>
-                </div>
-                <label className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2.5 text-sm">
-                  <span>{t("settings.voiceOutput")}</span>
-                  <input
-                    type="checkbox"
-                    checked={aiPreferences?.voiceOutputEnabled ?? false}
-                    disabled={!userId || prefsLoading}
-                    onChange={(event) =>
-                      void updateAiPreferences({ voiceOutputEnabled: event.target.checked })
-                    }
-                    className="h-4 w-4 accent-primary"
-                  />
-                </label>
-                <label className="flex items-center justify-between gap-3 rounded-xl bg-white/5 px-3 py-2.5 text-sm">
-                  <span>{t("settings.voiceAutoSend")}</span>
-                  <input
-                    type="checkbox"
-                    checked={aiPreferences?.voiceAutoSend ?? true}
-                    disabled={!userId || prefsLoading}
-                    onChange={(event) =>
-                      void updateAiPreferences({ voiceAutoSend: event.target.checked })
-                    }
-                    className="h-4 w-4 accent-primary"
-                  />
-                </label>
-                <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                    {t("settings.voiceGender")}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      disabled={!userId || prefsLoading}
-                      onClick={() => void updateAiPreferences({ voiceGender: "female" })}
-                      className={`rounded-xl px-3 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
-                        (aiPreferences?.voiceGender ?? "female") === "female"
-                          ? "bg-primary text-white"
-                          : "bg-white/10 hover:bg-white/15"
-                      }`}
-                    >
-                      {t("voice.genderFemale")}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!userId || prefsLoading}
-                      onClick={() => void updateAiPreferences({ voiceGender: "male" })}
-                      className={`rounded-xl px-3 py-2.5 text-sm font-medium transition disabled:opacity-50 ${
-                        aiPreferences?.voiceGender === "male"
-                          ? "bg-primary text-white"
-                          : "bg-white/10 hover:bg-white/15"
-                      }`}
-                    >
-                      {t("voice.genderMale")}
-                    </button>
                   </div>
                 </div>
               </section>

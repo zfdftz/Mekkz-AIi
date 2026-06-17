@@ -9,6 +9,28 @@ function normalizeSupabaseUrl(raw: string) {
   return url;
 }
 
+function profileNeedsOnboarding(profile: {
+  username?: string | null;
+  birthday?: string | null;
+} | null) {
+  if (!profile) return true;
+  const username = profile.username?.trim();
+  const birthday = profile.birthday?.trim();
+  return !username || !birthday;
+}
+
+async function userNeedsOnboarding(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string
+) {
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("username, birthday")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return profileNeedsOnboarding(data);
+}
+
 export async function middleware(request: NextRequest) {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -39,17 +61,25 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/auth");
+  const isOnboardingRoute = pathname.startsWith("/auth/onboarding");
   const isProtected =
     pathname.startsWith("/chat") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/tools") ||
-    pathname.startsWith("/community");
+    pathname.startsWith("/community") ||
+    pathname.startsWith("/profile");
 
   if (!user && isProtected) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
   const isRegisteredUser = Boolean(user && !user.is_anonymous);
+  const needsOnboarding =
+    isRegisteredUser && user ? await userNeedsOnboarding(supabase, user.id) : false;
+
+  if (isRegisteredUser && needsOnboarding && isProtected) {
+    return NextResponse.redirect(new URL("/auth/onboarding", request.url));
+  }
 
   if (isRegisteredUser && (pathname === "/" || isAuthRoute)) {
     if (
@@ -58,14 +88,24 @@ export async function middleware(request: NextRequest) {
     ) {
       return response;
     }
+    if (isOnboardingRoute) {
+      if (!needsOnboarding) {
+        return NextResponse.redirect(new URL("/chat", request.url));
+      }
+      return response;
+    }
     if (
       pathname.startsWith("/auth/register") ||
       pathname.startsWith("/auth/login")
     ) {
-      return NextResponse.redirect(new URL("/chat", request.url));
+      return NextResponse.redirect(
+        new URL(needsOnboarding ? "/auth/onboarding" : "/chat", request.url)
+      );
     }
     if (pathname === "/") {
-      return NextResponse.redirect(new URL("/chat", request.url));
+      return NextResponse.redirect(
+        new URL(needsOnboarding ? "/auth/onboarding" : "/chat", request.url)
+      );
     }
   }
 
@@ -91,6 +131,7 @@ export const config = {
     "/settings/:path*",
     "/tools/:path*",
     "/community/:path*",
+    "/profile/:path*",
     "/auth/:path*"
   ]
 };

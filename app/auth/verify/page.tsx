@@ -52,7 +52,7 @@ function VerifyForm() {
         return;
       }
 
-      router.push("/chat");
+      router.push("/auth/onboarding");
       router.refresh();
     } finally {
       setLoading(false);

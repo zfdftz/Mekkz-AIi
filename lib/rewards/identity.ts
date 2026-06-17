@@ -9,6 +9,7 @@ export type AuthorIdentity = {
   isCreator: boolean;
   isChosen: boolean;
   isUltraCreator: boolean;
+  isFounder: boolean;
   titleLabel: string | null;
   showcasedBadges: UserBadge[];
   accentColor: string;
@@ -73,6 +74,7 @@ export async function getAuthorIdentity(
     isCreator: flags.isCreator,
     isChosen: flags.isChosen,
     isUltraCreator: flags.isUltraCreator,
+    isFounder: flags.isFounder,
     titleLabel: cosmetics.activeTitleLabel,
     showcasedBadges: showcased,
     accentColor: cosmetics.accentColor

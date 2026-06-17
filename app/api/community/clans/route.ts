@@ -7,7 +7,9 @@ import {
   isClansSchemaMissing,
   joinPublicClan,
   listClanMembers,
+  listClanMessages,
   listPublicClans,
+  postClanMessage,
   requestJoinClan
 } from "@/lib/community/clans";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,7 +25,7 @@ function mapClanError(error: unknown) {
       { status: 503 }
     );
   }
-  const status = /bereits in einem Clan|privat|Ungültig/i.test(msg) ? 400 : 500;
+  const status = /bereits in einem Clan|privat|Ungültig|Mitglieder/i.test(msg) ? 400 : 500;
   return NextResponse.json({ error: msg }, { status });
 }
 
@@ -38,8 +40,14 @@ export async function GET() {
       getUserClan(admin, auth.user!.id)
     ]);
     let members: Awaited<ReturnType<typeof listClanMembers>> = [];
-    if (myClan) members = await listClanMembers(admin, myClan.id);
-    return NextResponse.json({ clans, myClan, members });
+    let messages: Awaited<ReturnType<typeof listClanMessages>> = [];
+    if (myClan) {
+      [members, messages] = await Promise.all([
+        listClanMembers(admin, myClan.id),
+        listClanMessages(admin, myClan.id)
+      ]);
+    }
+    return NextResponse.json({ clans, myClan, members, messages });
   } catch (error) {
     return mapClanError(error);
   }
@@ -55,6 +63,11 @@ const createSchema = z.object({
 const joinSchema = z.object({
   action: z.enum(["join", "request"]),
   clanId: z.string().uuid()
+});
+
+const messageSchema = z.object({
+  action: z.literal("message"),
+  content: z.string().min(1).max(4000)
 });
 
 export async function POST(req: Request) {
@@ -82,16 +95,31 @@ export async function POST(req: Request) {
     }
 
     const joinParsed = joinSchema.safeParse(body);
-    if (!joinParsed.success) {
-      return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
+    if (joinParsed.success) {
+      if (joinParsed.data.action === "join") {
+        await joinPublicClan(admin, auth.user!.id, joinParsed.data.clanId);
+      } else {
+        await requestJoinClan(admin, auth.user!.id, joinParsed.data.clanId);
+      }
+      return NextResponse.json({ ok: true });
     }
 
-    if (joinParsed.data.action === "join") {
-      await joinPublicClan(admin, auth.user!.id, joinParsed.data.clanId);
-    } else {
-      await requestJoinClan(admin, auth.user!.id, joinParsed.data.clanId);
+    const messageParsed = messageSchema.safeParse(body);
+    if (messageParsed.success) {
+      const myClan = await getUserClan(admin, auth.user!.id);
+      if (!myClan) {
+        return NextResponse.json({ error: "Du bist in keinem Clan." }, { status: 400 });
+      }
+      const message = await postClanMessage(
+        admin,
+        auth.user!.id,
+        myClan.id,
+        messageParsed.data.content
+      );
+      return NextResponse.json({ message });
     }
-    return NextResponse.json({ ok: true });
+
+    return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   } catch (error) {
     return mapClanError(error);
   }

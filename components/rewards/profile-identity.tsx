@@ -90,20 +90,36 @@ function UltraCreatorMark({ size }: { size: number }) {
   );
 }
 
+function FounderMark({ size }: { size: number }) {
+  return (
+    <IdentityMark
+      size={size}
+      className="bg-amber-500 font-bold leading-none text-white shadow-sm shadow-amber-500/30"
+      label="Founder"
+      description="Mekkz Gründer — permanent."
+      style={{ fontSize: Math.max(8, Math.round(size * 0.48)) }}
+    >
+      👑
+    </IdentityMark>
+  );
+}
+
 function IdentityMarks({
   isVerified,
   isCreator,
   isChosen,
   isUltraCreator,
+  isFounder,
   markSize
 }: {
   isVerified?: boolean;
   isCreator?: boolean;
   isChosen?: boolean;
   isUltraCreator?: boolean;
+  isFounder?: boolean;
   markSize: number;
 }) {
-  if (!isChosen && !isVerified && !isCreator && !isUltraCreator) return null;
+  if (!isChosen && !isVerified && !isCreator && !isUltraCreator && !isFounder) return null;
 
   return (
     <span className="inline-flex shrink-0 items-center gap-[3px]">
@@ -111,6 +127,7 @@ function IdentityMarks({
       {isVerified ? <VerifiedMark size={markSize} /> : null}
       {isCreator ? <CreatorMark size={markSize} /> : null}
       {isUltraCreator ? <UltraCreatorMark size={markSize} /> : null}
+      {isFounder ? <FounderMark size={markSize} /> : null}
     </span>
   );
 }
@@ -122,6 +139,7 @@ export function ProfileIdentity({
   isCreator,
   isChosen,
   isUltraCreator,
+  isFounder,
   badges,
   compact,
   profileView
@@ -132,6 +150,7 @@ export function ProfileIdentity({
   isCreator?: boolean;
   isChosen?: boolean;
   isUltraCreator?: boolean;
+  isFounder?: boolean;
   badges?: BadgeChip[];
   compact?: boolean;
   /** Profile header: larger name, no @ prefix (TikTok-style). */
@@ -160,6 +179,7 @@ export function ProfileIdentity({
             isVerified={isVerified}
             isCreator={isCreator}
             isUltraCreator={isUltraCreator}
+            isFounder={isFounder}
             markSize={markSize}
           />
         </span>

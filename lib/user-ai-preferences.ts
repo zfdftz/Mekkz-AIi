@@ -42,6 +42,15 @@ function isMissingTableError(message: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(message);
 }
 
+function isMissingColumnError(message: string) {
+  return /column|custom_instructions|personality_mode/i.test(message) &&
+    /does not exist|could not find|unknown column/i.test(message);
+}
+
+function isSchemaError(message: string) {
+  return isMissingTableError(message) || isMissingColumnError(message);
+}
+
 function mapRow(row: Record<string, unknown> | null): UserAiPreferences {
   if (!row) return { ...DEFAULT_PREFERENCES };
   return {
@@ -59,13 +68,24 @@ export async function getUserAiPreferences(
   admin: SupabaseClient,
   userId: string
 ): Promise<UserAiPreferences> {
-  const { data, error } = await admin
+  const fullSelect =
+    "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender, custom_instructions";
+  const baseSelect =
+    "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender";
+
+  let { data, error } = await admin
     .from("user_ai_preferences")
-    .select(
-      "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender, custom_instructions"
-    )
+    .select(fullSelect)
     .eq("user_id", userId)
     .maybeSingle();
+
+  if (error && isMissingColumnError(error.message)) {
+    ({ data, error } = await admin
+      .from("user_ai_preferences")
+      .select(baseSelect)
+      .eq("user_id", userId)
+      .maybeSingle());
+  }
 
   if (error) {
     if (isMissingTableError(error.message)) return { ...DEFAULT_PREFERENCES };
@@ -101,12 +121,19 @@ export async function setUserAiPreferences(
     updated_at: new Date().toISOString()
   };
 
-  const { error } = await admin.from("user_ai_preferences").upsert(payload, {
+  let { error } = await admin.from("user_ai_preferences").upsert(payload, {
     onConflict: "user_id"
   });
 
+  if (error && isMissingColumnError(error.message)) {
+    const { custom_instructions: _removed, ...payloadWithoutCustom } = payload;
+    ({ error } = await admin.from("user_ai_preferences").upsert(payloadWithoutCustom, {
+      onConflict: "user_id"
+    }));
+  }
+
   if (error) {
-    if (isMissingTableError(error.message)) return next;
+    if (isSchemaError(error.message)) return next;
     throw new Error(error.message);
   }
 

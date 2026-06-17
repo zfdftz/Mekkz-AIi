@@ -27,8 +27,8 @@ import { PLANS, type PlanId } from "@/lib/plans";
 import { displayConversationTitle } from "@/lib/i18n/conversation-title";
 import { useLanguage } from "@/components/language-provider";
 import {
-  displayAssistantChatContent,
-  displayUserChatContent
+  stripAssistantChatPrefix,
+  stripUserChatPrefix
 } from "@/lib/chat-user-context";
 import { useVoiceChat } from "@/hooks/use-voice-chat";
 import type { UserAiPreferences } from "@/lib/user-ai-preferences";
@@ -1105,8 +1105,8 @@ function ChatUIInner({
                   {showContent || isLiveAssistant ? (
                     <p className="whitespace-pre-wrap">
                       {m.role === "user"
-                        ? displayUserChatContent(chatUsername, m.content)
-                        : displayAssistantChatContent(m.content)}
+                        ? stripUserChatPrefix(m.content, chatUsername)
+                        : stripAssistantChatPrefix(m.content)}
                       {isLiveAssistant ? (
                         <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
                       ) : null}

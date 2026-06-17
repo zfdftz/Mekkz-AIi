@@ -365,11 +365,13 @@ export function SettingsPanel({
                 <select
                   value={aiPreferences?.personalityMode ?? "normal"}
                   disabled={!userId || prefsLoading}
-                  onChange={(event) =>
-                    void updateAiPreferences({
-                      personalityMode: event.target.value as PersonalityMode
-                    })
-                  }
+                  onChange={(event) => {
+                    const personalityMode = event.target.value as PersonalityMode;
+                    setAiPreferences((prev) =>
+                      prev ? { ...prev, personalityMode } : prev
+                    );
+                    void updateAiPreferences({ personalityMode });
+                  }}
                   className="w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm outline-none transition focus:border-primary/50 disabled:opacity-50"
                 >
                   {PERSONALITY_MODES.map((mode) => (

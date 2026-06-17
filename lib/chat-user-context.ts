@@ -42,9 +42,9 @@ export function displayAssistantChatContent(content: string) {
 
 export function buildChatFormatInstructions(username: string) {
   return (
-    `CHAT FORMAT (required):\n` +
-    `- The person chatting with you is @${username}. Their lines look like: ${username}(user): message\n` +
-    `- Always start every reply with exactly: ${ASSISTANT_CHAT_LABEL}(ai): then your answer.\n` +
+    `CHAT CONTEXT:\n` +
+    `- The signed-in user is @${username}.\n` +
+    `- Reply naturally — do not prefix your answer with labels like "mekkz(ai):" or "${username}(user):".\n` +
     `- One reply only, one language — never duplicate in two languages.\n` +
     `- You know their profile, friends, notes, posts, and message history (below). Use that context naturally when relevant.`
   );
@@ -76,18 +76,11 @@ function formatFriendSince(iso: string) {
 export function applyChatLineFormat(messages: ChatMessage[], username: string): ChatMessage[] {
   return messages.map((message) => {
     if (message.role === "user") {
-      const text = message.content.trim();
-      const formatted =
-        text && !new RegExp(`^${escapeRegExp(username)}\\(user\\):`, "i").test(text)
-          ? formatUserChatLine(username, text)
-          : text || formatUserChatLine(username, message.imageName ? `[image: ${message.imageName}]` : "");
-      return { ...message, content: formatted };
+      const text = stripUserChatPrefix(message.content, username);
+      return { ...message, content: text };
     }
     if (message.role === "assistant") {
-      const text = message.content.trim();
-      const formatted =
-        text && !/^mekkz\(ai\):/i.test(text) ? formatAssistantChatLine(text) : text;
-      return { ...message, content: formatted };
+      return { ...message, content: stripAssistantChatPrefix(message.content) };
     }
     return message;
   });

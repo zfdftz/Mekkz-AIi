@@ -4,6 +4,7 @@ import { PaidPlanId, PlanId, planRank } from "./plans";
 import {
   getStripe,
   isEntitledSubscriptionStatus,
+  subscriptionGrantsPaidAccess,
   subscriptionPlan
 } from "./stripe";
 import {
@@ -27,9 +28,7 @@ export type StripeSyncResult = {
 };
 
 function pickBestSubscription(subscriptions: Stripe.Subscription[]) {
-  const active = subscriptions.filter((sub) =>
-    isEntitledSubscriptionStatus(sub.status)
-  );
+  const active = subscriptions.filter((sub) => subscriptionGrantsPaidAccess(sub));
   if (active.length === 0) return null;
 
   let best: { subscription: Stripe.Subscription; plan: PaidPlanId } | null = null;
@@ -176,7 +175,7 @@ export async function findProSubscriptionForUser(
   const { subscriptions } = await collectSubscriptionsForUser(stripe, admin, userId, email);
 
   for (const subscription of subscriptions) {
-    if (!isEntitledSubscriptionStatus(subscription.status)) continue;
+    if (!subscriptionGrantsPaidAccess(subscription)) continue;
     if (subscriptionPlan(subscription) === "pro") return subscription;
   }
 
@@ -212,6 +211,18 @@ export async function syncUserPlanFromStripe(
 
   if (!match) {
     const row = await getUserPlanRow(admin, userId);
+    if (
+      hasStoredPaidPlan(row) &&
+      resolveEntitledPlan(row) !== "free"
+    ) {
+      return {
+        synced: false,
+        plan: resolveEntitledPlan(row),
+        message:
+          "Abo gekündigt — dein Plan bleibt bis zum Periodenende aktiv."
+      };
+    }
+
     if (hasStoredPaidPlan(row)) {
       const state = await downgradeUserToFree(admin, userId);
       return {

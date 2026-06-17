@@ -29,6 +29,8 @@ export function WavyBackground({
       style={{ "--season-accent": accent, "--user-accent": accent } as CSSProperties}
     >
       <div className="season-page-base" aria-hidden />
+      <div className="season-page-stars" aria-hidden />
+      <div className="season-page-nebula" aria-hidden />
       <div className="season-page-glow" aria-hidden />
       <div className="season-page-fx" aria-hidden />
       <div className="season-page-vignette" aria-hidden />

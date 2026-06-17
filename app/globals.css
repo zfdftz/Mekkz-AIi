@@ -912,10 +912,25 @@ body > * { position: relative; z-index: 1; }
   inset: 0;
   z-index: 0;
 }
+.season-page-stars {
+  position: absolute;
+  inset: -8%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.season-page-nebula {
+  position: absolute;
+  inset: -15%;
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
 .season-page-glow {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   pointer-events: none;
   opacity: 0.55;
   background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--season-accent) 35%, transparent), transparent 55%);
@@ -924,35 +939,83 @@ body > * { position: relative; z-index: 1; }
 .season-page-fx {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 4;
   pointer-events: none;
 }
 .season-page-vignette {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 5;
   pointer-events: none;
   background: radial-gradient(ellipse 90% 80% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.5) 100%);
 }
 
-.season-page-bg.season-ui-0 .season-page-base { background: linear-gradient(165deg, #0f0a1f 0%, #1e1b4b 40%, #312e81 100%); }
-.season-page-bg.season-ui-0 .season-page-fx {
+/* Season 0 — Cosmic Genesis: deep space, drifting stars, nebula */
+.season-page-bg.season-ui-0 .season-page-base {
+  background:
+    radial-gradient(ellipse 120% 80% at 70% 20%, rgba(76, 29, 149, 0.45), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 20% 80%, rgba(49, 46, 129, 0.35), transparent 50%),
+    linear-gradient(165deg, #050310 0%, #0f0a1f 35%, #1e1b4b 70%, #312e81 100%);
+}
+.season-page-bg.season-ui-0 .season-page-stars {
   background-image:
-    radial-gradient(1px 1px at 10% 20%, white, transparent),
-    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.5px 1.5px at 70% 30%, white, transparent),
-    radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(2px 2px at 50% 50%, rgba(167,139,250,0.4), transparent);
-  animation: twinkle 4s ease-in-out infinite, profile-bg-drift 28s ease-in-out infinite alternate;
+    radial-gradient(1px 1px at 8% 15%, rgba(255,255,255,0.95), transparent),
+    radial-gradient(1.5px 1.5px at 22% 42%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1px 1px at 38% 8%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(2px 2px at 55% 65%, rgba(196,181,253,0.9), transparent),
+    radial-gradient(1px 1px at 68% 28%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.5px 1.5px at 82% 72%, rgba(255,255,255,0.75), transparent),
+    radial-gradient(1px 1px at 92% 18%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 15% 88%, rgba(167,139,250,0.7), transparent),
+    radial-gradient(1px 1px at 48% 38%, rgba(255,255,255,0.55), transparent),
+    radial-gradient(1.5px 1.5px at 75% 52%, rgba(255,255,255,0.65), transparent);
+  background-size: 100% 100%;
+  animation: season-stars-drift-slow 120s linear infinite, twinkle 6s ease-in-out infinite;
+}
+.season-page-bg.season-ui-0 .season-page-nebula {
+  background:
+    radial-gradient(ellipse 45% 35% at 25% 30%, rgba(139, 92, 246, 0.22), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 75% 60%, rgba(99, 102, 241, 0.18), transparent 65%),
+    radial-gradient(ellipse 35% 25% at 55% 15%, rgba(167, 139, 250, 0.15), transparent 60%);
+  animation: season-nebula-drift 90s ease-in-out infinite alternate;
+}
+.season-page-bg.season-ui-0 .season-page-fx {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 45%, rgba(124, 58, 237, 0.08), transparent 70%),
+    conic-gradient(from 210deg at 62% 38%, transparent 0deg, rgba(167,139,250,0.06) 40deg, transparent 80deg);
+  animation: season-galaxy-rotate 240s linear infinite;
+  opacity: 0.7;
 }
 
-.season-page-bg.season-ui-1 .season-page-base { background: linear-gradient(165deg, #020617 0%, #0f172a 35%, #164e63 100%); }
+/* Season 1 — Cyber Future: neon grid + holographic scan */
+.season-page-bg.season-ui-1 .season-page-base {
+  background:
+    radial-gradient(circle at 80% 20%, rgba(236, 72, 153, 0.12), transparent 40%),
+    radial-gradient(circle at 15% 75%, rgba(6, 182, 212, 0.15), transparent 45%),
+    linear-gradient(165deg, #020617 0%, #0f172a 35%, #164e63 100%);
+}
+.season-page-bg.season-ui-1 .season-page-stars {
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(34,211,238,0.9), transparent),
+    radial-gradient(1px 1px at 35% 55%, rgba(236,72,153,0.8), transparent),
+    radial-gradient(1.5px 1.5px at 58% 18%, rgba(34,211,238,0.85), transparent),
+    radial-gradient(1px 1px at 78% 68%, rgba(244,114,182,0.75), transparent),
+    radial-gradient(1px 1px at 90% 35%, rgba(34,211,238,0.7), transparent);
+  animation: season-stars-drift-medium 80s linear infinite, twinkle 5s ease-in-out infinite;
+}
+.season-page-bg.season-ui-1 .season-page-nebula {
+  background:
+    radial-gradient(ellipse 50% 30% at 30% 40%, rgba(6, 182, 212, 0.2), transparent 65%),
+    radial-gradient(ellipse 45% 35% at 70% 55%, rgba(236, 72, 153, 0.18), transparent 60%);
+  animation: season-nebula-drift 70s ease-in-out infinite alternate-reverse;
+}
 .season-page-bg.season-ui-1 .season-page-fx {
   background-image:
-    linear-gradient(rgba(6, 182, 212, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(236, 72, 153, 0.08) 1px, transparent 1px);
-  background-size: 48px 48px;
-  animation: season-grid-pan 20s linear infinite;
+    linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(236, 72, 153, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, transparent 0%, rgba(34,211,238,0.04) 50%, transparent 100%);
+  background-size: 48px 48px, 48px 48px, 100% 200%;
+  animation: season-grid-pan 20s linear infinite, season-scan-sweep 8s ease-in-out infinite;
   mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, black 15%, transparent 75%);
 }
 .season-page-bg.season-ui-1 .season-page-glow {
@@ -961,36 +1024,101 @@ body > * { position: relative; z-index: 1; }
     radial-gradient(circle at 80% 70%, rgba(236, 72, 153, 0.2), transparent 40%);
 }
 
-.season-page-bg.season-ui-2 .season-page-base { background: linear-gradient(165deg, #1a0533 0%, #3b0764 40%, #581c87 100%); }
-.season-page-bg.season-ui-2 .season-page-fx {
+/* Season 2 — Mythic Kingdoms: aurora gold + violet mist */
+.season-page-bg.season-ui-2 .season-page-base {
   background:
-    radial-gradient(circle at 25% 35%, rgba(251, 191, 36, 0.12), transparent 40%),
-    radial-gradient(circle at 75% 65%, rgba(168, 85, 247, 0.15), transparent 45%);
-  animation: profile-bg-drift 18s ease-in-out infinite alternate-reverse;
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(251, 191, 36, 0.08), transparent 55%),
+    linear-gradient(165deg, #12021f 0%, #1a0533 35%, #3b0764 65%, #581c87 100%);
+}
+.season-page-bg.season-ui-2 .season-page-stars {
+  background-image:
+    radial-gradient(1px 1px at 18% 25%, rgba(251,191,36,0.85), transparent),
+    radial-gradient(1.5px 1.5px at 42% 62%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 65% 18%, rgba(251,191,36,0.75), transparent),
+    radial-gradient(1px 1px at 85% 48%, rgba(196,181,253,0.8), transparent),
+    radial-gradient(1px 1px at 30% 78%, rgba(255,255,255,0.55), transparent);
+  animation: season-stars-drift-medium 100s linear infinite reverse, twinkle 7s ease-in-out infinite;
+}
+.season-page-bg.season-ui-2 .season-page-nebula {
+  background:
+    radial-gradient(ellipse 55% 40% at 25% 35%, rgba(251, 191, 36, 0.18), transparent 65%),
+    radial-gradient(ellipse 50% 45% at 75% 65%, rgba(168, 85, 247, 0.2), transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 80%, rgba(124, 58, 237, 0.12), transparent 55%);
+  animation: season-nebula-drift 85s ease-in-out infinite alternate;
+}
+.season-page-bg.season-ui-2 .season-page-fx {
+  background: conic-gradient(from 180deg at 50% 120%, transparent, rgba(251,191,36,0.06), transparent, rgba(168,85,247,0.08), transparent);
+  animation: season-galaxy-rotate 180s linear infinite reverse;
+  opacity: 0.6;
 }
 .season-page-bg.season-ui-2 .season-page-glow {
-  background: radial-gradient(circle at 50% 20%, rgba(251, 191, 36, 0.2), transparent 50%);
+  background: radial-gradient(circle at 50% 20%, rgba(251, 191, 36, 0.22), transparent 50%);
 }
 
-.season-page-bg.season-ui-3 .season-page-base { background: linear-gradient(165deg, #0c1929 0%, #0c4a6e 45%, #1e3a8a 100%); }
+/* Season 3 — Frozen Legends: ice crystals + drifting snow */
+.season-page-bg.season-ui-3 .season-page-base {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 10%, rgba(186, 230, 253, 0.12), transparent 50%),
+    linear-gradient(165deg, #061018 0%, #0c1929 40%, #0c4a6e 70%, #1e3a8a 100%);
+}
+.season-page-bg.season-ui-3 .season-page-stars {
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 12%, rgba(255,255,255,0.95), transparent),
+    radial-gradient(1px 1px at 28% 38%, rgba(186,230,253,0.85), transparent),
+    radial-gradient(1.5px 1.5px at 45% 68%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1px 1px at 62% 22%, rgba(224,242,254,0.75), transparent),
+    radial-gradient(1.5px 1.5px at 78% 55%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 88% 82%, rgba(186,230,253,0.65), transparent),
+    radial-gradient(1px 1px at 20% 72%, rgba(255,255,255,0.6), transparent);
+  animation: season-snow-fall 22s linear infinite, twinkle 8s ease-in-out infinite;
+}
+.season-page-bg.season-ui-3 .season-page-nebula {
+  background:
+    radial-gradient(ellipse 50% 35% at 35% 25%, rgba(186, 230, 253, 0.15), transparent 60%),
+    radial-gradient(ellipse 45% 40% at 70% 70%, rgba(125, 211, 252, 0.12), transparent 55%);
+  animation: season-nebula-drift 95s ease-in-out infinite alternate-reverse;
+  opacity: 0.45;
+}
 .season-page-bg.season-ui-3 .season-page-fx {
   background-image:
-    radial-gradient(1.5px 1.5px at 15% 25%, rgba(255,255,255,0.9), transparent),
-    radial-gradient(1px 1px at 45% 55%, rgba(186,230,253,0.8), transparent),
-    radial-gradient(1.5px 1.5px at 75% 35%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(1px 1px at 85% 75%, rgba(186,230,253,0.6), transparent);
-  animation: season-snow-fall 16s linear infinite;
+    radial-gradient(1px 1px at 15% 45%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 55% 25%, rgba(186,230,253,0.45), transparent),
+    radial-gradient(1px 1px at 75% 85%, rgba(255,255,255,0.4), transparent);
+  animation: season-snow-fall 16s linear infinite reverse;
+  opacity: 0.5;
 }
 
-.season-page-bg.season-ui-4 .season-page-base { background: linear-gradient(165deg, #1c0a00 0%, #7c2d12 40%, #450a0a 100%); }
+/* Season 4 — Inferno Rising: embers + heat shimmer */
+.season-page-bg.season-ui-4 .season-page-base {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(249, 115, 22, 0.15), transparent 55%),
+    linear-gradient(165deg, #0a0300 0%, #1c0a00 35%, #7c2d12 65%, #450a0a 100%);
+}
+.season-page-bg.season-ui-4 .season-page-stars {
+  background-image:
+    radial-gradient(2px 2px at 20% 70%, rgba(249,115,22,0.9), transparent),
+    radial-gradient(1.5px 1.5px at 45% 85%, rgba(239,68,68,0.85), transparent),
+    radial-gradient(2px 2px at 65% 60%, rgba(251,146,60,0.8), transparent),
+    radial-gradient(1.5px 1.5px at 80% 78%, rgba(249,115,22,0.75), transparent),
+    radial-gradient(1px 1px at 35% 55%, rgba(254,215,170,0.7), transparent);
+  animation: season-ember-rise 18s ease-in-out infinite alternate, twinkle 4s ease-in-out infinite;
+}
+.season-page-bg.season-ui-4 .season-page-nebula {
+  background:
+    radial-gradient(ellipse 55% 40% at 30% 80%, rgba(249, 115, 22, 0.25), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 70% 65%, rgba(239, 68, 68, 0.18), transparent 55%);
+  animation: season-nebula-drift 60s ease-in-out infinite alternate;
+  mix-blend-mode: normal;
+  opacity: 0.65;
+}
 .season-page-bg.season-ui-4 .season-page-fx {
   background:
-    radial-gradient(circle at 30% 80%, rgba(249, 115, 22, 0.25), transparent 45%),
-    radial-gradient(circle at 70% 60%, rgba(239, 68, 68, 0.15), transparent 40%);
-  animation: season-ember-rise 14s ease-in-out infinite alternate;
+    radial-gradient(circle at 30% 80%, rgba(249, 115, 22, 0.2), transparent 45%),
+    radial-gradient(circle at 70% 60%, rgba(239, 68, 68, 0.12), transparent 40%);
+  animation: season-ember-rise 14s ease-in-out infinite alternate-reverse;
 }
 .season-page-bg.season-ui-4 .season-page-glow {
-  background: radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.3), transparent 55%);
+  background: radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.32), transparent 55%);
 }
 
 /* Profile card season fx (when no custom background equipped) */
@@ -1000,10 +1128,11 @@ body > * { position: relative; z-index: 1; }
     radial-gradient(1px 1px at 10% 20%, white, transparent),
     radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.8), transparent),
     radial-gradient(1.5px 1.5px at 70% 30%, white, transparent),
-    radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.6), transparent);
+    radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 50% 45%, rgba(167,139,250,0.5), transparent);
   background-size: 100% 100%;
-  animation: twinkle 4s ease-in-out infinite;
-  opacity: 0.6;
+  animation: twinkle 4s ease-in-out infinite, season-stars-drift-slow 90s linear infinite;
+  opacity: 0.65;
 }
 .season-ui-1 .season-profile-fx {
   background-image:
@@ -1011,24 +1140,29 @@ body > * { position: relative; z-index: 1; }
     linear-gradient(90deg, rgba(236, 72, 153, 0.1) 1px, transparent 1px);
   background-size: 32px 32px;
   animation: season-grid-pan 24s linear infinite;
-  opacity: 0.5;
+  opacity: 0.55;
 }
 .season-ui-2 .season-profile-fx {
-  background: radial-gradient(circle at 40% 30%, rgba(251, 191, 36, 0.2), transparent 55%);
-  animation: profile-bg-drift 20s ease-in-out infinite alternate;
-  opacity: 0.55;
+  background:
+    radial-gradient(circle at 40% 30%, rgba(251, 191, 36, 0.22), transparent 55%),
+    radial-gradient(circle at 70% 70%, rgba(168, 85, 247, 0.15), transparent 50%);
+  animation: season-nebula-drift 75s ease-in-out infinite alternate;
+  opacity: 0.6;
 }
 .season-ui-3 .season-profile-fx {
   background-image:
     radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1px 1px at 60% 70%, rgba(186,230,253,0.7), transparent);
-  animation: twinkle 5s ease-in-out infinite;
-  opacity: 0.5;
+    radial-gradient(1px 1px at 60% 70%, rgba(186,230,253,0.7), transparent),
+    radial-gradient(1px 1px at 80% 40%, rgba(255,255,255,0.6), transparent);
+  animation: season-snow-fall 14s linear infinite, twinkle 5s ease-in-out infinite;
+  opacity: 0.55;
 }
 .season-ui-4 .season-profile-fx {
-  background: radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.25), transparent 60%);
+  background:
+    radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.28), transparent 60%),
+    radial-gradient(1.5px 1.5px at 35% 75%, rgba(249,115,22,0.7), transparent);
   animation: season-ember-rise 12s ease-in-out infinite alternate;
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 @keyframes season-glow-pulse {
@@ -1036,16 +1170,37 @@ body > * { position: relative; z-index: 1; }
   100% { opacity: 0.65; transform: scale(1.04); }
 }
 @keyframes season-grid-pan {
-  from { background-position: 0 0, 0 0; }
-  to { background-position: 48px 48px, 48px 48px; }
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 48px 48px, 48px 48px, 0 100%; }
 }
 @keyframes season-snow-fall {
-  from { transform: translateY(-4%); opacity: 0.7; }
-  to { transform: translateY(4%); opacity: 1; }
+  from { transform: translateY(-6%) translateX(-1%); opacity: 0.65; }
+  to { transform: translateY(6%) translateX(1%); opacity: 1; }
 }
 @keyframes season-ember-rise {
-  0% { transform: translateY(2%) scale(1); opacity: 0.5; }
-  100% { transform: translateY(-3%) scale(1.05); opacity: 0.85; }
+  0% { transform: translateY(4%) scale(1); opacity: 0.55; }
+  100% { transform: translateY(-5%) scale(1.06); opacity: 0.9; }
+}
+@keyframes season-stars-drift-slow {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-3%, -2%, 0) scale(1.03); }
+}
+@keyframes season-stars-drift-medium {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(4%, 3%, 0); }
+}
+@keyframes season-nebula-drift {
+  0% { transform: translate(-4%, -3%) scale(1) rotate(0deg); opacity: 0.45; }
+  50% { opacity: 0.65; }
+  100% { transform: translate(4%, 3%) scale(1.08) rotate(3deg); opacity: 0.5; }
+}
+@keyframes season-galaxy-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes season-scan-sweep {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
 }
 
 .limited-tag {

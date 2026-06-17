@@ -2,7 +2,11 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { countConversationMessages } from "./chat-storage";
 import { getPlanInfo, PlanId, PLANS, buildPlansLimitsReference, isPaidPlanId } from "./plans";
 import { formatBillingDateIso } from "./stripe-billing";
-import { isActiveSubscriptionStatus, isEntitledSubscriptionStatus } from "./stripe";
+import {
+  isActiveSubscriptionStatus,
+  isEntitledSubscriptionStatus,
+  isPeriodEndInFuture
+} from "./stripe";
 
 type UserPlanRow = {
   user_id: string;
@@ -65,7 +69,20 @@ export function resolveEntitledPlan(row: UserPlanRow | null | undefined): PlanId
     return stored;
   }
 
-  return isEntitledSubscriptionStatus(row.stripe_subscription_status) ? stored : "free";
+  if (isEntitledSubscriptionStatus(row.stripe_subscription_status)) return stored;
+  if (isPeriodEndInFuture(row.stripe_period_end)) return stored;
+
+  return "free";
+}
+
+function hasPaidSubscriptionAccess(
+  stripeSubscriptionStatus: string | null,
+  stripePeriodEnd: string | null | undefined
+) {
+  return (
+    isActiveSubscriptionStatus(stripeSubscriptionStatus) ||
+    isPeriodEndInFuture(stripePeriodEnd)
+  );
 }
 
 export function hasStoredPaidPlan(row: UserPlanRow | null | undefined) {
@@ -85,7 +102,8 @@ function canManageStripeBilling(row: UserPlanRow | null | undefined) {
   return Boolean(
     row.stripe_customer_id ||
       row.stripe_subscription_id ||
-      isEntitledSubscriptionStatus(row.stripe_subscription_status)
+      isEntitledSubscriptionStatus(row.stripe_subscription_status) ||
+      isPeriodEndInFuture(row.stripe_period_end)
   );
 }
 
@@ -288,7 +306,10 @@ function buildState(
     messagesPerChatLimit: info.messagesPerChatLimit,
     planLabel: info.label,
     stripeSubscriptionStatus,
-    hasActiveSubscription: isActiveSubscriptionStatus(stripeSubscriptionStatus),
+    hasActiveSubscription: hasPaidSubscriptionAccess(
+      stripeSubscriptionStatus,
+      billing.stripePeriodEnd
+    ),
     canManageBilling,
     stripePeriodEnd: billing.stripePeriodEnd ?? null,
     scheduledPlan: billing.scheduledPlan ?? null,
@@ -360,7 +381,10 @@ export async function getUserStripeBilling(
     stripeCustomerId: row?.stripe_customer_id ?? null,
     stripeSubscriptionId: row?.stripe_subscription_id ?? null,
     stripeSubscriptionStatus: status,
-    hasActiveSubscription: isActiveSubscriptionStatus(status)
+    hasActiveSubscription: hasPaidSubscriptionAccess(
+      status,
+      row?.stripe_period_end
+    )
   };
 }
 

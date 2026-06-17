@@ -6,6 +6,7 @@ import {
   isEntitledSubscriptionStatus,
   planFromCheckoutSession,
   shouldDowngradeFromSubscription,
+  subscriptionGrantsPaidAccess,
   subscriptionPlan
 } from "@/lib/stripe";
 import { subscriptionPeriodEnd, subscriptionIdFromInvoice, trySubscriptionPeriodEnd } from "@/lib/stripe-billing";
@@ -104,7 +105,7 @@ async function syncSubscription(
   const email =
     customer && !("deleted" in customer && customer.deleted) ? customer.email : null;
 
-  if (isEntitledSubscriptionStatus(subscription.status)) {
+  if (subscriptionGrantsPaidAccess(subscription)) {
     const plan = session
       ? planFromCheckoutSession(session, subscription) ?? subscriptionPlan(subscription)
       : subscriptionPlan(subscription);

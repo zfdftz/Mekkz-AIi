@@ -106,14 +106,32 @@ export function isEntitledSubscriptionStatus(status: string | null | undefined) 
   );
 }
 
+export function isPeriodEndInFuture(
+  periodEnd: number | string | null | undefined
+) {
+  if (periodEnd == null) return false;
+  const ms =
+    typeof periodEnd === "number"
+      ? periodEnd * 1000
+      : new Date(periodEnd).getTime();
+  return Number.isFinite(ms) && ms > Date.now();
+}
+
+/** Paid access until Stripe period end (incl. cancel_at_period_end / canceled grace). */
+export function subscriptionGrantsPaidAccess(subscription: Stripe.Subscription) {
+  if (isEntitledSubscriptionStatus(subscription.status)) return true;
+  return isPeriodEndInFuture(trySubscriptionPeriodEnd(subscription));
+}
+
 export function shouldDowngradeFromSubscription(subscription: Stripe.Subscription) {
   const status = subscription.status;
   if (isEntitledSubscriptionStatus(status)) return false;
-  if (status === "canceled" || status === "incomplete_expired") return true;
-  if (status === "unpaid") return true;
 
   const periodEnd = trySubscriptionPeriodEnd(subscription);
   if (periodEnd && periodEnd * 1000 > Date.now()) return false;
+
+  if (status === "canceled" || status === "incomplete_expired") return true;
+  if (status === "unpaid") return true;
 
   return status !== "incomplete";
 }

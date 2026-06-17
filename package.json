@@ -10,6 +10,7 @@
     "migrate:bump": "node scripts/apply-bump-migration.mjs",
     "migrate:bump:check": "node scripts/check-bump-rpc.mjs",
     "migrate:stripe": "node scripts/apply-stripe-migration.mjs",
+    "migrate:clans": "node scripts/apply-clans-migration.mjs",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
     "image-worker": "node workers/mekkz-image-server.mjs",
     "bild-server": "powershell -ExecutionPolicy Bypass -File scripts/start-bild-server.ps1",

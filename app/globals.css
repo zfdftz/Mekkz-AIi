@@ -703,6 +703,43 @@ body > * { position: relative; z-index: 1; }
 .discord-profile-banner[class*="reward-bg-"]:not(.reward-bg-mekkz) {
   background-color: transparent;
 }
+
+/* Animated profile style rings (Galaxy Ring etc.) */
+.profile-style-rings::before,
+.profile-style-rings::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--profile-accent, #a78bfa) 55%, transparent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.profile-style-rings::before {
+  width: 55%;
+  height: 55%;
+  animation: profile-ring-spin 24s linear infinite;
+}
+.profile-style-rings::after {
+  width: 78%;
+  height: 78%;
+  border-width: 1px;
+  opacity: 0.65;
+  animation: profile-ring-spin 36s linear infinite reverse;
+}
+.reward-bg-galaxy-ring .profile-style-rings::before {
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.35);
+}
+.reward-bg-galaxy-ring .profile-style-rings::after {
+  border-color: rgba(99, 102, 241, 0.45);
+}
+@keyframes profile-ring-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 .season-tab-active {
   color: #fff;
   border-bottom: 2px solid var(--primary, #8b5cf6);

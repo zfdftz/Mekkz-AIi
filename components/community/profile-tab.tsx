@@ -24,14 +24,24 @@ import {
   ProfileRewardsPanel,
   type RewardsFormState
 } from "@/components/rewards/profile-rewards-panel";
+import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
+import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
 
 const AVATAR_MAX_MB = Math.round(AVATAR_MAX_BYTES / (1024 * 1024));
 
+const EMPTY_REWARDS: RewardsFormState = {
+  showcaseIds: [],
+  profileBackground: null,
+  accentColor: "#8b5cf6",
+  activeTitle: null
+};
+
 export function ProfileTab() {
   const { openProfile } = useProfileModal();
+  const seasonClass = getSeasonUiClass();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -43,12 +53,7 @@ export function ProfileTab() {
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const [showBadgesPanel, setShowBadgesPanel] = useState(false);
-  const [rewardsForm, setRewardsForm] = useState<RewardsFormState>({
-    showcaseIds: [],
-    profileBackground: null,
-    accentColor: "#8b5cf6",
-    activeTitle: null
-  });
+  const [rewardsForm, setRewardsForm] = useState<RewardsFormState>(EMPTY_REWARDS);
 
   const usernameLocked = profile?.canChangeUsername === false;
   const usernameHint = useMemo(() => {
@@ -75,13 +80,12 @@ export function ProfileTab() {
       setUsername(data.profile?.username ?? "");
       setBio(data.profile?.bio ?? "");
       setAvatarUrl(data.profile?.avatarUrl ?? "");
-      setRewardsForm((prev) => ({
-        ...prev,
+      setRewardsForm({
         showcaseIds: (data.profile?.showcasedBadges ?? []).map((b) => b.id),
         profileBackground: data.profile?.profileBackground ?? null,
         accentColor: data.profile?.accentColor ?? "#8b5cf6",
         activeTitle: data.profile?.activeTitle ?? null
-      }));
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
@@ -93,7 +97,8 @@ export function ProfileTab() {
     void load();
   }, [load]);
 
-  async function save() {
+  async function save(e?: React.FormEvent) {
+    e?.preventDefault();
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -163,92 +168,108 @@ export function ProfileTab() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <Panel>
-        <div className="mb-4 flex items-center gap-4">
-          <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/10 bg-white/10">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-primary">
-                {(username || "U")[0]?.toUpperCase()}
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <ProfileIdentity
-              username={profile?.username ?? "user"}
-              title={profile?.activeTitleLabel}
-              isVerified={profile?.isVerified}
-              isCreator={profile?.isCreator}
-              isChosen={profile?.isChosen}
-              badges={profile?.showcasedBadges}
-            />
-            <p className="mt-1 text-sm font-medium text-primary">
-              {formatCount(profile?.followersCount ?? 0)} Follower
-            </p>
-            {typeof profile?.totalLikes === "number" ? (
-              <div className="mt-1">
-                <ProfileLikesStat totalLikes={profile.totalLikes} />
-              </div>
-            ) : null}
-            <p className="text-sm text-muted">{profile?.isOnline ? "Online" : "Offline"}</p>
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-wrap gap-2">
-          <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${planBadgeClass}`}>
-            {profile?.plan !== "free" ? <Crown size={10} /> : null}
-            {profile?.planLabel ?? "Free"}
-          </span>
-        </div>
-
-        <FollowerStats
-          followersCount={profile?.followersCount ?? 0}
-          followingCount={profile?.followingCount ?? 0}
-          postsCount={profile?.postsCount ?? 0}
-          onFollowersClick={() => {
-            setFollowTab("followers");
-            setShowFollowList(true);
-          }}
-          onFollowingClick={() => {
-            setFollowTab("following");
-            setShowFollowList(true);
-          }}
+      <Panel className="overflow-hidden p-0">
+        <ProfileStyleBanner
+          styleId={rewardsForm.profileBackground}
+          accentColor={rewardsForm.accentColor}
+          seasonClass={seasonClass}
+          className="h-28 rounded-none border-0"
         />
 
-        {showFollowList && profile?.userId ? (
-          <FollowersPanel
-            userId={profile.userId}
-            followersCount={profile.followersCount ?? 0}
-            followingCount={profile.followingCount ?? 0}
-            defaultTab={followTab}
-            onOpenProfile={openProfile}
-            onCountsChange={(followers, following) =>
-              setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
-            }
+        <form onSubmit={(e) => void save(e)} className="space-y-4 p-4 sm:p-5">
+          <div className="-mt-14 flex items-end gap-4">
+            <div
+              className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[#232428] bg-[#232428]"
+              style={
+                rewardsForm.accentColor
+                  ? {
+                      boxShadow: `0 0 0 3px ${rewardsForm.accentColor}, 0 0 20px ${rewardsForm.accentColor}66`
+                    }
+                  : undefined
+              }
+            >
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-white/10 text-2xl font-bold text-primary">
+                  {(username || "U")[0]?.toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1 pb-1">
+              <ProfileIdentity
+                username={profile?.username ?? "user"}
+                title={profile?.activeTitleLabel}
+                isVerified={profile?.isVerified}
+                isCreator={profile?.isCreator}
+                isChosen={profile?.isChosen}
+                badges={profile?.showcasedBadges}
+              />
+              <p className="mt-1 text-sm font-medium text-primary">
+                {formatCount(profile?.followersCount ?? 0)} Follower
+              </p>
+              {typeof profile?.totalLikes === "number" ? (
+                <div className="mt-1">
+                  <ProfileLikesStat totalLikes={profile.totalLikes} />
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${planBadgeClass}`}>
+              {profile?.plan !== "free" ? <Crown size={10} /> : null}
+              {profile?.planLabel ?? "Free"}
+            </span>
+            <span className="text-xs text-muted">{profile?.isOnline ? "Online" : "Offline"}</span>
+          </div>
+
+          <FollowerStats
+            followersCount={profile?.followersCount ?? 0}
+            followingCount={profile?.followingCount ?? 0}
+            postsCount={profile?.postsCount ?? 0}
+            onFollowersClick={() => {
+              setFollowTab("followers");
+              setShowFollowList(true);
+            }}
+            onFollowingClick={() => {
+              setFollowTab("following");
+              setShowFollowList(true);
+            }}
           />
-        ) : null}
 
-        <div className="mb-4 mt-4 grid grid-cols-2 gap-2 text-center text-sm">
-          <div className="rounded-xl bg-black/20 px-2 py-3">
-            <p className="text-lg font-bold">{profile?.messagesSent ?? 0}</p>
-            <p className="text-xs text-muted">Nachrichten</p>
-          </div>
-          <div className="rounded-xl bg-black/20 px-2 py-3">
-            <p className="text-lg font-bold">{profile?.xp ?? 0}</p>
-            <p className="text-xs text-muted">XP</p>
-          </div>
-        </div>
+          {showFollowList && profile?.userId ? (
+            <FollowersPanel
+              userId={profile.userId}
+              followersCount={profile.followersCount ?? 0}
+              followingCount={profile.followingCount ?? 0}
+              defaultTab={followTab}
+              onOpenProfile={openProfile}
+              onCountsChange={(followers, following) =>
+                setProfile((p) => (p ? { ...p, followersCount: followers, followingCount: following } : p))
+              }
+            />
+          ) : null}
 
-        <ErrorBanner message={error} />
-        {success ? (
-          <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-            {success}
+          <div className="grid grid-cols-2 gap-2 text-center text-sm">
+            <div className="rounded-xl bg-black/20 px-2 py-3">
+              <p className="text-lg font-bold">{profile?.messagesSent ?? 0}</p>
+              <p className="text-xs text-muted">Nachrichten</p>
+            </div>
+            <div className="rounded-xl bg-black/20 px-2 py-3">
+              <p className="text-lg font-bold">{profile?.xp ?? 0}</p>
+              <p className="text-xs text-muted">XP</p>
+            </div>
           </div>
-        ) : null}
 
-        <div className="space-y-3">
+          <ErrorBanner message={error} />
+          {success ? (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+              {success}
+            </div>
+          ) : null}
+
           <div>
             <FieldLabel>Benutzername</FieldLabel>
             <TextInput
@@ -285,7 +306,7 @@ export function ProfileTab() {
           </div>
 
           <div className="border-t border-white/10 pt-4">
-            <ProfileRewardsPanel embedded onFormChange={setRewardsForm} />
+            <ProfileRewardsPanel embedded onFormChange={setRewardsForm} hidePreview />
           </div>
 
           <button
@@ -295,11 +316,11 @@ export function ProfileTab() {
           >
             Badges & Titles (Quests)
           </button>
-        </div>
 
-        <PrimaryButton loading={saving} onClick={save} className="mt-4 w-full">
-          Speichern
-        </PrimaryButton>
+          <PrimaryButton loading={saving} type="submit" className="w-full">
+            Speichern
+          </PrimaryButton>
+        </form>
       </Panel>
 
       {showBadgesPanel ? <BadgesTitlesPanel onClose={() => setShowBadgesPanel(false)} /> : null}

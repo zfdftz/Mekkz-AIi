@@ -47,10 +47,12 @@ function formatCooldown(ms: number) {
 
 export function ProfileRewardsPanel({
   embedded,
-  onFormChange
+  onFormChange,
+  hidePreview
 }: {
   embedded?: boolean;
   onFormChange?: (state: RewardsFormState) => void;
+  hidePreview?: boolean;
 }) {
   const [state, setState] = useState<RewardsState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -195,12 +197,18 @@ export function ProfileRewardsPanel({
 
       <div>
         <h4 className="mb-2 text-sm font-semibold">Profil-Hintergrund</h4>
-        <ProfileStyleBanner
-          styleId={profileBackground}
-          accentColor={accentColor}
-          seasonClass={seasonClass}
-          className="mb-3 h-24"
-        />
+        {!hidePreview ? (
+          <ProfileStyleBanner
+            styleId={profileBackground}
+            accentColor={accentColor}
+            seasonClass={seasonClass}
+            className="mb-3 h-24"
+          />
+        ) : (
+          <p className="mb-3 text-[11px] text-muted">
+            Vorschau oben im Profil-Banner — Galaxy Ring & Co. erscheinen als Hintergrund.
+          </p>
+        )}
         <label className="mb-2 block text-xs text-muted">Akzentfarbe</label>
         <input
           type="color"

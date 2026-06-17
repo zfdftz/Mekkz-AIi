@@ -148,8 +148,22 @@ export async function getProfileCosmetics(
     .maybeSingle();
 
   const titleId = (data?.active_title as string) ?? null;
-  const profileFrame = (data?.profile_frame as string) ?? null;
-  const profileBackgroundRaw = (data?.profile_background as string) ?? null;
+  let profileFrame: string | null = (data?.profile_frame as string) ?? null;
+  let profileBackgroundRaw: string | null = (data?.profile_background as string) ?? null;
+
+  if (profileFrame && !profileBackgroundRaw) {
+    profileBackgroundRaw = profileFrame;
+    profileFrame = null;
+    await admin
+      .from("user_profiles")
+      .update({
+        profile_background: profileBackgroundRaw,
+        profile_frame: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("user_id", userId);
+  }
+
   const profileBackground = resolveEquippedStyleId(profileBackgroundRaw, profileFrame);
   return {
     bannerUrl: (data?.banner_url as string) ?? null,

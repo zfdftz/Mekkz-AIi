@@ -252,6 +252,7 @@ function ProfileBanner({
   return (
     <ProfileStyleBanner
       styleId={profile?.profileBackground}
+      profileFrame={profile?.profileFrame}
       accentColor={profile?.accentColor}
       seasonClass={seasonClass}
       className="h-[120px] rounded-none border-0"
@@ -262,8 +263,12 @@ function ProfileBanner({
 function FramedAvatar({ profile }: { profile: PublicUserProfile }) {
   return (
     <div
-      className="relative h-[80px] w-[80px] shrink-0 rounded-full border-2 border-[#232428] p-[2px]"
-      style={profile.accentColor ? { boxShadow: `0 0 0 2px ${profile.accentColor}` } : undefined}
+      className="relative h-[80px] w-[80px] shrink-0 rounded-full border-2 border-[#232428] bg-[#232428] p-[2px]"
+      style={
+        profile.accentColor
+          ? { boxShadow: `0 0 0 3px ${profile.accentColor}, 0 0 18px ${profile.accentColor}55` }
+          : undefined
+      }
     >
       <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} />
       {profile.isOnline ? (

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRegisteredUser } from "@/lib/api/require-user";
 import { getFollowerCounts, listFollowers, listFollowing, toggleFollow } from "@/lib/community/public-profile";
+import { syncVerification } from "@/lib/rewards/verification";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
     const admin = createAdminClient();
     const result = await toggleFollow(admin, auth.user!.id, parsed.data.userId);
     const counts = await getFollowerCounts(admin, parsed.data.userId);
+    await syncVerification(admin, parsed.data.userId, counts.followersCount);
     return NextResponse.json({ ...result, ...counts });
   } catch (error) {
     return NextResponse.json(

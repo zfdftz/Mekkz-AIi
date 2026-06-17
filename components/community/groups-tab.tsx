@@ -168,6 +168,9 @@ export function GroupsTab() {
                   key={msg.id}
                   author={msg.isAi ? "Mekkz AI" : msg.authorName ?? "User"}
                   authorUserId={msg.isAi ? null : msg.userId}
+                  authorTitle={msg.isAi ? undefined : msg.authorTitle}
+                  authorVerified={msg.isAi ? undefined : msg.authorVerified}
+                  authorCreator={msg.isAi ? undefined : msg.authorCreator}
                   content={msg.content}
                   highlight={msg.isAi}
                   time={msg.createdAt}

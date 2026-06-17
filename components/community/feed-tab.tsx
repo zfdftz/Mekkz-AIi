@@ -16,6 +16,7 @@ import {
   TextInput
 } from "@/components/community/shared";
 import { ProfileLink } from "@/components/community/profile-context";
+import { ProfileIdentity } from "@/components/rewards/profile-identity";
 import { FEED_IMAGE_MAX_BYTES, FEED_VIDEO_MAX_SECONDS } from "@/lib/community/media-safety";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { FeedComment, FeedPost } from "@/lib/community/types";
@@ -279,11 +280,17 @@ export function FeedTab() {
           {posts.map((post) => (
             <Panel key={post.id} className="animate-in fade-in">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <ProfileLink userId={post.userId} className="font-medium">
-                    @{post.authorName ?? "user"}
+                <div className="flex min-w-0 items-center gap-2">
+                  <ProfileLink userId={post.userId} className="min-w-0">
+                    <ProfileIdentity
+                      compact
+                      username={post.authorName ?? "user"}
+                      title={post.authorTitle}
+                      isVerified={post.authorVerified}
+                      isCreator={post.authorCreator}
+                    />
                   </ProfileLink>
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] uppercase">
+                  <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-[10px] uppercase">
                     {post.postType}
                   </span>
                 </div>
@@ -329,7 +336,16 @@ export function FeedTab() {
                 <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
                   {(comments[post.id] ?? []).map((c) => (
                     <div key={c.id} className="rounded-lg bg-black/20 px-3 py-2 text-sm">
-                      <span className="font-medium text-primary">{c.authorName}</span>: {c.content}
+                      <ProfileLink userId={c.userId} className="mb-1 block">
+                        <ProfileIdentity
+                          compact
+                          username={c.authorName ?? "user"}
+                          title={c.authorTitle}
+                          isVerified={c.authorVerified}
+                          isCreator={c.authorCreator}
+                        />
+                      </ProfileLink>
+                      <p className="text-muted">{c.content}</p>
                     </div>
                   ))}
                   <ChatComposer

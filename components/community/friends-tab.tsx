@@ -283,15 +283,21 @@ export function FriendsTab() {
               </div>
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-              {messages.map((msg) => (
-                <MessageBubble
-                  key={msg.id}
-                  author={msg.senderId === activeFriend.userId ? activeFriend.username : "Du"}
-                  authorUserId={msg.senderId === activeFriend.userId ? activeFriend.userId : undefined}
-                  content={msg.content}
-                  time={msg.createdAt}
-                />
-              ))}
+              {messages.map((msg) => {
+                const isFriend = msg.senderId === activeFriend.userId;
+                return (
+                  <MessageBubble
+                    key={msg.id}
+                    author={isFriend ? activeFriend.username ?? "user" : "Du"}
+                    authorUserId={isFriend ? activeFriend.userId : undefined}
+                    authorTitle={isFriend ? msg.authorTitle : undefined}
+                    authorVerified={isFriend ? msg.authorVerified : undefined}
+                    authorCreator={isFriend ? msg.authorCreator : undefined}
+                    content={msg.content}
+                    time={msg.createdAt}
+                  />
+                );
+              })}
             </div>
             <ChatComposer
               value={draft}

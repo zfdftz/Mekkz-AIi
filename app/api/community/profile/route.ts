@@ -8,6 +8,9 @@ import {
 } from "@/lib/community/profile-rules";
 import { ensureUserProfile, getProfile, touchPresence, updateProfile } from "@/lib/community/profile";
 import { getFollowerCounts } from "@/lib/community/public-profile";
+import { syncUserRewards } from "@/lib/rewards/sync";
+import { getAuthorIdentity } from "@/lib/rewards/identity";
+import { canManageRewards } from "@/lib/rewards/admin-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -16,10 +19,29 @@ export async function GET() {
   const admin = createAdminClient();
   await ensureUserProfile(admin, auth.user!.id, auth.user!.email);
   await touchPresence(admin, auth.user!.id, true);
+  await syncUserRewards(admin, auth.user!.id, auth.user!.email);
   const profile = await getProfile(admin, auth.user!.id);
   const counts = await getFollowerCounts(admin, auth.user!.id);
+  const identity = await getAuthorIdentity(admin, auth.user!.id);
+  const isRewardsAdmin = await canManageRewards(admin, auth.user!.id, auth.user!.email);
   return NextResponse.json({
-    profile: profile ? { ...profile, ...counts } : null
+    profile: profile
+      ? {
+          ...profile,
+          ...counts,
+          isRewardsAdmin,
+          isVerified: identity.isVerified,
+          isCreator: identity.isCreator,
+          activeTitleLabel: identity.titleLabel,
+          accentColor: identity.accentColor,
+          showcasedBadges: identity.showcasedBadges.map((b) => ({
+            id: b.id,
+            name: b.name,
+            description: b.description,
+            icon: b.icon
+          }))
+        }
+      : null
   });
 }
 

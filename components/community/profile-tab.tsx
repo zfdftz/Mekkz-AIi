@@ -16,6 +16,8 @@ import {
 } from "@/components/community/shared";
 import { useProfileModal } from "@/components/community/profile-context";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
+import { ProfileIdentity } from "@/components/rewards/profile-identity";
+import { ProfileRewardsPanel } from "@/components/rewards/profile-rewards-panel";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
 
@@ -135,9 +137,15 @@ export function ProfileTab() {
               </div>
             )}
           </div>
-          <div>
-            <h3 className="text-lg font-semibold">{profile?.username ?? "Profil"}</h3>
-            <p className="text-sm font-medium text-primary">
+          <div className="min-w-0 flex-1">
+            <ProfileIdentity
+              username={profile?.username ?? "user"}
+              title={profile?.activeTitleLabel}
+              isVerified={profile?.isVerified}
+              isCreator={profile?.isCreator}
+              badges={profile?.showcasedBadges}
+            />
+            <p className="mt-1 text-sm font-medium text-primary">
               {formatCount(profile?.followersCount ?? 0)} Follower
             </p>
             <p className="text-sm text-muted">{profile?.isOnline ? "Online" : "Offline"}</p>
@@ -225,6 +233,8 @@ export function ProfileTab() {
           </PrimaryButton>
         </div>
       </Panel>
+
+      <ProfileRewardsPanel />
     </div>
   );
 }

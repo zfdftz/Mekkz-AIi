@@ -177,6 +177,9 @@ export function RoomsTab() {
                   key={msg.id}
                   author={msg.authorName ?? "User"}
                   authorUserId={msg.userId}
+                  authorTitle={msg.authorTitle}
+                  authorVerified={msg.authorVerified}
+                  authorCreator={msg.authorCreator}
                   content={msg.content}
                   time={msg.createdAt}
                 />

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlanInfo, type PlanId } from "@/lib/plans";
 import { resolveEntitledPlan } from "@/lib/user-plans";
+import { getAuthorIdentity } from "@/lib/rewards/identity";
+import { getProfileCosmetics } from "@/lib/rewards/cosmetics";
 import { getProfile } from "./profile";
 import type { FeedPost, FollowUser, PublicUserProfile } from "./types";
 
@@ -199,6 +201,15 @@ export async function getPublicProfile(
       ? await isFollowing(admin, viewerId, targetUserId)
       : false;
 
+  const identity = await getAuthorIdentity(admin, targetUserId);
+  const cosmetics = await getProfileCosmetics(admin, targetUserId);
+  const showcasedBadges = identity.showcasedBadges.map((b) => ({
+    id: b.id,
+    name: b.name,
+    description: b.description,
+    icon: b.icon
+  }));
+
   return {
     userId: profile.userId,
     username: profile.username,
@@ -216,6 +227,14 @@ export async function getPublicProfile(
     followingCount: counts.followingCount,
     isFollowing: following,
     isSelf: viewerId === targetUserId,
-    topPosts
+    topPosts,
+    isVerified: identity.isVerified,
+    isCreator: identity.isCreator,
+    activeTitleLabel: identity.titleLabel,
+    bannerUrl: cosmetics.bannerUrl,
+    profileFrame: cosmetics.profileFrame,
+    profileBackground: cosmetics.profileBackground,
+    accentColor: cosmetics.accentColor,
+    showcasedBadges
   };
 }

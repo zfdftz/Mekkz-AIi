@@ -3,6 +3,7 @@
 import { Loader2, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { ProfileLink } from "@/components/community/profile-context";
+import { ProfileIdentity } from "@/components/rewards/profile-identity";
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
@@ -197,12 +198,18 @@ export function GhostButton(props: React.ButtonHTMLAttributes<HTMLButtonElement>
 export function MessageBubble({
   author,
   authorUserId,
+  authorTitle,
+  authorVerified,
+  authorCreator,
   content,
   highlight,
   time
 }: {
   author: string;
   authorUserId?: string | null;
+  authorTitle?: string | null;
+  authorVerified?: boolean;
+  authorCreator?: boolean;
   content: string;
   highlight?: boolean;
   time?: string;
@@ -217,8 +224,14 @@ export function MessageBubble({
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
         {authorUserId ? (
-          <ProfileLink userId={authorUserId} className="font-semibold text-primary">
-            {author}
+          <ProfileLink userId={authorUserId} className="min-w-0">
+            <ProfileIdentity
+              compact
+              username={author.replace(/^@/, "")}
+              title={authorTitle}
+              isVerified={authorVerified}
+              isCreator={authorCreator}
+            />
           </ProfileLink>
         ) : (
           <span className="font-semibold text-primary">{author}</span>

@@ -6,6 +6,7 @@ import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, Users,
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
+import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
 import { ChatMessage, Conversation } from "@/lib/types";
 import { messagesForRequest } from "@/lib/chat-storage";
 import { categorizeUploadedImage } from "@/lib/image-categories";
@@ -892,6 +893,7 @@ export function ChatUI({
 
   return (
     <WavyBackground>
+      {!isGuest ? <RewardsAdminButton /> : null}
       <div className="flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden">
       <SettingsPanel
         open={settingsOpen}

@@ -13,6 +13,16 @@ export type UserProfile = {
   nextUsernameChangeAt?: string | null;
   followersCount?: number;
   followingCount?: number;
+  isRewardsAdmin?: boolean;
+  isVerified?: boolean;
+  isCreator?: boolean;
+  activeTitle?: string | null;
+  activeTitleLabel?: string | null;
+  bannerUrl?: string | null;
+  profileFrame?: string | null;
+  profileBackground?: string | null;
+  accentColor?: string;
+  showcasedBadges?: { id: string; name: string; description: string; icon: string }[];
 };
 
 export type FollowUser = {
@@ -40,6 +50,9 @@ export type RoomMessage = {
   content: string;
   createdAt: string;
   authorName?: string | null;
+  authorTitle?: string | null;
+  authorVerified?: boolean;
+  authorCreator?: boolean;
 };
 
 export type FriendRequest = {
@@ -67,6 +80,10 @@ export type FriendMessage = {
   receiverId: string;
   content: string;
   createdAt: string;
+  authorName?: string | null;
+  authorTitle?: string | null;
+  authorVerified?: boolean;
+  authorCreator?: boolean;
 };
 
 export type GroupChat = {
@@ -85,6 +102,9 @@ export type GroupMessage = {
   threadParentId?: string | null;
   createdAt: string;
   authorName?: string | null;
+  authorTitle?: string | null;
+  authorVerified?: boolean;
+  authorCreator?: boolean;
 };
 
 export type FeedPost = {
@@ -98,6 +118,9 @@ export type FeedPost = {
   repostsCount: number;
   createdAt: string;
   authorName?: string | null;
+  authorTitle?: string | null;
+  authorVerified?: boolean;
+  authorCreator?: boolean;
   likedByMe?: boolean;
   imageUrl?: string | null;
   videoUrl?: string | null;
@@ -122,6 +145,14 @@ export type PublicUserProfile = {
   isFollowing?: boolean;
   isSelf?: boolean;
   topPosts: FeedPost[];
+  isVerified?: boolean;
+  isCreator?: boolean;
+  activeTitleLabel?: string | null;
+  bannerUrl?: string | null;
+  profileFrame?: string | null;
+  profileBackground?: string | null;
+  accentColor?: string;
+  showcasedBadges?: { id: string; name: string; description: string; icon: string }[];
 };
 
 export type FeedComment = {
@@ -131,6 +162,9 @@ export type FeedComment = {
   content: string;
   createdAt: string;
   authorName?: string | null;
+  authorTitle?: string | null;
+  authorVerified?: boolean;
+  authorCreator?: boolean;
 };
 
 export type TaskItem = {

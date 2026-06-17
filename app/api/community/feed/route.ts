@@ -16,6 +16,8 @@ import {
   toggleLike
 } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthorIdentityMap } from "@/lib/rewards/identity";
+import { syncUserRewards } from "@/lib/rewards/sync";
 
 export async function GET(req: Request) {
   const auth = await requireRegisteredUser();
@@ -25,14 +27,39 @@ export async function GET(req: Request) {
   const postId = searchParams.get("postId");
   if (postId) {
     const comments = await listComments(admin, postId);
-    return NextResponse.json({ comments });
+    const ids = comments.map((c) => c.userId);
+    const map = await getAuthorIdentityMap(admin, ids);
+    return NextResponse.json({
+      comments: comments.map((c) => {
+        const id = map.get(c.userId);
+        return {
+          ...c,
+          authorTitle: id?.titleLabel ?? null,
+          authorVerified: id?.isVerified ?? false,
+          authorCreator: id?.isCreator ?? false
+        };
+      })
+    });
   }
+  await syncUserRewards(admin, auth.user!.id, auth.user!.email);
   const posts = await listFeed(admin, auth.user!.id, {
     cursor: searchParams.get("cursor") ?? undefined,
     tag: searchParams.get("tag") ?? undefined,
     trending: searchParams.get("trending") === "1"
   });
-  return NextResponse.json({ posts });
+  const ids = posts.map((p) => p.userId);
+  const map = await getAuthorIdentityMap(admin, ids);
+  return NextResponse.json({
+    posts: posts.map((p) => {
+      const id = map.get(p.userId);
+      return {
+        ...p,
+        authorTitle: id?.titleLabel ?? null,
+        authorVerified: id?.isVerified ?? false,
+        authorCreator: id?.isCreator ?? false
+      };
+    })
+  });
 }
 
 const postSchema = z.discriminatedUnion("action", [
@@ -112,7 +139,16 @@ export async function POST(req: Request) {
   }
   if (parsed.data.action === "comment") {
     const comment = await addComment(admin, userId, parsed.data.postId, parsed.data.content);
-    return NextResponse.json({ comment });
+    const identity = await getAuthorIdentityMap(admin, [userId]);
+    const id = identity.get(userId);
+    return NextResponse.json({
+      comment: {
+        ...comment,
+        authorTitle: id?.titleLabel ?? null,
+        authorVerified: id?.isVerified ?? false,
+        authorCreator: id?.isCreator ?? false
+      }
+    });
   }
   await repost(admin, userId, parsed.data.postId);
   return NextResponse.json({ ok: true });

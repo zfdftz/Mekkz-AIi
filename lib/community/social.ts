@@ -11,6 +11,7 @@ import type {
   GroupMessage,
   RoomMessage
 } from "./types";
+import { enrichWithAuthorFields } from "@/lib/rewards/identity";
 import { getProfile, usernamesByIds } from "./profile";
 import { normalizeUsername, validateUsername } from "./profile-rules";
 
@@ -51,7 +52,7 @@ export async function listRoomMessages(
     .limit(limit);
   if (error) throw new Error(error.message);
   const names = await usernamesByIds(admin, [...new Set((data ?? []).map((r) => r.user_id))]);
-  return (data ?? []).map((row) => ({
+  const base = (data ?? []).map((row) => ({
     id: row.id,
     roomId: row.room_id,
     userId: row.user_id,
@@ -59,6 +60,7 @@ export async function listRoomMessages(
     createdAt: row.created_at,
     authorName: names.get(row.user_id) ?? null
   }));
+  return enrichWithAuthorFields(admin, base);
 }
 
 export async function postRoomMessage(
@@ -276,13 +278,21 @@ export async function listFriendMessages(
     .order("created_at", { ascending: true })
     .limit(200);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
+  const senderIds = [...new Set((data ?? []).map((r) => r.sender_id))];
+  const names = await usernamesByIds(admin, senderIds);
+  const base = (data ?? []).map((row) => ({
     id: row.id,
     senderId: row.sender_id,
     receiverId: row.receiver_id,
     content: row.content,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    authorName: names.get(row.sender_id) ?? null
   }));
+  const enriched = await enrichWithAuthorFields(
+    admin,
+    base.map((m) => ({ ...m, userId: m.senderId }))
+  );
+  return enriched.map(({ userId: _uid, ...rest }) => rest as FriendMessage);
 }
 
 export async function sendFriendMessage(
@@ -342,7 +352,7 @@ export async function listGroupMessages(admin: SupabaseClient, groupId: string):
   if (error) throw new Error(error.message);
   const userIds = [...new Set((data ?? []).map((r) => r.user_id).filter(Boolean))] as string[];
   const names = await usernamesByIds(admin, userIds);
-  return (data ?? []).map((row) => ({
+  const base = (data ?? []).map((row) => ({
     id: row.id,
     groupId: row.group_id,
     userId: row.user_id,
@@ -352,6 +362,12 @@ export async function listGroupMessages(admin: SupabaseClient, groupId: string):
     createdAt: row.created_at,
     authorName: row.is_ai ? "Mekkz AI" : names.get(row.user_id ?? "") ?? null
   }));
+  const enriched = await enrichWithAuthorFields(
+    admin,
+    base.filter((m) => m.userId) as (typeof base[0] & { userId: string })[]
+  );
+  const enrichedMap = new Map(enriched.map((m) => [m.id, m]));
+  return base.map((m) => (m.userId && enrichedMap.has(m.id) ? enrichedMap.get(m.id)! : m));
 }
 
 export async function postGroupMessage(

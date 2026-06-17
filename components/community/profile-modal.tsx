@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { LoadingState, PrimaryButton } from "@/components/community/shared";
+import { BadgeShowcase, ProfileIdentity } from "@/components/rewards/profile-identity";
+import { getCosmetic } from "@/lib/rewards/catalog";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { PublicUserProfile } from "@/lib/community/types";
 
@@ -104,28 +106,44 @@ export function ProfileModal({
         ) : error || !profile ? (
           <p className="p-6 text-center text-sm text-red-300">{error ?? "Nicht gefunden."}</p>
         ) : (
-          <div className="p-5">
-            <div className="flex gap-4">
-              <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-bold">@{profile.username ?? "user"}</p>
-                <p className="text-sm font-medium text-primary">
-                  {formatCount(profile.followersCount)} Follower
-                </p>
-                <span
-                  className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${planBadgeClass}`}
-                >
-                  {profile.plan !== "free" ? <Crown size={12} /> : null}
-                  {profile.planLabel}
-                </span>
-                {profile.plan !== "free" && profile.planSince ? (
-                  <p className="mt-1 text-xs text-muted">{profile.planLabel} seit {profile.planSince}</p>
-                ) : null}
-                <p className="mt-1 text-xs text-muted">Beigetreten {profile.joinedAt}</p>
+          <>
+            <ProfileBanner profile={profile} />
+            <div className="relative px-5 pb-5">
+              <div className="-mt-10 flex gap-4">
+                <FramedAvatar profile={profile} />
+                <div className="min-w-0 flex-1 pt-8">
+                  <ProfileIdentity
+                    username={profile.username ?? "user"}
+                    title={profile.activeTitleLabel}
+                    isVerified={profile.isVerified}
+                    isCreator={profile.isCreator}
+                  />
+                  <p className="text-sm font-medium text-primary">
+                    {formatCount(profile.followersCount)} Follower
+                  </p>
+                  <span
+                    className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${planBadgeClass}`}
+                  >
+                    {profile.plan !== "free" ? <Crown size={12} /> : null}
+                    {profile.planLabel}
+                  </span>
+                  {profile.plan !== "free" && profile.planSince ? (
+                    <p className="mt-1 text-xs text-muted">
+                      {profile.planLabel} seit {profile.planSince}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-muted">Beigetreten {profile.joinedAt}</p>
+                </div>
               </div>
-            </div>
 
             {profile.bio ? <p className="mt-4 text-sm text-muted">{profile.bio}</p> : null}
+
+            {profile.showcasedBadges && profile.showcasedBadges.length > 0 ? (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">Badges</p>
+                <BadgeShowcase badges={profile.showcasedBadges} />
+              </div>
+            ) : null}
 
             <FollowerStats
               followersCount={profile.followersCount}
@@ -193,15 +211,50 @@ export function ProfileModal({
               )}
             </div>
           </div>
+          </>
         )}
       </motion.div>
     </motion.div>
   );
 }
 
-function Avatar({ url, name }: { url: string | null; name: string }) {
+function ProfileBanner({ profile }: { profile: PublicUserProfile }) {
+  const bgClass = getCosmetic(profile.profileBackground ?? "")?.previewClass ?? "reward-bg-mekkz";
   return (
-    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/15 bg-primary/20">
+    <div
+      className={`relative h-28 w-full bg-cover bg-center ${bgClass}`}
+      style={profile.bannerUrl ? { backgroundImage: `url(${profile.bannerUrl})` } : undefined}
+    >
+      <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
+    </div>
+  );
+}
+
+function FramedAvatar({ profile }: { profile: PublicUserProfile }) {
+  const frameClass = getCosmetic(profile.profileFrame ?? "")?.previewClass ?? "";
+  return (
+    <div
+      className={`relative h-20 w-20 shrink-0 rounded-full p-0.5 ${frameClass}`}
+      style={profile.accentColor ? { boxShadow: `0 0 0 2px ${profile.accentColor}` } : undefined}
+    >
+      <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} animated={false} />
+    </div>
+  );
+}
+
+function Avatar({
+  url,
+  name,
+  animated
+}: {
+  url: string | null;
+  name: string;
+  animated?: boolean;
+}) {
+  return (
+    <div
+      className={`h-full w-full overflow-hidden rounded-full border border-white/15 bg-primary/20 ${animated ? "reward-avatar-pulse" : ""}`}
+    >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="h-full w-full object-cover" />

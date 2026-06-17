@@ -23,6 +23,7 @@ import { useState } from "react";
 import { FeedTab } from "@/components/community/feed-tab";
 import { LoadingState } from "@/components/community/shared";
 import { ProfileProvider } from "@/components/community/profile-context";
+import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
 import { useReminderAlerts } from "@/hooks/use-reminder-alerts";
 import type { CommunityTab } from "@/lib/community/types";
 
@@ -175,6 +176,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
 
   return (
     <ProfileProvider>
+    <RewardsAdminButton />
     <div className="community-hub mx-auto min-h-screen max-w-[1400px] px-4 py-5 sm:px-6 sm:py-8">
       {alert ? (
         <motion.div

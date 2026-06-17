@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PlanId } from "./plans";
+import { PaidPlanId, PlanId, planRank } from "./plans";
 import {
   getStripe,
   isEntitledSubscriptionStatus,
@@ -26,20 +26,13 @@ export type StripeSyncResult = {
   state?: UserPlanState;
 };
 
-function planRank(plan: PlanId) {
-  if (plan === "ultra") return 2;
-  if (plan === "pro") return 1;
-  return 0;
-}
-
 function pickBestSubscription(subscriptions: Stripe.Subscription[]) {
   const active = subscriptions.filter((sub) =>
     isEntitledSubscriptionStatus(sub.status)
   );
   if (active.length === 0) return null;
 
-  let best: { subscription: Stripe.Subscription; plan: Exclude<PlanId, "free"> } | null =
-    null;
+  let best: { subscription: Stripe.Subscription; plan: PaidPlanId } | null = null;
 
   for (const subscription of active) {
     const plan = subscriptionPlan(subscription);

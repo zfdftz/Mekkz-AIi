@@ -147,6 +147,8 @@ export function ProfileModal({
       ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
       : profile?.plan === "pro"
         ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
+        : profile?.plan === "plus"
+          ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
         : "border-white/20 bg-white/10 text-muted";
 
   return (

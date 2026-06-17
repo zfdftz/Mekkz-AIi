@@ -35,7 +35,7 @@ import {
 } from "@/lib/user-plans";
 
 const checkoutSchema = z.object({
-  plan: z.enum(["pro", "ultra"])
+  plan: z.enum(["plus", "pro", "ultra"])
 });
 
 async function scheduleUltraToProDowngrade(
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
 
     if (!user || isGuestUser(user)) {
       return NextResponse.json(
-        { error: "Bitte zuerst anmelden oder registrieren, dann Pro oder Ultra kaufen." },
+        { error: "Bitte zuerst anmelden oder registrieren, dann Plus, Pro oder Ultra kaufen." },
         { status: 401 }
       );
     }
@@ -157,6 +157,13 @@ export async function POST(req: Request) {
 
     if (dbPlan === "ultra" && plan === "pro") {
       return scheduleUltraToProDowngrade(stripe, admin, user.id, user.email);
+    }
+
+    if (dbPlan === "plus" && plan === "plus") {
+      return NextResponse.json({
+        updated: true,
+        message: "Plus ist bereits aktiv."
+      });
     }
 
     if (dbPlan === "pro" && plan === "pro") {
@@ -191,7 +198,7 @@ export async function POST(req: Request) {
       ) {
         return NextResponse.json({
           updated: true,
-          message: `${plan === "pro" ? "Pro" : "Ultra"} ist bereits aktiv.`
+          message: `${plan === "plus" ? "Plus" : plan === "pro" ? "Pro" : "Ultra"} ist bereits aktiv.`
         });
       }
 
@@ -227,8 +234,8 @@ export async function POST(req: Request) {
       if (upgradeResponse) return upgradeResponse;
     }
 
-    if (hasStripePriceIds()) {
-      const priceId = getStripePriceId(plan);
+    const priceId = getStripePriceId(plan);
+    if (priceId) {
       let customerId = billing.stripeCustomerId;
 
       if (!customerId) {
@@ -276,14 +283,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ url: session.url });
     }
 
-    if (usesStripePaymentLinks()) {
+    if (usesStripePaymentLinks() && plan !== "plus") {
       return NextResponse.json({
         url: buildStripePaymentLinkUrl(plan, user.id, user.email)
       });
     }
 
     return NextResponse.json(
-      { error: "Stripe-Preise fehlen in Vercel (STRIPE_PRICE_PRO / STRIPE_PRICE_ULTRA)." },
+      {
+        error:
+          plan === "plus"
+            ? "Stripe-Preis fehlt in Vercel (STRIPE_PRICE_PLUS)."
+            : "Stripe-Preise fehlen in Vercel (STRIPE_PRICE_PRO / STRIPE_PRICE_ULTRA)."
+      },
       { status: 503 }
     );
   } catch (error) {

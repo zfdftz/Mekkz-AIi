@@ -393,6 +393,9 @@ export async function POST(req: Request) {
             });
 
             const streamTask = (async () => {
+              if (planState.textReadyDelayMs > 0) {
+                await sleep(planState.textReadyDelayMs);
+              }
               for await (const chunk of streamAIResponse(aiMessages, {
                 language: streamLanguage
               })) {
@@ -508,6 +511,9 @@ export async function POST(req: Request) {
         }
       });
     } else {
+      if (planState.textReadyDelayMs > 0) {
+        await sleep(planState.textReadyDelayMs);
+      }
       reply = await Promise.race([
         generateAIResponse(
           [system, ...applyChatLineFormat(messagesForAI(messages), chatContext.username)],

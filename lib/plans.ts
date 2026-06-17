@@ -1,13 +1,28 @@
-export type PlanId = "free" | "pro" | "ultra";
+export type PlanId = "free" | "plus" | "pro" | "ultra";
+
+export const PAID_PLAN_IDS = ["plus", "pro", "ultra"] as const;
+export type PaidPlanId = (typeof PAID_PLAN_IDS)[number];
 
 /** ChatGPT-style limit per conversation (user message pairs). */
 export const CHATGPT_MESSAGES_PER_CHAT = 40;
 
 /** Monatspreise in Cent (Stripe / Abrechnung). */
-export const PLAN_MONTHLY_CENTS: Record<Exclude<PlanId, "free">, number> = {
+export const PLAN_MONTHLY_CENTS: Record<PaidPlanId, number> = {
+  plus: 300,
   pro: 1000,
   ultra: 2900
 };
+
+export function isPaidPlanId(plan: string | null | undefined): plan is PaidPlanId {
+  return plan === "plus" || plan === "pro" || plan === "ultra";
+}
+
+export function planRank(plan: PlanId) {
+  if (plan === "ultra") return 3;
+  if (plan === "pro") return 2;
+  if (plan === "plus") return 1;
+  return 0;
+}
 
 export function planUpgradeDifferenceCents() {
   return PLAN_MONTHLY_CENTS.ultra - PLAN_MONTHLY_CENTS.pro;
@@ -34,8 +49,19 @@ export const PLANS: Record<PlanId, PlanInfo> = {
     dailyUploadLimit: 5,
     messagesPerChatLimit: CHATGPT_MESSAGES_PER_CHAT,
     imageReadyDelayMs: 1200,
-    textReadyDelayMs: 0,
+    textReadyDelayMs: 600,
     description: "7 Bilder erstellen, 5 Bilder an mekkz AI senden pro Tag."
+  },
+  plus: {
+    id: "plus",
+    label: "Plus",
+    priceLabel: "3 € / Monat",
+    dailyImageLimit: 7,
+    dailyUploadLimit: 9,
+    messagesPerChatLimit: 50,
+    imageReadyDelayMs: 850,
+    textReadyDelayMs: 180,
+    description: "50 Nachrichten pro Chat, 7 Bilder erstellen, 9 senden, etwas schneller als Free."
   },
   pro: {
     id: "pro",
@@ -62,7 +88,7 @@ export const PLANS: Record<PlanId, PlanInfo> = {
 };
 
 export function getPlanInfo(plan: string): PlanInfo {
-  if (plan === "pro" || plan === "ultra") return PLANS[plan];
+  if (isPaidPlanId(plan)) return PLANS[plan];
   return PLANS.free;
 }
 
@@ -71,6 +97,7 @@ export function buildPlansLimitsReference() {
   return (
     "OFFIZIELLE LIMIT-TABELLE (niemals andere Zahlen erfinden — Free hat NICHT 10 Bilder):\n" +
     `- Free: ${PLANS.free.dailyImageLimit} Bilder erstellen/Tag, ${PLANS.free.dailyUploadLimit} Bilder senden (hochladen)/Tag, ${PLANS.free.messagesPerChatLimit} Nachrichten/Chat\n` +
+    `- Plus: ${PLANS.plus.dailyImageLimit} erstellen, ${PLANS.plus.dailyUploadLimit} senden, ${PLANS.plus.messagesPerChatLimit} Nachrichten/Chat\n` +
     `- Pro: ${PLANS.pro.dailyImageLimit} erstellen, ${PLANS.pro.dailyUploadLimit} senden, ${PLANS.pro.messagesPerChatLimit} Nachrichten/Chat\n` +
     `- Ultra: ${PLANS.ultra.dailyImageLimit} erstellen, ${PLANS.ultra.dailyUploadLimit} senden, unbegrenzt Nachrichten/Chat`
   );

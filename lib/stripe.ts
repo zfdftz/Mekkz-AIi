@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { PlanId } from "./plans";
+import { isPaidPlanId, PaidPlanId, PlanId, PLAN_MONTHLY_CENTS } from "./plans";
 import { trySubscriptionPeriodEnd } from "./stripe-billing";
 
 let stripeClient: Stripe | null = null;
@@ -55,14 +55,20 @@ export function stripeConfigErrorMessage() {
 }
 
 export function buildStripePaymentLinkUrl(
-  plan: Exclude<PlanId, "free">,
+  plan: PaidPlanId,
   userId?: string | null,
   email?: string | null
 ) {
   const base =
-    plan === "pro"
-      ? process.env.STRIPE_PAYMENT_LINK_PRO!
-      : process.env.STRIPE_PAYMENT_LINK_ULTRA!;
+    plan === "plus"
+      ? process.env.STRIPE_PAYMENT_LINK_PLUS
+      : plan === "pro"
+        ? process.env.STRIPE_PAYMENT_LINK_PRO!
+        : process.env.STRIPE_PAYMENT_LINK_ULTRA!;
+
+  if (!base?.trim()) {
+    throw new Error(`Kein Stripe Payment Link für ${plan}.`);
+  }
 
   const url = new URL(base);
   if (userId) url.searchParams.set("client_reference_id", userId);
@@ -74,15 +80,16 @@ export function getAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://127.0.0.1:3000";
 }
 
-export function getStripePriceId(plan: Exclude<PlanId, "free">) {
-  return plan === "pro"
-    ? process.env.STRIPE_PRICE_PRO!
-    : process.env.STRIPE_PRICE_ULTRA!;
+export function getStripePriceId(plan: PaidPlanId): string | null {
+  if (plan === "plus") return process.env.STRIPE_PRICE_PLUS?.trim() || null;
+  if (plan === "pro") return process.env.STRIPE_PRICE_PRO?.trim() || null;
+  return process.env.STRIPE_PRICE_ULTRA?.trim() || null;
 }
 
-export function planFromStripePriceId(priceId: string): Exclude<PlanId, "free"> | null {
-  if (priceId === process.env.STRIPE_PRICE_PRO) return "pro";
-  if (priceId === process.env.STRIPE_PRICE_ULTRA) return "ultra";
+export function planFromStripePriceId(priceId: string): PaidPlanId | null {
+  if (priceId === process.env.STRIPE_PRICE_PLUS?.trim()) return "plus";
+  if (priceId === process.env.STRIPE_PRICE_PRO?.trim()) return "pro";
+  if (priceId === process.env.STRIPE_PRICE_ULTRA?.trim()) return "ultra";
   return null;
 }
 
@@ -111,22 +118,21 @@ export function shouldDowngradeFromSubscription(subscription: Stripe.Subscriptio
   return status !== "incomplete";
 }
 
-function planFromSubscriptionAmount(subscription: Stripe.Subscription) {
+function planFromSubscriptionAmount(subscription: Stripe.Subscription): PaidPlanId | null {
   const price = subscription.items.data[0]?.price;
   const amount = price?.unit_amount;
   const currency = price?.currency?.toLowerCase();
   if (currency === "eur" && amount != null) {
-    if (amount === 1000) return "pro" as const;
-    if (amount === 2900) return "ultra" as const;
+    if (amount === PLAN_MONTHLY_CENTS.plus) return "plus";
+    if (amount === PLAN_MONTHLY_CENTS.pro) return "pro";
+    if (amount === PLAN_MONTHLY_CENTS.ultra) return "ultra";
   }
   return null;
 }
 
-export function subscriptionPlan(
-  subscription: Stripe.Subscription
-): Exclude<PlanId, "free"> | null {
+export function subscriptionPlan(subscription: Stripe.Subscription): PaidPlanId | null {
   const metaPlan = subscription.metadata?.plan;
-  if (metaPlan === "pro" || metaPlan === "ultra") return metaPlan;
+  if (isPaidPlanId(metaPlan)) return metaPlan;
 
   const fromAmount = planFromSubscriptionAmount(subscription);
   if (fromAmount) return fromAmount;
@@ -138,8 +144,15 @@ export function subscriptionPlan(
   }
 
   const nickname = subscription.items.data[0]?.price?.nickname?.toLowerCase() ?? "";
-  if (nickname.includes("ultra")) return "ultra";
-  if (nickname.includes("pro")) return "pro";
+  const product = subscription.items.data[0]?.price?.product;
+  const productName =
+    product && typeof product === "object" && "name" in product && product.name
+      ? product.name.toLowerCase()
+      : "";
+
+  if (nickname.includes("ultra") || productName.includes("ultra")) return "ultra";
+  if (nickname.includes("pro") || productName.includes(" pro")) return "pro";
+  if (nickname.includes("plus") || productName.includes("plus")) return "plus";
 
   return null;
 }
@@ -148,9 +161,9 @@ export function subscriptionPlan(
 export function planFromCheckoutSession(
   session: Stripe.Checkout.Session,
   subscription?: Stripe.Subscription
-): Exclude<PlanId, "free"> | null {
+): PaidPlanId | null {
   const metaPlan = session.metadata?.plan;
-  if (metaPlan === "pro" || metaPlan === "ultra") return metaPlan;
+  if (isPaidPlanId(metaPlan)) return metaPlan;
 
   if (subscription) {
     const fromSub = subscriptionPlan(subscription);
@@ -160,8 +173,9 @@ export function planFromCheckoutSession(
   const total = session.amount_total;
   const currency = session.currency?.toLowerCase();
   if (currency === "eur" && total != null) {
-    if (total === 1000) return "pro";
-    if (total === 2900) return "ultra";
+    if (total === PLAN_MONTHLY_CENTS.plus) return "plus";
+    if (total === PLAN_MONTHLY_CENTS.pro) return "pro";
+    if (total === PLAN_MONTHLY_CENTS.ultra) return "ultra";
   }
 
   return null;

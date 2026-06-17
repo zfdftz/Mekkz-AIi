@@ -18,6 +18,7 @@ export async function GET() {
       STRIPE_PAYMENT_LINK_PRO: Boolean(process.env.STRIPE_PAYMENT_LINK_PRO?.trim()),
       STRIPE_PAYMENT_LINK_ULTRA: Boolean(process.env.STRIPE_PAYMENT_LINK_ULTRA?.trim()),
       STRIPE_PRICE_PRO: Boolean(process.env.STRIPE_PRICE_PRO?.trim()),
+      STRIPE_PRICE_PLUS: Boolean(process.env.STRIPE_PRICE_PLUS?.trim()),
       STRIPE_PRICE_ULTRA: Boolean(process.env.STRIPE_PRICE_ULTRA?.trim())
     }
   });

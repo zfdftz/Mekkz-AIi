@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { countConversationMessages } from "./chat-storage";
-import { getPlanInfo, PlanId, PLANS, buildPlansLimitsReference } from "./plans";
+import { getPlanInfo, PlanId, PLANS, buildPlansLimitsReference, isPaidPlanId } from "./plans";
 import { formatBillingDateIso } from "./stripe-billing";
 import { isActiveSubscriptionStatus, isEntitledSubscriptionStatus } from "./stripe";
 
@@ -58,7 +58,7 @@ function normalizeScheduledPlan(value: string | null | undefined): PlanId | null
 export function resolveEntitledPlan(row: UserPlanRow | null | undefined): PlanId {
   if (!row) return "free";
 
-  const stored = row.plan === "pro" || row.plan === "ultra" ? row.plan : "free";
+  const stored = isPaidPlanId(row.plan) ? row.plan : "free";
   if (stored === "free") return "free";
 
   if (process.env.ALLOW_DEMO_PLAN_UPGRADE === "true") {
@@ -69,7 +69,7 @@ export function resolveEntitledPlan(row: UserPlanRow | null | undefined): PlanId
 }
 
 export function hasStoredPaidPlan(row: UserPlanRow | null | undefined) {
-  return row?.plan === "pro" || row?.plan === "ultra";
+  return isPaidPlanId(row?.plan);
 }
 
 function billingFromPlanRow(row: UserPlanRow) {
@@ -184,13 +184,17 @@ export function buildPlanSystemPrompt(
     "- Intern: Free etwas ruhiger, Pro flotter, Ultra am schnellsten. Das dem Nutzer NICHT als 'Delay' oder Wartezeit erklären.\n" +
     "- Fragt der Nutzer warum es dauert oder ob es Verzögerungen gibt: sage freundlich, das sei normal (Denken, Verarbeiten) — ohne Zahlen, ohne 'Tarif-Delay'.\n" +
     (planState.plan === "free"
-      ? "- Auf Free: beruhigend, dass das normal ist. Optional dezent: mit Pro oder Ultra kannst du mehr Energie reinstecken und schneller/lebendiger antworten.\n"
+      ? "- Auf Free: beruhigend, dass das normal ist. Optional dezent: mit Plus, Pro oder Ultra antwortest du schneller und lebendiger.\n"
+      : planState.plan === "plus"
+        ? "- Auf Plus: bestätige dass es flotter als Free läuft; Pro/Ultra wären noch direkter.\n"
       : planState.plan === "pro"
         ? "- Auf Pro: bestätige dass es flotter läuft; Ultra wäre noch direkter und mit noch mehr Energie.\n"
         : "- Auf Ultra: bestätige dass du mit voller Energie und ohne Einschränkung antwortest.\n") +
     "Wenn der Nutzer fragt, ob er MEHR als 40 Nachrichten im gleichen Chat senden kann:\n" +
     (planState.plan === "free"
-      ? "- Auf Free: NEIN, maximal 40 Nachrichten pro Chat (wie ChatGPT). Danach neuer Chat oder Upgrade auf Pro (80) / Ultra (unbegrenzt).\n"
+      ? "- Auf Free: NEIN, maximal 40 Nachrichten pro Chat (wie ChatGPT). Danach neuer Chat oder Upgrade auf Plus (50) / Pro (80) / Ultra (unbegrenzt).\n"
+      : planState.plan === "plus"
+        ? "- Auf Plus: maximal 50 Nachrichten pro Chat. Pro = 80, Ultra = unbegrenzt.\n"
       : planState.plan === "pro"
         ? "- Auf Pro: maximal 80 Nachrichten pro Chat, nicht unbegrenzt. Ultra = unbegrenzt.\n"
         : "- Auf Ultra: ja, unbegrenzte Nachrichten pro Chat.\n") +
@@ -234,7 +238,9 @@ export async function assertCanSendChatMessage(
   if (limitState.limit !== null && limitState.used >= limitState.limit) {
     const upgradeHint =
       planState.plan === "free"
-        ? `Upgrade auf Pro (${PLANS.pro.messagesPerChatLimit} pro Chat) oder Ultra (unbegrenzt).`
+        ? `Upgrade auf Plus (${PLANS.plus.messagesPerChatLimit} pro Chat), Pro (${PLANS.pro.messagesPerChatLimit} pro Chat) oder Ultra (unbegrenzt).`
+        : planState.plan === "plus"
+          ? "Upgrade auf Pro (80 pro Chat) oder Ultra (unbegrenzt)."
         : planState.plan === "pro"
           ? "Upgrade auf Ultra für unbegrenzte Nachrichten pro Chat."
           : "";
@@ -482,7 +488,9 @@ export async function consumeUploadSlot(admin: SupabaseClient, userId: string) {
   ) {
     const upgradeHint =
       state.plan === "free"
-        ? `Upgrade auf Pro (${PLANS.pro.dailyUploadLimit}/Tag) oder Ultra (${PLANS.ultra.dailyUploadLimit}/Tag).`
+        ? `Upgrade auf Plus (${PLANS.plus.dailyUploadLimit}/Tag), Pro (${PLANS.pro.dailyUploadLimit}/Tag) oder Ultra (${PLANS.ultra.dailyUploadLimit}/Tag).`
+        : state.plan === "plus"
+          ? `Upgrade auf Pro (${PLANS.pro.dailyUploadLimit}/Tag) oder Ultra (${PLANS.ultra.dailyUploadLimit}/Tag).`
         : "Tageslimit für Bild-Uploads erreicht. Morgen wieder verfügbar.";
     throw new Error(
       `Tageslimit für Bild-Uploads erreicht (${state.dailyUploadLimit} Bilder). ${upgradeHint}`
@@ -498,7 +506,7 @@ export async function consumeImageCreateSlot(admin: SupabaseClient, userId: stri
   if (state.dailyLimit !== null && state.imagesToday >= state.dailyLimit) {
     const upgradeHint =
       state.plan === "free"
-        ? `Upgrade auf Pro (${PLANS.pro.dailyImageLimit}/Tag) oder Ultra (${PLANS.ultra.dailyImageLimit}/Tag).`
+        ? `Upgrade auf Plus (${PLANS.plus.dailyImageLimit}/Tag), Pro (${PLANS.pro.dailyImageLimit}/Tag) oder Ultra (${PLANS.ultra.dailyImageLimit}/Tag).`
         : "Tageslimit erreicht. Morgen sind wieder neue Bilder verfügbar.";
     throw new Error(
       `Tageslimit für Bild-Erstellung erreicht (${state.dailyLimit} Bilder). ${upgradeHint}`
@@ -514,7 +522,7 @@ export async function assertCanGenerateImage(admin: SupabaseClient, userId: stri
   if (state.dailyLimit !== null && state.imagesToday >= state.dailyLimit) {
     const upgradeHint =
       state.plan === "free"
-        ? `Upgrade auf Pro (${PLANS.pro.dailyImageLimit}/Tag) oder Ultra (${PLANS.ultra.dailyImageLimit}/Tag).`
+        ? `Upgrade auf Plus (${PLANS.plus.dailyImageLimit}/Tag), Pro (${PLANS.pro.dailyImageLimit}/Tag) oder Ultra (${PLANS.ultra.dailyImageLimit}/Tag).`
         : "Tageslimit erreicht. Morgen sind wieder neue Bilder verfügbar.";
     throw new Error(
       `Tageslimit für Bild-Erstellung erreicht (${state.dailyLimit} Bilder). ${upgradeHint}`
@@ -533,7 +541,9 @@ export async function assertCanSendImage(admin: SupabaseClient, userId: string) 
   ) {
     const upgradeHint =
       state.plan === "free"
-        ? `Upgrade auf Pro (${PLANS.pro.dailyUploadLimit}/Tag) oder Ultra (${PLANS.ultra.dailyUploadLimit}/Tag).`
+        ? `Upgrade auf Plus (${PLANS.plus.dailyUploadLimit}/Tag), Pro (${PLANS.pro.dailyUploadLimit}/Tag) oder Ultra (${PLANS.ultra.dailyUploadLimit}/Tag).`
+        : state.plan === "plus"
+          ? `Upgrade auf Pro (${PLANS.pro.dailyUploadLimit}/Tag) oder Ultra (${PLANS.ultra.dailyUploadLimit}/Tag).`
         : "Tageslimit für Bild-Uploads erreicht. Morgen wieder verfügbar.";
     throw new Error(
       `Tageslimit für Bild-Uploads erreicht (${state.dailyUploadLimit} Bilder). ${upgradeHint}`
@@ -571,7 +581,7 @@ async function bumpPlanUsage(
     uploads_today?: number;
   };
 
-  const plan = (payload.plan === "pro" || payload.plan === "ultra" ? payload.plan : "free") as PlanId;
+  const plan = (isPaidPlanId(payload.plan ?? "") ? payload.plan : "free") as PlanId;
   return buildState(
     plan,
     Number(payload.images_today ?? 0),
@@ -588,9 +598,7 @@ async function persistPlanUsage(
 ) {
   const today = todayKey();
   const existing = await getUserPlanRow(admin, userId);
-  const plan = (
-    existing?.plan === "pro" || existing?.plan === "ultra" ? existing.plan : state.plan
-  ) as PlanId;
+  const plan = (isPaidPlanId(existing?.plan ?? "") ? existing!.plan : state.plan) as PlanId;
   const stripeStatus = existing?.stripe_subscription_status ?? state.stripeSubscriptionStatus;
 
   const { data, error } = await admin
@@ -619,7 +627,7 @@ async function persistPlanUsage(
 
   const imagesToday = Number(data.images_today ?? 0);
   const uploadsToday = Number(data.uploads_today ?? 0);
-  const savedPlan = (data.plan === "pro" || data.plan === "ultra" ? data.plan : "free") as PlanId;
+  const savedPlan = (isPaidPlanId(data.plan ?? "") ? data.plan : "free") as PlanId;
 
   return buildState(
     savedPlan,
@@ -683,7 +691,7 @@ export async function setUserPlanFromStripe(
   }
 ) {
   const today = todayKey();
-  const normalizedPlan = plan === "pro" || plan === "ultra" ? plan : "free";
+  const normalizedPlan = isPaidPlanId(plan) ? plan : "free";
   let row = await getUserPlanRow(admin, userId);
 
   if (!row) {
@@ -790,8 +798,7 @@ export async function setUserPlanFromStripe(
     throw new Error(verifyError.message);
   }
 
-  const savedPlan =
-    verify?.plan === "pro" || verify?.plan === "ultra" ? verify.plan : "free";
+  const savedPlan = isPaidPlanId(verify?.plan ?? "") ? verify!.plan : "free";
 
   if (savedPlan !== normalizedPlan) {
     throw new Error(

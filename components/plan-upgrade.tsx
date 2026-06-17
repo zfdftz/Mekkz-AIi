@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, Sparkles, X, Zap } from "lucide-react";
+import { Crown, Sparkles, Star, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "@/components/language-provider";
@@ -10,6 +10,7 @@ import { PLANS, PlanId } from "@/lib/plans";
 import {
   getPlanBullets,
   getPlanUsageLabel,
+  getPlusActionLabel,
   getProActionLabel,
   getUltraActionLabel
 } from "@/lib/i18n/plan-content";
@@ -173,7 +174,9 @@ export function PlanUpgrade({
           ? t("plan.checkoutSuccessUltra")
           : plan === "pro"
             ? t("plan.checkoutSuccessPro")
-            : t("plan.checkoutSuccessGeneric")
+            : plan === "plus"
+              ? t("plan.checkoutSuccessPlus")
+              : t("plan.checkoutSuccessGeneric")
       );
       window.history.replaceState({}, "", "/chat");
       void loadPlan();
@@ -283,16 +286,23 @@ export function PlanUpgrade({
   const current = planState?.plan ?? "free";
   const hasLiveSubscription = planState?.hasActiveSubscription === true;
   const isPaidPlan =
-    !isGuest && hasLiveSubscription && (current === "pro" || current === "ultra");
+    !isGuest && hasLiveSubscription && (current === "plus" || current === "pro" || current === "ultra");
   const canManageBilling =
     !isGuest && (planState?.canManageBilling === true || hasLiveSubscription);
   const badgeLabel = isGuest
     ? t("common.guest")
     : current === "free"
       ? t("plan.freeTitle")
+      : current === "plus"
+        ? t("plan.plusTitle")
       : current === "pro"
         ? t("plan.proTitle")
         : t("plan.ultraTitle");
+
+  const plusActionLabel = getPlusActionLabel(language, current);
+  const plusDisabled =
+    (current === "plus" && hasLiveSubscription) || upgrading === "plus";
+  const plusOnAction = plusDisabled ? undefined : () => void upgrade("plus");
 
   const proActionLabel = getProActionLabel(
     language,
@@ -357,7 +367,7 @@ export function PlanUpgrade({
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 lg:gap-4">
                 <PlanCard
                   title={t("plan.freeTitle")}
                   price={t("plan.freePrice")}
@@ -365,6 +375,21 @@ export function PlanUpgrade({
                   active={current === "free"}
                   isCurrentPlan={current === "free"}
                   bullets={planBulletsForLanguage("free", language)}
+                  activeLabel={t("plan.activeBadge")}
+                  redirectLabel={t("plan.redirecting")}
+                />
+
+                <PlanCard
+                  title={t("plan.plusTitle")}
+                  price={t("plan.plusPrice")}
+                  icon={<Star size={16} />}
+                  active={current === "plus"}
+                  isCurrentPlan={current === "plus"}
+                  bullets={planBulletsForLanguage("plus", language)}
+                  actionLabel={plusActionLabel}
+                  disabled={plusDisabled}
+                  loading={upgrading === "plus"}
+                  onAction={plusOnAction}
                   activeLabel={t("plan.activeBadge")}
                   redirectLabel={t("plan.redirecting")}
                 />

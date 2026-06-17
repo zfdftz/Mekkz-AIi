@@ -46,6 +46,16 @@ export function getPlanBullets(language: LanguageCode, plan: PlanId) {
     return [createLine, uploadLine, t(language, "plan.bullet.standardText"), chatLine];
   }
 
+  if (plan === "plus") {
+    return [
+      t(language, "plan.bullet.slightlyFasterImages"),
+      createLine,
+      uploadLine,
+      t(language, "plan.bullet.slightlyFasterReplies"),
+      chatLine
+    ];
+  }
+
   if (plan === "pro") {
     return [
       t(language, "plan.bullet.fasterImages"),
@@ -65,6 +75,11 @@ export function getPlanBullets(language: LanguageCode, plan: PlanId) {
   ];
 }
 
+export function getPlusActionLabel(language: LanguageCode, current: PlanId) {
+  if (current === "plus") return t(language, "plan.active");
+  return t(language, "plan.buyPlus");
+}
+
 export function getProActionLabel(
   language: LanguageCode,
   current: PlanId,
@@ -73,6 +88,7 @@ export function getProActionLabel(
   periodEnd?: string | null
 ) {
   if (current === "pro") return t(language, "plan.active");
+  if (current === "plus") return t(language, "plan.buyPro");
   if (current !== "ultra") return t(language, "plan.buyPro");
 
   const endIso = scheduledAt ?? periodEnd;
@@ -87,6 +103,7 @@ export function getProActionLabel(
 export function getUltraActionLabel(language: LanguageCode, current: PlanId) {
   if (current === "ultra") return t(language, "plan.active");
   if (current === "pro") return t(language, "plan.upgradeProrated");
+  if (current === "plus") return t(language, "plan.buyUltra");
   return t(language, "plan.buyUltra");
 }
 

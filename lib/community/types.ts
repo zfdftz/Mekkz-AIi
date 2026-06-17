@@ -21,7 +21,7 @@ export type UserProfile = {
   isFounder?: boolean;
   activeTitle?: string | null;
   activeTitleLabel?: string | null;
-  plan?: "free" | "pro" | "ultra";
+  plan?: "free" | "plus" | "pro" | "ultra";
   planLabel?: string;
   totalLikes?: number;
   bannerUrl?: string | null;
@@ -154,7 +154,7 @@ export type PublicUserProfile = {
   messagesSent: number;
   xp: number;
   isOnline?: boolean;
-  plan: "free" | "pro" | "ultra";
+  plan: "free" | "plus" | "pro" | "ultra";
   planLabel: string;
   planSince: string | null;
   joinedAt: string;

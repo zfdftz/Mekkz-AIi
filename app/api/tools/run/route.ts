@@ -4,7 +4,7 @@ import { generateAIResponse } from "@/lib/ai";
 import { generateImage } from "@/lib/image-gen";
 import { buildLogoImagePrompt } from "@/lib/tools/logo-image";
 import { getToolById } from "@/lib/tools/registry";
-import { fetchPageText, fetchYouTubeContext, formatYouTubeContext } from "@/lib/tools/web-utils";
+import { fetchPageText, fetchTikTokContext, fetchYouTubeContext, formatTikTokContext, formatYouTubeContext } from "@/lib/tools/web-utils";
 import { fetchWebContext } from "@/lib/web-search";
 import { createClient } from "@/lib/supabase/server";
 import { resolveUserLanguage } from "@/lib/user-language";
@@ -86,10 +86,21 @@ export async function POST(req: Request) {
     if (toolId === "youtube-chat" && values.url) {
       try {
         const yt = await fetchYouTubeContext(values.url);
-        enrichedPrompt = `${formatYouTubeContext(yt)}\n\nUSER REQUEST: ${values.question || "Summarize and list key points"}`;
+        enrichedPrompt = `${formatYouTubeContext(yt)}\n\nUSER REQUEST: ${values.question || "Summarize the video and analyze comments — who said what?"}`;
         sources.push(values.url);
       } catch (error) {
         const message = error instanceof Error ? error.message : "YouTube fetch failed.";
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
+    }
+
+    if (toolId === "tiktok-chat" && values.url) {
+      try {
+        const tiktok = await fetchTikTokContext(values.url);
+        enrichedPrompt = `${formatTikTokContext(tiktok)}\n\nUSER REQUEST: ${values.question || "What do you know about this TikTok profile/video and the comments?"}`;
+        sources.push(values.url);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "TikTok fetch failed.";
         return NextResponse.json({ error: message }, { status: 502 });
       }
     }

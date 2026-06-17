@@ -253,15 +253,35 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     id: "youtube-chat",
     category: "advanced",
     name: "YouTube Chat",
-    description: "Paste a YouTube URL for summary, key points, and Q&A.",
+    description: "YouTube URL — summary, comments, who said what, and Q&A.",
     fields: [
       { id: "url", label: "YouTube URL", type: "text", required: true },
       { id: "question", label: "Question (optional)", type: "text" }
     ],
     systemPrompt:
-      "Summarize YouTube video content from provided metadata/transcript. Output: Summary, Key Points, Timestamps (estimated if needed), Answer to question.",
+      "Analyze the YouTube video using provided metadata, description, and scraped comments. " +
+      "Output: Summary, Key points, Comments overview (who said what — quote usernames + comment text), " +
+      "Notable reactions/themes, Answer to the user's question. " +
+      "If comments are missing, say so honestly and use title/description only.",
     buildUserPrompt: (values) =>
-      `YouTube URL: ${v(values, "url")}. Question: ${v(values, "question", "Summarize and extract key points")}`
+      `YouTube URL: ${v(values, "url")}. Question: ${v(values, "question", "Summarize the video and analyze the comments — who said what?")}`
+  },
+  {
+    id: "tiktok-chat",
+    category: "advanced",
+    name: "TikTok Chat",
+    description: "TikTok video or profile URL — creator info, comments, and insights.",
+    fields: [
+      { id: "url", label: "TikTok URL", type: "text", required: true, placeholder: "https://www.tiktok.com/@user/video/..." },
+      { id: "question", label: "Question (optional)", type: "text" }
+    ],
+    systemPrompt:
+      "Analyze TikTok content from provided profile/video metadata and scraped comments. " +
+      "Output: Profile/creator overview (bio, stats if available), Video summary, " +
+      "Comments breakdown (who said what), Trends or themes in comments, Answer to user question. " +
+      "If data is limited, say what you could and could not load.",
+    buildUserPrompt: (values) =>
+      `TikTok URL: ${v(values, "url")}. Question: ${v(values, "question", "What can you tell me about this profile/video and the comments?")}`
   },
   {
     id: "ai-browser",

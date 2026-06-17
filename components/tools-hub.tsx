@@ -9,10 +9,12 @@ import {
   Loader2,
   Palette,
   Sparkles,
-  Wrench
+  Wrench,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
+import { ChatMarkdown } from "@/components/chat-markdown";
 import { useLanguage } from "@/components/language-provider";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { downloadImageAsset } from "@/lib/image-download";
@@ -35,11 +37,26 @@ type RunResponse = {
 
 const CATEGORY_META: Record<
   ToolCategory,
-  { label: string; icon: typeof Sparkles; color: string }
+  { label: string; icon: typeof Sparkles; color: string; ring: string }
 > = {
-  creative: { label: "Creative Tools", icon: Palette, color: "text-pink-200" },
-  business: { label: "Business Tools", icon: Briefcase, color: "text-sky-200" },
-  advanced: { label: "Advanced AI", icon: Bot, color: "text-violet-200" }
+  creative: {
+    label: "Creative",
+    icon: Palette,
+    color: "text-pink-200",
+    ring: "ring-pink-400/30"
+  },
+  business: {
+    label: "Business",
+    icon: Briefcase,
+    color: "text-sky-200",
+    ring: "ring-sky-400/30"
+  },
+  advanced: {
+    label: "Advanced",
+    icon: Bot,
+    color: "text-violet-200",
+    ring: "ring-violet-400/30"
+  }
 };
 
 function defaultValues(tool: ToolDefinition) {
@@ -79,6 +96,11 @@ export function ToolsHub({ userId }: ToolsHubProps) {
     setImageError(null);
     setError(null);
     setSources([]);
+  }, []);
+
+  const closeTool = useCallback(() => {
+    setActiveTool(null);
+    setError(null);
   }, []);
 
   async function runTool() {
@@ -171,27 +193,31 @@ export function ToolsHub({ userId }: ToolsHubProps) {
     win.print();
   }
 
+  const activeCategoryMeta = CATEGORY_META[category];
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="flex items-center gap-2 text-sm text-primary">
-            <Wrench size={16} /> Mekkz AI Tools
-          </p>
-          <h1 className="text-2xl font-bold sm:text-3xl">Creative, Business & Advanced AI</h1>
-          <p className="mt-1 text-sm text-muted">
-            {TOOL_DEFINITIONS.length} tools — logo, stories, marketing, SEO, agents, PDF, YouTube & more.
-          </p>
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-7xl flex-col gap-4 px-3 py-4 sm:gap-6 sm:px-5 sm:py-6 lg:px-8">
+      <header className="glass rounded-2xl border border-white/10 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm text-primary">
+              <Wrench size={16} /> Mekkz AI Tools
+            </p>
+            <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Creative, Business & Advanced AI</h1>
+            <p className="mt-1 text-sm text-muted">
+              {TOOL_DEFINITIONS.length} tools — inkl. YouTube & TikTok URL Analyse mit Kommentaren.
+            </p>
+          </div>
+          <Link
+            href="/chat"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+          >
+            ← Back to Chat
+          </Link>
         </div>
-        <Link
-          href="/chat"
-          className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-        >
-          ← Back to Chat
-        </Link>
       </header>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {(Object.keys(CATEGORY_META) as ToolCategory[]).map((key) => {
           const meta = CATEGORY_META[key];
           const Icon = meta.icon;
@@ -203,8 +229,10 @@ export function ToolsHub({ userId }: ToolsHubProps) {
                 setCategory(key);
                 setActiveTool(null);
               }}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm transition ${
-                category === key ? "bg-primary text-white" : "bg-white/10 hover:bg-white/15"
+              className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm transition ${
+                category === key
+                  ? "bg-primary text-white shadow-glow"
+                  : "bg-white/10 hover:bg-white/15"
               }`}
             >
               <Icon size={16} /> {meta.label}
@@ -213,162 +241,202 @@ export function ToolsHub({ userId }: ToolsHubProps) {
         })}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {tools.map((tool) => (
-          <motion.button
-            key={tool.id}
-            type="button"
-            onClick={() => openTool(tool)}
-            whileHover={{ scale: 1.02 }}
-            className={`glass rounded-2xl border p-4 text-left transition ${
-              activeTool?.id === tool.id ? "border-primary bg-primary/10" : "border-white/10"
-            }`}
-          >
-            <h3 className="font-semibold">{tool.name}</h3>
-            <p className="mt-2 text-xs leading-5 text-muted">{tool.description}</p>
-          </motion.button>
-        ))}
-      </div>
-
-      {activeTool ? (
-        <section className="glass rounded-2xl border border-white/10 p-5 sm:p-6">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold">{activeTool.name}</h2>
-              <p className="text-sm text-muted">{activeTool.description}</p>
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-5">
+        <aside className="glass flex max-h-[42vh] flex-col overflow-hidden rounded-2xl border border-white/10 lg:max-h-[calc(100dvh-14rem)]">
+          <div className="border-b border-white/10 px-4 py-3">
+            <p className={`flex items-center gap-2 text-sm font-medium ${activeCategoryMeta.color}`}>
+              <activeCategoryMeta.icon size={16} />
+              {activeCategoryMeta.label} Tools
+            </p>
+            <p className="mt-0.5 text-xs text-muted">{tools.length} verfügbar</p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 sm:p-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+              {tools.map((tool) => (
+                <motion.button
+                  key={tool.id}
+                  type="button"
+                  onClick={() => openTool(tool)}
+                  whileTap={{ scale: 0.98 }}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    activeTool?.id === tool.id
+                      ? `border-primary/50 bg-primary/10 ring-1 ${activeCategoryMeta.ring}`
+                      : "border-white/10 bg-white/5 hover:bg-white/10"
+                  }`}
+                >
+                  <h3 className="text-sm font-semibold leading-snug">{tool.name}</h3>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{tool.description}</p>
+                </motion.button>
+              ))}
             </div>
-            {activeTool.id === "vision-analyze" ? (
-              <Link href="/chat" className="text-sm text-primary hover:underline">
-                Upload in Chat →
-              </Link>
-            ) : null}
           </div>
+        </aside>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {activeTool.fields.map((field) => (
-              <label key={field.id} className="flex flex-col gap-1.5 text-sm">
-                <span className="text-muted">{field.label}</span>
-                {field.type === "textarea" ? (
-                  <textarea
-                    value={values[field.id] ?? ""}
-                    onChange={(e) =>
-                      setValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    placeholder={field.placeholder}
-                    rows={4}
-                    className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 outline-none focus:border-primary/50"
-                  />
-                ) : field.type === "select" ? (
-                  <select
-                    value={values[field.id] ?? ""}
-                    onChange={(e) =>
-                      setValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 outline-none"
-                  >
-                    {(field.options ?? []).map((opt) => (
-                      <option key={opt} value={opt} className="bg-neutral-900">
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={field.type === "number" ? "number" : "text"}
-                    value={values[field.id] ?? ""}
-                    onChange={(e) =>
-                      setValues((prev) => ({ ...prev, [field.id]: e.target.value }))
-                    }
-                    placeholder={field.placeholder}
-                    className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 outline-none focus:border-primary/50"
-                  />
-                )}
-              </label>
-            ))}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void runTool()}
-              disabled={loading}
-              className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              {loading ? t("common.loading") : "Generate"}
-            </button>
-            {activeTool.id === "invoice-generator" ? (
-              <button
-                type="button"
-                onClick={exportInvoicePdf}
-                className="rounded-xl bg-white/10 px-5 py-2.5 text-sm transition hover:bg-white/15"
-              >
-                Export PDF / Print
-              </button>
-            ) : null}
-          </div>
-
-          {error ? (
-            <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
-          ) : null}
-
-          {result || resultImage ? (
-            <div className="mt-4 space-y-3">
-              {imageError && !resultImage ? (
-                <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-100">
-                  Logo-Text ist fertig, aber das Bild konnte nicht erstellt werden: {imageError}
-                </p>
-              ) : null}
-              {resultImage ? (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium">Generiertes Logo</p>
-                    <button
-                      type="button"
-                      onClick={() => void saveLogoImage()}
-                      disabled={savingImage}
-                      className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                    >
-                      {savingImage ? "Speichern…" : "Bild speichern"}
-                    </button>
-                  </div>
-                  <ChatImage
-                    src={resultImage}
-                    alt="Generiertes Logo"
-                    imageGenPrompt={resultImagePrompt ?? undefined}
-                    className="mx-auto max-h-80 w-full max-w-md rounded-xl object-contain"
-                  />
+        <section className="glass min-h-[320px] rounded-2xl border border-white/10 p-4 sm:p-5 lg:min-h-[calc(100dvh-14rem)]">
+          {!activeTool ? (
+            <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 px-4 text-center">
+              <BookOpen size={28} className="text-muted" />
+              <p className="text-sm text-muted">Wähle links ein Tool — auf dem Handy scrollst du zur Liste oben.</p>
+            </div>
+          ) : (
+            <div className="flex h-full flex-col">
+              <div className="mb-4 flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+                <div className="min-w-0">
+                  <h2 className="text-xl font-semibold sm:text-2xl">{activeTool.name}</h2>
+                  <p className="mt-1 text-sm text-muted">{activeTool.description}</p>
                 </div>
-              ) : null}
-              {sources.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                  <Globe size={14} /> Sources:
-                  {sources.map((src) => (
-                    <a
-                      key={src}
-                      href={src}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
+                <div className="flex shrink-0 items-center gap-2">
+                  {activeTool.id === "vision-analyze" ? (
+                    <Link href="/chat" className="hidden text-sm text-primary hover:underline sm:inline">
+                      Upload in Chat →
+                    </Link>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={closeTool}
+                    className="rounded-lg bg-white/10 p-2 transition hover:bg-white/15 lg:hidden"
+                    aria-label="Tool schließen"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {activeTool.fields.map((field) => (
+                    <label
+                      key={field.id}
+                      className={`flex flex-col gap-1.5 text-sm ${
+                        field.type === "textarea" ? "sm:col-span-2" : ""
+                      }`}
                     >
-                      {src.slice(0, 48)}…
-                    </a>
+                      <span className="font-medium text-muted">{field.label}</span>
+                      {field.type === "textarea" ? (
+                        <textarea
+                          value={values[field.id] ?? ""}
+                          onChange={(e) =>
+                            setValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                          }
+                          placeholder={field.placeholder}
+                          rows={4}
+                          className="rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 outline-none transition focus:border-primary/50"
+                        />
+                      ) : field.type === "select" ? (
+                        <select
+                          value={values[field.id] ?? ""}
+                          onChange={(e) =>
+                            setValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                          }
+                          className="rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 outline-none"
+                        >
+                          {(field.options ?? []).map((opt) => (
+                            <option key={opt} value={opt} className="bg-neutral-900">
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type === "number" ? "number" : "text"}
+                          value={values[field.id] ?? ""}
+                          onChange={(e) =>
+                            setValues((prev) => ({ ...prev, [field.id]: e.target.value }))
+                          }
+                          placeholder={field.placeholder}
+                          className="rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 outline-none transition focus:border-primary/50"
+                        />
+                      )}
+                    </label>
                   ))}
                 </div>
-              ) : null}
-              {result ? (
-                <pre className="max-h-[480px] overflow-auto whitespace-pre-wrap rounded-xl bg-white/5 p-4 text-sm leading-7">
-                  {result}
-                </pre>
-              ) : null}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void runTool()}
+                    disabled={loading}
+                    className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {loading ? t("common.loading") : "Generate"}
+                  </button>
+                  {activeTool.id === "invoice-generator" ? (
+                    <button
+                      type="button"
+                      onClick={exportInvoicePdf}
+                      className="rounded-xl bg-white/10 px-5 py-2.5 text-sm transition hover:bg-white/15"
+                    >
+                      Export PDF / Print
+                    </button>
+                  ) : null}
+                </div>
+
+                {error ? (
+                  <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-sm text-red-200">{error}</p>
+                ) : null}
+
+                {result || resultImage ? (
+                  <div className="mt-5 space-y-4 border-t border-white/10 pt-5">
+                    {imageError && !resultImage ? (
+                      <p className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-100">
+                        Logo-Text ist fertig, aber das Bild konnte nicht erstellt werden: {imageError}
+                      </p>
+                    ) : null}
+                    {resultImage ? (
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-medium">Generiertes Logo</p>
+                          <button
+                            type="button"
+                            onClick={() => void saveLogoImage()}
+                            disabled={savingImage}
+                            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                          >
+                            {savingImage ? "Speichern…" : "Bild speichern"}
+                          </button>
+                        </div>
+                        <ChatImage
+                          src={resultImage}
+                          alt="Generiertes Logo"
+                          imageGenPrompt={resultImagePrompt ?? undefined}
+                          className="mx-auto max-h-80 w-full max-w-md rounded-xl object-contain"
+                        />
+                      </div>
+                    ) : null}
+                    {sources.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                        <Globe size={14} /> Quellen:
+                        {sources.map((src) => (
+                          <a
+                            key={src}
+                            href={src}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="max-w-full truncate text-primary hover:underline"
+                          >
+                            {src}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                    {result ? (
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4 sm:p-5">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                          Ergebnis
+                        </p>
+                        <div className="max-h-[min(60vh,520px)] overflow-y-auto overscroll-contain">
+                          <ChatMarkdown content={result} />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          ) : null}
+          )}
         </section>
-      ) : (
-        <p className="flex items-center gap-2 text-sm text-muted">
-          <BookOpen size={16} /> Select a tool above to get started.
-        </p>
-      )}
+      </div>
     </div>
   );
 }

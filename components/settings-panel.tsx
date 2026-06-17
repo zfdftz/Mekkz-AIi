@@ -15,8 +15,10 @@ import {
 import type { LanguageCode } from "@/lib/languages";
 import { PERSONALITY_MODES, type PersonalityMode } from "@/lib/personality";
 import { TUTOR_LEVELS, type TutorLevel } from "@/lib/tutor";
+import { homePathForLayout, readLayoutModeFromStorage, saveLayoutMode, type LayoutMode } from "@/lib/hub/layout-preference";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserAiPreferences } from "@/lib/user-ai-preferences";
+import { useRouter } from "next/navigation";
 
 type SettingsPanelProps = {
   open: boolean;
@@ -46,7 +48,9 @@ export function SettingsPanel({
   onLogin,
   onLogout
 }: SettingsPanelProps) {
+  const router = useRouter();
   const { language, languages, setLanguage, t } = useLanguage();
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("hub");
   const [mode, setMode] = useState<ThemeMode>("dark");
   const [color, setColor] = useState<ColorTheme>("violet");
   const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
@@ -62,6 +66,7 @@ export function SettingsPanel({
     const saved = loadAppearance();
     setMode(saved.mode);
     setColor(saved.color);
+    setLayoutMode(readLayoutModeFromStorage());
   }, [open]);
 
   useEffect(() => {
@@ -213,6 +218,46 @@ export function SettingsPanel({
                     }`}
                   >
                     <Sun size={16} /> {t("settings.light")}
+                  </button>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
+                  Layout
+                </h3>
+                <p className="text-xs text-muted">
+                  Mekkz Hub vereint Chat, Community und Produktivität. Classic ist das bisherige
+                  Chat-Layout.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLayoutMode("hub");
+                      saveLayoutMode("hub");
+                      router.push(homePathForLayout("hub"));
+                      onClose();
+                    }}
+                    className={`flex-1 rounded-xl px-3 py-3 text-sm transition ${
+                      layoutMode === "hub" ? "bg-primary text-white" : "bg-white/10"
+                    }`}
+                  >
+                    Mekkz Hub
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLayoutMode("classic");
+                      saveLayoutMode("classic");
+                      router.push(homePathForLayout("classic"));
+                      onClose();
+                    }}
+                    className={`flex-1 rounded-xl px-3 py-3 text-sm transition ${
+                      layoutMode === "classic" ? "bg-primary text-white" : "bg-white/10"
+                    }`}
+                  >
+                    Classic
                   </button>
                 </div>
               </section>

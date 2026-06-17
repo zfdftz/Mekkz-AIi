@@ -23,7 +23,8 @@ export function AuthSessionBootstrap() {
 
       const path = window.location.pathname;
       if (path === "/" || path === "/auth/login" || path === "/auth/register") {
-        router.replace("/chat");
+        const layout = localStorage.getItem("mekkz_layout") === "classic" ? "/chat" : "/hub";
+        router.replace(layout);
       }
 
       if (!syncedRef.current) {

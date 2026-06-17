@@ -82,11 +82,15 @@ type BootstrapResponse = {
 export function ChatUI({
   userId,
   userEmail = "",
-  isGuest = false
+  isGuest = false,
+  hubMode = false,
+  onActiveConversationChange
 }: {
   userId: string;
   userEmail?: string;
   isGuest?: boolean;
+  hubMode?: boolean;
+  onActiveConversationChange?: (id: string | null) => void;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -132,6 +136,10 @@ export function ChatUI({
   const sendMessageRef = useRef<(textOverride?: string) => Promise<void>>(async () => {});
 
   const chatFull = hasFiniteChatLimit(chatLimit) && chatLimit.remaining <= 0;
+
+  useEffect(() => {
+    onActiveConversationChange?.(activeConversationId);
+  }, [activeConversationId, onActiveConversationChange]);
 
   useEffect(() => {
     setLoadingHint(t("chat.aiWriting"));
@@ -370,6 +378,24 @@ export function ChatUI({
     await loadMessages(conversationId);
     closeSidebar();
   }
+
+  useEffect(() => {
+    if (!hubMode) return;
+    function onSelect(event: Event) {
+      const id = (event as CustomEvent<string>).detail;
+      if (id) void selectConversation(id);
+    }
+    function onNew() {
+      void startNewChat();
+    }
+    window.addEventListener("mekkz-hub-select-chat", onSelect);
+    window.addEventListener("mekkz-hub-new-chat", onNew);
+    return () => {
+      window.removeEventListener("mekkz-hub-select-chat", onSelect);
+      window.removeEventListener("mekkz-hub-new-chat", onNew);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hub bridge uses latest handlers
+  }, [hubMode]);
 
   async function deleteConversation(conversationId: string) {
     const chat = conversations.find((item) => item.id === conversationId);
@@ -891,8 +917,14 @@ export function ChatUI({
   }
 
   return (
-    <WavyBackground>
-      <div className="flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden">
+    <WavyBackground enabled={!hubMode}>
+      <div
+        className={
+          hubMode
+            ? "flex h-full min-h-0 flex-col overflow-hidden"
+            : "flex h-[100svh] max-h-[100svh] min-h-0 flex-col overflow-hidden"
+        }
+      >
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -904,7 +936,7 @@ export function ChatUI({
       />
       <div className="chat-mobile-shell relative mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-1 flex-row gap-2 overflow-hidden p-2 sm:gap-3 sm:p-3 lg:gap-4 lg:p-4">
         <AnimatePresence>
-          {sidebarOpen ? (
+          {!hubMode && sidebarOpen ? (
             <>
               <motion.button
                 type="button"
@@ -941,6 +973,7 @@ export function ChatUI({
           ) : null}
         </AnimatePresence>
 
+        {!hubMode ? (
         <aside className="glass hidden h-full min-h-0 shrink-0 flex-col rounded-2xl p-4 lg:flex lg:w-80 xl:w-96">
           <ChatSidebarPanel
             userId={userId}
@@ -953,9 +986,11 @@ export function ChatUI({
             onDeleteConversation={(id) => void deleteConversation(id)}
           />
         </aside>
+        ) : null}
 
-        <section className="glass flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl">
+        <section className={`glass flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl ${hubMode ? "border-0 bg-transparent shadow-none" : ""}`}>
           <header className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2.5 sm:gap-3 sm:p-4">
+            {!hubMode ? (
             <button
               type="button"
               onClick={toggleSidebar}
@@ -965,38 +1000,41 @@ export function ChatUI({
             >
               <Menu size={20} />
             </button>
+            ) : null}
             <MekkzLogo
               size={28}
               className="min-w-0 flex-1"
               textClassName="truncate text-sm font-semibold sm:text-base lg:text-lg"
             />
             <div className="flex shrink-0 items-center gap-2">
-              {isGuest ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    openAuthRequired(
-                      "Die Community ist nur mit Konto nutzbar. Melde dich an oder registriere dich, um Feed, Freunde und Gruppen zu nutzen.",
-                      "/community"
-                    )
-                  }
-                  aria-label="Community"
-                  title="Community"
-                  className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
-                >
-                  <Users size={18} />
-                </button>
-              ) : (
-                <Link
-                  href="/community"
-                  prefetch
-                  aria-label="Community"
-                  title="Community"
-                  className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
-                >
-                  <Users size={18} />
-                </Link>
-              )}
+              {!hubMode ? (
+                isGuest ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAuthRequired(
+                        "Die Community ist nur mit Konto nutzbar. Melde dich an oder registriere dich, um Feed, Freunde und Gruppen zu nutzen.",
+                        "/hub"
+                      )
+                    }
+                    aria-label="Community"
+                    title="Community"
+                    className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
+                  >
+                    <Users size={18} />
+                  </button>
+                ) : (
+                  <Link
+                    href="/community"
+                    prefetch
+                    aria-label="Community"
+                    title="Community"
+                    className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"
+                  >
+                    <Users size={18} />
+                  </Link>
+                )
+              ) : null}
               <button
                 onClick={() => setSettingsOpen(true)}
                 aria-label="Einstellungen"

@@ -13,7 +13,7 @@ import type {
   RoomMessage
 } from "./types";
 import { enrichWithAuthorFields } from "@/lib/rewards/identity";
-import { getProfile, usernamesByIds } from "./profile";
+import { getProfile, authorMetaByIds, usernamesByIds } from "./profile";
 import { normalizeUsername, validateUsername } from "./profile-rules";
 
 function missing(msg: string) {
@@ -106,14 +106,16 @@ export async function listRoomMessages(
     .order("created_at", { ascending: true })
     .limit(limit);
   if (error) throw new Error(error.message);
-  const names = await usernamesByIds(admin, [...new Set((data ?? []).map((r) => r.user_id))]);
+  const userIds = [...new Set((data ?? []).map((r) => r.user_id))];
+  const { names, avatars } = await authorMetaByIds(admin, userIds);
   const base = (data ?? []).map((row) => ({
     id: row.id,
     roomId: row.room_id,
     userId: row.user_id,
     content: row.content,
     createdAt: row.created_at,
-    authorName: names.get(row.user_id) ?? null
+    authorName: names.get(row.user_id) ?? null,
+    authorAvatarUrl: avatars.get(row.user_id) ?? null
   }));
   return enrichWithAuthorFields(admin, base);
 }
@@ -132,7 +134,7 @@ export async function postRoomMessage(
     .select("id, room_id, user_id, content, created_at")
     .single();
   if (error) throw new Error(error.message);
-  const names = await usernamesByIds(admin, [userId]);
+  const { names, avatars } = await authorMetaByIds(admin, [userId]);
   const [message] = await enrichWithAuthorFields(admin, [
     {
       id: data.id,
@@ -140,7 +142,8 @@ export async function postRoomMessage(
       userId: data.user_id,
       content: data.content,
       createdAt: data.created_at,
-      authorName: names.get(userId) ?? null
+      authorName: names.get(userId) ?? null,
+      authorAvatarUrl: avatars.get(userId) ?? null
     }
   ]);
   return message;
@@ -382,11 +385,13 @@ export async function listFriends(admin: SupabaseClient, userId: string) {
     (data ?? []).map((r) => [r.friend_id as string, r.created_at as string | null])
   );
   const names = await usernamesByIds(admin, ids);
+  const { avatars } = await authorMetaByIds(admin, ids);
   const { data: presence } = await admin.from("user_presence").select("*").in("user_id", ids);
   const presenceMap = new Map((presence ?? []).map((p) => [p.user_id, p]));
   return ids.map((id) => ({
     userId: id,
     username: names.get(id) ?? "user",
+    avatarUrl: avatars.get(id) ?? null,
     isOnline: presenceMap.get(id)?.is_online ?? false,
     lastSeenAt: presenceMap.get(id)?.last_seen_at ?? null,
     friendsSince: friendsSinceMap.get(id) ?? null
@@ -408,14 +413,15 @@ export async function listFriendMessages(
     .limit(200);
   if (error) throw new Error(error.message);
   const senderIds = [...new Set((data ?? []).map((r) => r.sender_id))];
-  const names = await usernamesByIds(admin, senderIds);
+  const { names, avatars } = await authorMetaByIds(admin, senderIds);
   const base = (data ?? []).map((row) => ({
     id: row.id,
     senderId: row.sender_id,
     receiverId: row.receiver_id,
     content: row.content,
     createdAt: row.created_at,
-    authorName: names.get(row.sender_id) ?? null
+    authorName: names.get(row.sender_id) ?? null,
+    authorAvatarUrl: avatars.get(row.sender_id) ?? null
   }));
   const enriched = await enrichWithAuthorFields(
     admin,
@@ -436,7 +442,7 @@ export async function sendFriendMessage(
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  const names = await usernamesByIds(admin, [senderId]);
+  const { names, avatars } = await authorMetaByIds(admin, [senderId]);
   const enriched = await enrichWithAuthorFields(admin, [
     {
       id: data.id,
@@ -445,6 +451,7 @@ export async function sendFriendMessage(
       content: data.content,
       createdAt: data.created_at,
       authorName: names.get(senderId) ?? null,
+      authorAvatarUrl: avatars.get(senderId) ?? null,
       userId: senderId
     }
   ]);
@@ -493,7 +500,7 @@ export async function listGroupMessages(admin: SupabaseClient, groupId: string):
     .limit(200);
   if (error) throw new Error(error.message);
   const userIds = [...new Set((data ?? []).map((r) => r.user_id).filter(Boolean))] as string[];
-  const names = await usernamesByIds(admin, userIds);
+  const { names, avatars } = await authorMetaByIds(admin, userIds);
   const base = (data ?? []).map((row) => ({
     id: row.id,
     groupId: row.group_id,
@@ -502,7 +509,8 @@ export async function listGroupMessages(admin: SupabaseClient, groupId: string):
     isAi: row.is_ai,
     threadParentId: row.thread_parent_id,
     createdAt: row.created_at,
-    authorName: row.is_ai ? "Mekkz AI" : names.get(row.user_id ?? "") ?? null
+    authorName: row.is_ai ? "Mekkz AI" : names.get(row.user_id ?? "") ?? null,
+    authorAvatarUrl: row.is_ai ? null : avatars.get(row.user_id ?? "") ?? null
   }));
   const enriched = await enrichWithAuthorFields(
     admin,
@@ -579,7 +587,7 @@ async function mapGroupMessageRow(
     };
   }
   const userId = row.user_id as string;
-  const names = await usernamesByIds(admin, [userId]);
+  const { names, avatars } = await authorMetaByIds(admin, [userId]);
   const enriched = await enrichWithAuthorFields(admin, [
     {
       id: row.id as string,
@@ -589,7 +597,8 @@ async function mapGroupMessageRow(
       isAi: false,
       threadParentId: (row.thread_parent_id as string) ?? null,
       createdAt: row.created_at as string,
-      authorName: names.get(userId) ?? null
+      authorName: names.get(userId) ?? null,
+      authorAvatarUrl: avatars.get(userId) ?? null
     }
   ]);
   const { userId: _uid, ...message } = enriched[0];

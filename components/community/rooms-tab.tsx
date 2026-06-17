@@ -228,6 +228,7 @@ export function RoomsTab() {
                   authorCreator={msg.authorCreator}
                   authorChosen={msg.authorChosen}
                   authorUltraCreator={msg.authorUltraCreator}
+                  authorAvatarUrl={msg.authorAvatarUrl}
                   colorKey={msg.userId}
                   content={msg.content}
                   time={msg.createdAt}

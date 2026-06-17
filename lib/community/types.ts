@@ -62,6 +62,7 @@ export type RoomMessage = {
   authorCreator?: boolean;
   authorChosen?: boolean;
   authorUltraCreator?: boolean;
+  authorAvatarUrl?: string | null;
 };
 
 export type FriendRequest = {
@@ -95,6 +96,7 @@ export type FriendMessage = {
   authorCreator?: boolean;
   authorChosen?: boolean;
   authorUltraCreator?: boolean;
+  authorAvatarUrl?: string | null;
 };
 
 export type GroupChat = {
@@ -118,6 +120,7 @@ export type GroupMessage = {
   authorCreator?: boolean;
   authorChosen?: boolean;
   authorUltraCreator?: boolean;
+  authorAvatarUrl?: string | null;
 };
 
 export type FeedPost = {
@@ -273,6 +276,7 @@ export type ClanMessage = {
   content: string;
   createdAt: string;
   authorName?: string | null;
+  authorAvatarUrl?: string | null;
 };
 
 export type CommunityTab =

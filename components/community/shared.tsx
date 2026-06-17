@@ -239,6 +239,40 @@ export function ChatMessageList({
   );
 }
 
+export function ChatAvatar({
+  name,
+  avatarUrl,
+  highlight,
+  size = "md"
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  highlight?: boolean;
+  size?: "sm" | "md";
+}) {
+  const dim = size === "md" ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs";
+  const initial = (name.replace(/^@/, "")[0] ?? "U").toUpperCase();
+
+  return (
+    <div
+      className={`${dim} shrink-0 overflow-hidden rounded-full border-2 ${
+        highlight
+          ? "border-primary/50 bg-gradient-to-br from-primary/35 to-primary/10"
+          : "border-white/15 bg-gradient-to-br from-white/15 to-white/5"
+      }`}
+    >
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center font-bold text-primary">
+          {initial}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MessageBubble({
   author,
   authorUserId,
@@ -247,6 +281,7 @@ export function MessageBubble({
   authorCreator,
   authorChosen,
   authorUltraCreator,
+  authorAvatarUrl,
   content,
   highlight,
   colorKey,
@@ -259,6 +294,7 @@ export function MessageBubble({
   authorCreator?: boolean;
   authorChosen?: boolean;
   authorUltraCreator?: boolean;
+  authorAvatarUrl?: string | null;
   content: string;
   highlight?: boolean;
   colorKey?: string | null;
@@ -267,36 +303,39 @@ export function MessageBubble({
   const userColor = colorKey ? getChatUserColor(colorKey) : null;
 
   return (
-    <div
-      className={`rounded-2xl border px-5 py-4 text-[17px] leading-relaxed shadow-sm sm:text-lg sm:leading-relaxed ${
-        highlight
-          ? "border-primary/30 bg-gradient-to-br from-primary/20 to-primary/5"
-          : userColor
-            ? userColor.bubble
-            : "border-white/5 bg-black/20"
-      }`}
-    >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        {authorUserId ? (
-          <ProfileLink userId={authorUserId} className="min-w-0">
-            <ProfileIdentity
-              compact
-              username={author.replace(/^@/, "")}
-              title={authorTitle}
-              isVerified={authorVerified}
-              isCreator={authorCreator}
-              isChosen={authorChosen}
-              isUltraCreator={authorUltraCreator}
-            />
-          </ProfileLink>
-        ) : (
-          <span className={`font-semibold ${userColor?.name ?? "text-primary"}`}>{author}</span>
-        )}
+    <div className="flex items-start gap-3">
+      <ChatAvatar name={author} avatarUrl={authorAvatarUrl} highlight={highlight} />
+      <div
+        className={`min-w-0 flex-1 rounded-2xl border px-4 py-3 text-[17px] leading-relaxed shadow-sm sm:px-5 sm:py-4 sm:text-lg sm:leading-relaxed ${
+          highlight
+            ? "border-primary/30 bg-gradient-to-br from-primary/20 to-primary/5"
+            : userColor
+              ? userColor.bubble
+              : "border-white/5 bg-black/20"
+        }`}
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          {authorUserId ? (
+            <ProfileLink userId={authorUserId} className="min-w-0">
+              <ProfileIdentity
+                compact
+                username={author.replace(/^@/, "")}
+                title={authorTitle}
+                isVerified={authorVerified}
+                isCreator={authorCreator}
+                isChosen={authorChosen}
+                isUltraCreator={authorUltraCreator}
+              />
+            </ProfileLink>
+          ) : (
+            <span className={`font-semibold ${userColor?.name ?? "text-primary"}`}>{author}</span>
+          )}
         {time ? (
           <span className="text-sm text-muted">{new Date(time).toLocaleTimeString()}</span>
         ) : null}
+        </div>
+        <p className="whitespace-pre-wrap break-words leading-relaxed">{content}</p>
       </div>
-      <p className="whitespace-pre-wrap break-words leading-relaxed">{content}</p>
     </div>
   );
 }

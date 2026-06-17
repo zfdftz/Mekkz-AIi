@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { usernamesByIds } from "./profile";
+import { usernamesByIds, authorMetaByIds } from "./profile";
 import type { Clan, ClanMember, ClanMessage } from "./types";
 
 export function isClansSchemaMissing(msg: string) {
@@ -183,14 +183,15 @@ export async function listClanMessages(
     throw new Error(error.message);
   }
   const ids = [...new Set((data ?? []).map((r) => r.user_id as string))];
-  const names = await usernamesByIds(admin, ids);
+  const { names, avatars } = await authorMetaByIds(admin, ids);
   return (data ?? []).map((row) => ({
     id: row.id as string,
     clanId: row.clan_id as string,
     userId: row.user_id as string,
     content: row.content as string,
     createdAt: row.created_at as string,
-    authorName: names.get(row.user_id as string) ?? null
+    authorName: names.get(row.user_id as string) ?? null,
+    authorAvatarUrl: avatars.get(row.user_id as string) ?? null
   }));
 }
 
@@ -212,12 +213,15 @@ export async function postClanMessage(
     .select("id, clan_id, user_id, content, created_at")
     .single();
   if (error) throw new Error(error.message);
+  const { names, avatars } = await authorMetaByIds(admin, [userId]);
   return {
     id: data.id as string,
     clanId: data.clan_id as string,
     userId: data.user_id as string,
     content: data.content as string,
-    createdAt: data.created_at as string
+    createdAt: data.created_at as string,
+    authorName: names.get(userId) ?? null,
+    authorAvatarUrl: avatars.get(userId) ?? null
   };
 }
 

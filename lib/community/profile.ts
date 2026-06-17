@@ -243,3 +243,23 @@ export async function usernamesByIds(admin: SupabaseClient, userIds: string[]) {
     .in("user_id", userIds);
   return new Map((data ?? []).map((row) => [row.user_id as string, row.username as string]));
 }
+
+export async function authorMetaByIds(admin: SupabaseClient, userIds: string[]) {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  const names = new Map<string, string>();
+  const avatars = new Map<string, string | null>();
+  if (unique.length === 0) return { names, avatars };
+
+  const { data } = await admin
+    .from("user_profiles")
+    .select("user_id, username, avatar_url")
+    .in("user_id", unique);
+
+  for (const row of data ?? []) {
+    const id = row.user_id as string;
+    if (row.username) names.set(id, row.username as string);
+    avatars.set(id, (row.avatar_url as string) ?? null);
+  }
+
+  return { names, avatars };
+}

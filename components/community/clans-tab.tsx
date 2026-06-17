@@ -170,6 +170,7 @@ export function ClansTab() {
                     key={msg.id}
                     author={msg.authorName ?? "user"}
                     authorUserId={msg.userId}
+                    authorAvatarUrl={msg.authorAvatarUrl}
                     colorKey={msg.userId}
                     content={msg.content}
                     time={msg.createdAt}

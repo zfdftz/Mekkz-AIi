@@ -25,6 +25,7 @@ import type { FriendMessage, FriendRequest } from "@/lib/community/types";
 type FriendRow = {
   userId: string;
   username: string;
+  avatarUrl?: string | null;
   isOnline?: boolean;
   lastSeenAt?: string | null;
 };
@@ -281,7 +282,7 @@ export function FriendsTab() {
               </button>
               <FriendAvatar
                 username={activeFriend.username}
-                avatarUrl={null}
+                avatarUrl={activeFriend.avatarUrl}
                 size="md"
               />
               <div>
@@ -311,6 +312,7 @@ export function FriendsTab() {
                     authorCreator={isFriend ? msg.authorCreator : undefined}
                     authorChosen={isFriend ? msg.authorChosen : undefined}
                     authorUltraCreator={isFriend ? msg.authorUltraCreator : undefined}
+                    authorAvatarUrl={msg.authorAvatarUrl}
                     colorKey={msg.senderId}
                     content={msg.content}
                     time={msg.createdAt}

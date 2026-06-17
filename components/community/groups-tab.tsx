@@ -195,6 +195,7 @@ export function GroupsTab() {
                   authorCreator={msg.isAi ? undefined : msg.authorCreator}
                   authorChosen={msg.isAi ? undefined : msg.authorChosen}
                   authorUltraCreator={msg.isAi ? undefined : msg.authorUltraCreator}
+                  authorAvatarUrl={msg.authorAvatarUrl}
                   colorKey={msg.isAi ? "mekkz-ai" : msg.userId}
                   content={msg.content}
                   highlight={msg.isAi}

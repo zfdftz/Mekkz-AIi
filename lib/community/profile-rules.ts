@@ -7,7 +7,7 @@ export const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const USERNAME_PATTERN = /^[\w.-]+$/;
 
 export function normalizeUsername(raw: string) {
-  return raw.trim().slice(0, USERNAME_MAX_LENGTH);
+  return raw.trim().slice(0, USERNAME_MAX_LENGTH).toLowerCase();
 }
 
 export function validateUsername(username: string) {

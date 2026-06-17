@@ -71,12 +71,25 @@ export async function syncVerification(
 export async function getVerificationFlags(admin: SupabaseClient, userId: string) {
   const { data, error } = await admin
     .from("user_profiles")
-    .select("is_verified, is_creator")
+    .select("is_verified, is_creator, is_chosen")
     .eq("user_id", userId)
     .maybeSingle();
   if (error && !missing(error.message)) throw new Error(error.message);
   return {
     isVerified: Boolean(data?.is_verified),
-    isCreator: Boolean(data?.is_creator)
+    isCreator: Boolean(data?.is_creator),
+    isChosen: Boolean(data?.is_chosen)
   };
+}
+
+export async function setChosenStatus(
+  admin: SupabaseClient,
+  userId: string,
+  chosen: boolean
+) {
+  const { error } = await admin
+    .from("user_profiles")
+    .update({ is_chosen: chosen })
+    .eq("user_id", userId);
+  if (error && !missing(error.message)) throw new Error(error.message);
 }

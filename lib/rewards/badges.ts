@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BADGES, getBadge, type BadgeDef } from "./catalog";
+import { validateShowcaseBadgeIds } from "./showcase-rules";
 
 function missing(msg: string) {
   return /relation|does not exist|Could not find|schema cache/i.test(msg);
@@ -73,7 +74,7 @@ export async function updateShowcasedBadges(
   badgeIds: string[]
 ) {
   const owned = new Set((await listUserBadges(admin, userId)).map((b) => b.id));
-  const valid = badgeIds.filter((id) => owned.has(id));
+  const valid = validateShowcaseBadgeIds(badgeIds, owned);
   await admin.from("user_profiles").update({ showcased_badge_ids: valid }).eq("user_id", userId);
   return valid;
 }

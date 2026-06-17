@@ -6,7 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { PrimaryButton } from "@/components/community/shared";
 import { BadgeShowcase, ProfileIdentity } from "@/components/rewards/profile-identity";
-import { getCosmetic } from "@/lib/rewards/catalog";
+import { ProfileLikesStat } from "@/components/rewards/profile-rewards-panel";
+import { getProfileBackgroundClass } from "@/lib/rewards/catalog";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { PublicUserProfile } from "@/lib/community/types";
@@ -131,8 +132,14 @@ export function ProfileModal({
                   title={profile.activeTitleLabel}
                   isVerified={profile.isVerified}
                   isCreator={profile.isCreator}
+                  isChosen={profile.isChosen}
                 />
                 <p className="text-xs text-muted">{formatCount(profile.followersCount)} Follower</p>
+                {typeof profile.totalLikes === "number" ? (
+                  <div className="mt-0.5">
+                    <ProfileLikesStat totalLikes={profile.totalLikes} />
+                  </div>
+                ) : null}
               </div>
               {!profile.isSelf ? (
                 <PrimaryButton
@@ -243,14 +250,10 @@ function ProfileBanner({
   seasonClass: string;
 }) {
   const bgClass = profile
-    ? getCosmetic(profile.profileBackground ?? "")?.previewClass ?? "reward-bg-mekkz"
+    ? getProfileBackgroundClass(profile.profileBackground)
     : "reward-bg-mekkz";
   return (
     <div className={`discord-profile-banner relative h-[120px] w-full bg-cover bg-center ${bgClass} ${seasonClass}-banner`}>
-      {profile?.bannerUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={profile.bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      ) : null}
       <div className="season-stars pointer-events-none absolute inset-0 opacity-60" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#232428] via-transparent to-transparent" />
     </div>
@@ -258,11 +261,10 @@ function ProfileBanner({
 }
 
 function FramedAvatar({ profile }: { profile: PublicUserProfile }) {
-  const frameClass = getCosmetic(profile.profileFrame ?? "")?.previewClass ?? "";
   return (
     <div
-      className={`relative h-[80px] w-[80px] shrink-0 rounded-full p-[3px] ${frameClass}`}
-      style={profile.accentColor ? { boxShadow: `0 0 0 3px ${profile.accentColor}` } : undefined}
+      className="relative h-[80px] w-[80px] shrink-0 rounded-full border-2 border-[#232428] p-[2px]"
+      style={profile.accentColor ? { boxShadow: `0 0 0 2px ${profile.accentColor}` } : undefined}
     >
       <Avatar url={profile.avatarUrl} name={profile.username ?? "U"} />
       {profile.isOnline ? (

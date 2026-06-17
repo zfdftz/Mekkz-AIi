@@ -1,6 +1,7 @@
 "use client";
 
 import { BadgeCheck } from "lucide-react";
+import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
 
 type BadgeChip = { id: string; name: string; description: string; icon: string };
 
@@ -9,6 +10,7 @@ export function ProfileIdentity({
   title,
   isVerified,
   isCreator,
+  isChosen,
   badges,
   compact
 }: {
@@ -16,6 +18,7 @@ export function ProfileIdentity({
   title?: string | null;
   isVerified?: boolean;
   isCreator?: boolean;
+  isChosen?: boolean;
   badges?: BadgeChip[];
   compact?: boolean;
 }) {
@@ -24,21 +27,25 @@ export function ProfileIdentity({
       <span className="inline-flex min-w-0 items-center gap-1">
         <span className="truncate font-medium">@{username}</span>
         {isVerified ? (
-          <span
-            className="inline-flex shrink-0 text-sky-400"
-            title="Verifiziert"
-            aria-label="Verifiziert"
-          >
-            <BadgeCheck size={compact ? 14 : 16} className="fill-sky-500/20" />
-          </span>
+          <DiscordTooltip label="Verified" description="Verifiziertes Konto">
+            <span className="inline-flex shrink-0 text-sky-400" aria-label="Verified">
+              <BadgeCheck size={compact ? 14 : 16} className="fill-sky-500/20" />
+            </span>
+          </DiscordTooltip>
+        ) : null}
+        {isChosen ? (
+          <DiscordTooltip label="The Chosen One" description="Von Mekkz AI ausgewählt">
+            <span className="inline-flex shrink-0 text-red-500" aria-label="The Chosen One">
+              <BadgeCheck size={compact ? 14 : 16} className="fill-red-500/25" />
+            </span>
+          </DiscordTooltip>
         ) : null}
         {isCreator ? (
-          <span
-            className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-emerald-500/20 px-1 text-[10px] font-bold text-emerald-300"
-            title="Mekkz AI Creator"
-          >
-            ✦
-          </span>
+          <DiscordTooltip label="Mekkz AI Creator" description="Offizieller Creator">
+            <span className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded bg-emerald-500/20 px-1 text-[10px] font-bold text-emerald-300">
+              ✦
+            </span>
+          </DiscordTooltip>
         ) : null}
       </span>
       {title ? (
@@ -47,13 +54,11 @@ export function ProfileIdentity({
       {badges && badges.length > 0 && !compact ? (
         <span className="mt-1 flex flex-wrap gap-1">
           {badges.map((b) => (
-            <span
-              key={b.id}
-              title={`${b.name} — ${b.description}`}
-              className="cursor-help rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs"
-            >
-              {b.icon}
-            </span>
+            <DiscordTooltip key={b.id} label={b.name} description={b.description}>
+              <span className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs">
+                {b.icon}
+              </span>
+            </DiscordTooltip>
           ))}
         </span>
       ) : null}
@@ -68,14 +73,12 @@ export function BadgeShowcase({ badges }: { badges: BadgeChip[] }) {
   return (
     <div className="flex flex-wrap gap-2">
       {badges.map((b) => (
-        <div
-          key={b.id}
-          title={`${b.name} — ${b.description}`}
-          className="flex cursor-help items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 text-sm"
-        >
-          <span>{b.icon}</span>
-          <span className="text-xs font-medium">{b.name}</span>
-        </div>
+        <DiscordTooltip key={b.id} label={b.name} description={b.description}>
+          <div className="flex cursor-help items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5 text-sm">
+            <span>{b.icon}</span>
+            <span className="text-xs font-medium">{b.name}</span>
+          </div>
+        </DiscordTooltip>
       ))}
     </div>
   );

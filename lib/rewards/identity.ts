@@ -7,6 +7,7 @@ import { getVerificationFlags } from "./verification";
 export type AuthorIdentity = {
   isVerified: boolean;
   isCreator: boolean;
+  isChosen: boolean;
   titleLabel: string | null;
   showcasedBadges: UserBadge[];
   accentColor: string;
@@ -65,6 +66,7 @@ export async function getAuthorIdentity(
   return {
     isVerified: flags.isVerified,
     isCreator: flags.isCreator,
+    isChosen: flags.isChosen,
     titleLabel: cosmetics.activeTitleLabel,
     showcasedBadges: showcased,
     accentColor: cosmetics.accentColor

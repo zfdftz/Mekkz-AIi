@@ -3,6 +3,7 @@ import {
   COSMETICS,
   getCosmetic,
   getTitle,
+  TITLES,
   RARITY_WEIGHTS,
   type CosmeticDef,
   type CosmeticRarity
@@ -200,7 +201,7 @@ export async function getUnlockedTitles(admin: SupabaseClient, userId: string, _
   const badgeIds = new Set((badges.data ?? []).map((b) => b.badge_id as string));
   const { data: profile } = await admin
     .from("user_profiles")
-    .select("is_creator")
+    .select("is_creator, admin_granted_titles")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -212,5 +213,37 @@ export async function getUnlockedTitles(admin: SupabaseClient, userId: string, _
     unlocked.add("mekkz_ai_creator");
     unlocked.add("founder");
   }
+  for (const id of (profile?.admin_granted_titles as string[] | null) ?? []) {
+    if (TITLES[id]) unlocked.add(id);
+  }
   return [...unlocked];
+}
+
+export async function adminGrantTitle(admin: SupabaseClient, userId: string, titleId: string) {
+  if (!TITLES[titleId]) throw new Error("Unbekannter Titel.");
+  const { data } = await admin
+    .from("user_profiles")
+    .select("admin_granted_titles")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const current = new Set((data?.admin_granted_titles as string[] | null) ?? []);
+  current.add(titleId);
+  const { error } = await admin
+    .from("user_profiles")
+    .update({ admin_granted_titles: [...current] })
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function adminRevokeTitle(admin: SupabaseClient, userId: string, titleId: string) {
+  const { data } = await admin
+    .from("user_profiles")
+    .select("admin_granted_titles, active_title")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const current = ((data?.admin_granted_titles as string[] | null) ?? []).filter((id) => id !== titleId);
+  const payload: Record<string, unknown> = { admin_granted_titles: current };
+  if (data?.active_title === titleId) payload.active_title = null;
+  const { error } = await admin.from("user_profiles").update(payload).eq("user_id", userId);
+  if (error) throw new Error(error.message);
 }

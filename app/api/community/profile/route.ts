@@ -7,10 +7,12 @@ import {
   USERNAME_MIN_LENGTH
 } from "@/lib/community/profile-rules";
 import { ensureUserProfile, getProfile, touchPresence, updateProfile } from "@/lib/community/profile";
-import { getFollowerCounts } from "@/lib/community/public-profile";
+import { getFollowerCounts, getTotalLikes } from "@/lib/community/public-profile";
 import { syncUserRewards } from "@/lib/rewards/sync";
 import { getAuthorIdentity } from "@/lib/rewards/identity";
 import { canManageRewards } from "@/lib/rewards/admin-access";
+import { getPlanInfo } from "@/lib/plans";
+import { resolveEntitledPlan } from "@/lib/user-plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
@@ -24,6 +26,14 @@ export async function GET() {
   const counts = await getFollowerCounts(admin, auth.user!.id);
   const identity = await getAuthorIdentity(admin, auth.user!.id);
   const isRewardsAdmin = await canManageRewards(admin, auth.user!.id, auth.user!.email);
+  const totalLikes = await getTotalLikes(admin, auth.user!.id);
+  const { data: planRow } = await admin
+    .from("user_plans")
+    .select("plan, stripe_subscription_status")
+    .eq("user_id", auth.user!.id)
+    .maybeSingle();
+  const plan = resolveEntitledPlan(planRow as Parameters<typeof resolveEntitledPlan>[0]);
+  const planInfo = getPlanInfo(plan);
   return NextResponse.json({
     profile: profile
       ? {
@@ -32,8 +42,12 @@ export async function GET() {
           isRewardsAdmin,
           isVerified: identity.isVerified,
           isCreator: identity.isCreator,
+          isChosen: identity.isChosen,
           activeTitleLabel: identity.titleLabel,
           accentColor: identity.accentColor,
+          totalLikes,
+          plan,
+          planLabel: planInfo.label,
           showcasedBadges: identity.showcasedBadges.map((b) => ({
             id: b.id,
             name: b.name,

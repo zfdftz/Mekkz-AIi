@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { LanguageProvider } from "@/components/language-provider";
 import { AuthSessionBootstrap } from "@/components/auth-session-bootstrap";
+import { AchievementProvider } from "@/components/rewards/achievement-provider";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mekkzai.com";
 const siteDescription =
@@ -90,7 +91,7 @@ export default function RootLayout({
         </Script>
         <LanguageProvider>
           <AuthSessionBootstrap />
-          {children}
+          <AchievementProvider>{children}</AchievementProvider>
         </LanguageProvider>
       </body>
     </html>

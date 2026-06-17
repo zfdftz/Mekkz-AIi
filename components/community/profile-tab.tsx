@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Crown } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AVATAR_MAX_BYTES,
   USERNAME_MIN_LENGTH,
@@ -18,7 +19,11 @@ import {
 import { useProfileModal } from "@/components/community/profile-context";
 import { FollowerStats, FollowersPanel, formatCount } from "@/components/community/followers-panel";
 import { ProfileIdentity } from "@/components/rewards/profile-identity";
-import { ProfileRewardsPanel } from "@/components/rewards/profile-rewards-panel";
+import {
+  ProfileLikesStat,
+  ProfileRewardsPanel,
+  type RewardsFormState
+} from "@/components/rewards/profile-rewards-panel";
 import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
@@ -38,14 +43,22 @@ export function ProfileTab() {
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const [showBadgesPanel, setShowBadgesPanel] = useState(false);
+  const rewardsFormRef = useRef<RewardsFormState | null>(null);
 
   const usernameLocked = profile?.canChangeUsername === false;
   const usernameHint = useMemo(() => {
     if (usernameLocked && profile?.nextUsernameChangeAt) {
       return `Nächste Änderung ab ${new Date(profile.nextUsernameChangeAt).toLocaleDateString("de-DE")} (30-Tage-Limit).`;
     }
-    return `Mindestens ${USERNAME_MIN_LENGTH}, maximal ${USERNAME_MAX_LENGTH} Zeichen. Jeder Name ist einmalig.`;
+    return `Mindestens ${USERNAME_MIN_LENGTH}, maximal ${USERNAME_MAX_LENGTH} Zeichen. Jeder Name ist einmalig (Groß/Klein egal).`;
   }, [usernameLocked, profile?.nextUsernameChangeAt]);
+
+  const planBadgeClass =
+    profile?.plan === "ultra"
+      ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+      : profile?.plan === "pro"
+        ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
+        : "border-white/20 bg-white/10 text-muted";
 
   const load = useCallback(async () => {
     setError(null);
@@ -86,16 +99,34 @@ export function ProfileTab() {
         payload.username = username.trim();
       }
 
-      const res = await fetch("/api/community/profile", {
+      const profileRes = await fetch("/api/community/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const data = await readJsonResponse<{ profile?: UserProfile; error?: string }>(res);
-      if (!res.ok) throw new Error(data.error || "Speichern fehlgeschlagen.");
-      setProfile(data.profile ?? null);
-      setUsername(data.profile?.username ?? username);
+      const profileData = await readJsonResponse<{ profile?: UserProfile; error?: string }>(profileRes);
+      if (!profileRes.ok) throw new Error(profileData.error || "Profil speichern fehlgeschlagen.");
+
+      const rewards = rewardsFormRef.current;
+      if (rewards) {
+        const rewardsRes = await fetch("/api/rewards", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            showcasedBadgeIds: rewards.showcaseIds,
+            profileBackground: rewards.profileBackground,
+            accentColor: rewards.accentColor,
+            activeTitle: rewards.activeTitle
+          })
+        });
+        const rewardsData = await readJsonResponse<{ error?: string }>(rewardsRes);
+        if (!rewardsRes.ok) throw new Error(rewardsData.error || "Rewards speichern fehlgeschlagen.");
+      }
+
+      setProfile(profileData.profile ?? null);
+      setUsername(profileData.profile?.username ?? username);
       setSuccess("Profil gespeichert.");
+      void load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
@@ -146,13 +177,26 @@ export function ProfileTab() {
               title={profile?.activeTitleLabel}
               isVerified={profile?.isVerified}
               isCreator={profile?.isCreator}
+              isChosen={profile?.isChosen}
               badges={profile?.showcasedBadges}
             />
             <p className="mt-1 text-sm font-medium text-primary">
               {formatCount(profile?.followersCount ?? 0)} Follower
             </p>
+            {typeof profile?.totalLikes === "number" ? (
+              <div className="mt-1">
+                <ProfileLikesStat totalLikes={profile.totalLikes} />
+              </div>
+            ) : null}
             <p className="text-sm text-muted">{profile?.isOnline ? "Online" : "Offline"}</p>
           </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${planBadgeClass}`}>
+            {profile?.plan !== "free" ? <Crown size={10} /> : null}
+            {profile?.planLabel ?? "Free"}
+          </span>
         </div>
 
         <FollowerStats
@@ -235,12 +279,22 @@ export function ProfileTab() {
               />
             </label>
           </div>
+
+          <div className="border-t border-white/10 pt-4">
+            <ProfileRewardsPanel
+              embedded
+              onFormChange={(state) => {
+                rewardsFormRef.current = state;
+              }}
+            />
+          </div>
+
           <button
             type="button"
             onClick={() => setShowBadgesPanel((v) => !v)}
             className="season-btn w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium"
           >
-            Badges & Titles
+            Badges & Titles (Quests)
           </button>
           <PrimaryButton loading={saving} onClick={save} className="w-full">
             Speichern
@@ -249,8 +303,6 @@ export function ProfileTab() {
       </Panel>
 
       {showBadgesPanel ? <BadgesTitlesPanel onClose={() => setShowBadgesPanel(false)} /> : null}
-
-      <ProfileRewardsPanel />
     </div>
   );
 }

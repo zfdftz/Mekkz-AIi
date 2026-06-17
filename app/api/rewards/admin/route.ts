@@ -3,13 +3,23 @@ import { z } from "zod";
 import { requireRegisteredUser } from "@/lib/api/require-user";
 import { canManageRewards } from "@/lib/rewards/admin-access";
 import { grantBadge, listUserBadges, revokeBadge } from "@/lib/rewards/badges";
-import { BADGES } from "@/lib/rewards/catalog";
+import { adminGrantTitle, adminRevokeTitle, getUnlockedTitles } from "@/lib/rewards/cosmetics";
+import { BADGES, TITLES } from "@/lib/rewards/catalog";
+import { setChosenStatus } from "@/lib/rewards/verification";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const schema = z.object({
   userId: z.string().uuid(),
-  badgeId: z.string(),
-  action: z.enum(["grant", "revoke"])
+  action: z.enum([
+    "grant-badge",
+    "revoke-badge",
+    "grant-title",
+    "revoke-title",
+    "set-chosen"
+  ]),
+  badgeId: z.string().optional(),
+  titleId: z.string().optional(),
+  chosen: z.boolean().optional()
 });
 
 export async function POST(req: Request) {
@@ -27,17 +37,41 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   }
-  if (!BADGES[parsed.data.badgeId]) {
-    return NextResponse.json({ error: "Unbekanntes Badge." }, { status: 400 });
-  }
 
-  const { userId, badgeId, action } = parsed.data;
+  const { userId, action, badgeId, titleId, chosen } = parsed.data;
 
   try {
-    if (action === "grant") {
-      await grantBadge(admin, userId, badgeId, `admin:${auth.user!.id}`);
-    } else {
-      await revokeBadge(admin, userId, badgeId);
+    switch (action) {
+      case "grant-badge":
+        if (!badgeId || !BADGES[badgeId]) {
+          return NextResponse.json({ error: "Unbekanntes Badge." }, { status: 400 });
+        }
+        await grantBadge(admin, userId, badgeId, `admin:${auth.user!.id}`);
+        break;
+      case "revoke-badge":
+        if (!badgeId || !BADGES[badgeId]) {
+          return NextResponse.json({ error: "Unbekanntes Badge." }, { status: 400 });
+        }
+        await revokeBadge(admin, userId, badgeId);
+        break;
+      case "grant-title":
+        if (!titleId || !TITLES[titleId]) {
+          return NextResponse.json({ error: "Unbekannter Titel." }, { status: 400 });
+        }
+        await adminGrantTitle(admin, userId, titleId);
+        break;
+      case "revoke-title":
+        if (!titleId || !TITLES[titleId]) {
+          return NextResponse.json({ error: "Unbekannter Titel." }, { status: 400 });
+        }
+        await adminRevokeTitle(admin, userId, titleId);
+        break;
+      case "set-chosen":
+        if (typeof chosen !== "boolean") {
+          return NextResponse.json({ error: "chosen muss true/false sein." }, { status: 400 });
+        }
+        await setChosenStatus(admin, userId, chosen);
+        break;
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -62,18 +96,27 @@ export async function GET(req: Request) {
   if (username) {
     const { data, error } = await admin
       .from("user_profiles")
-      .select("user_id, username")
+      .select("user_id, username, is_chosen, admin_granted_titles")
       .ilike("username", username)
       .maybeSingle();
     if (error || !data) {
       return NextResponse.json({ error: "Nutzer nicht gefunden." }, { status: 404 });
     }
-    const badges = await listUserBadges(admin, data.user_id as string);
+    const userId = data.user_id as string;
+    const badges = await listUserBadges(admin, userId);
+    const { data: authUser } = await admin.auth.admin.getUserById(userId);
+    const registeredAt = authUser?.user?.created_at
+      ? new Date(authUser.user.created_at)
+      : new Date();
+    const titles = await getUnlockedTitles(admin, userId, registeredAt);
     return NextResponse.json({
       user: {
-        userId: data.user_id,
+        userId,
         username: data.username,
-        badges: badges.map((b) => b.id)
+        badges: badges.map((b) => b.id),
+        titles,
+        isChosen: Boolean(data.is_chosen),
+        adminTitles: (data.admin_granted_titles as string[] | null) ?? []
       }
     });
   }
@@ -83,6 +126,10 @@ export async function GET(req: Request) {
       id: b.id,
       name: b.name,
       description: b.description
+    })),
+    titles: Object.values(TITLES).map((t) => ({
+      id: t.id,
+      label: t.label
     }))
   });
 }

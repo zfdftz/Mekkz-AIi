@@ -19,6 +19,18 @@ function toDateOnly(iso: string | null | undefined) {
   });
 }
 
+export async function getTotalLikes(admin: SupabaseClient, userId: string) {
+  const { data, error } = await admin
+    .from("feed_posts")
+    .select("likes_count")
+    .eq("user_id", userId);
+  if (error) {
+    if (missing(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  return (data ?? []).reduce((sum, row) => sum + ((row.likes_count as number) ?? 0), 0);
+}
+
 export async function getFollowerCounts(admin: SupabaseClient, userId: string) {
   const [followers, following] = await Promise.all([
     admin.from("user_followers").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
@@ -179,7 +191,7 @@ export async function getPublicProfile(
   const profile = await getProfile(admin, targetUserId);
   if (!profile) return null;
 
-  const [{ data: authUser }, { data: planRow }, counts, identity, cosmetics] = await Promise.all([
+  const [{ data: authUser }, { data: planRow }, counts, identity, cosmetics, totalLikes] = await Promise.all([
     admin.auth.admin.getUserById(targetUserId),
     admin
       .from("user_plans")
@@ -188,7 +200,8 @@ export async function getPublicProfile(
       .maybeSingle(),
     getFollowerCounts(admin, targetUserId),
     getAuthorIdentity(admin, targetUserId),
-    getProfileCosmetics(admin, targetUserId)
+    getProfileCosmetics(admin, targetUserId),
+    getTotalLikes(admin, targetUserId)
   ]);
 
   const joinedIso = authUser?.user?.created_at ?? profile.usernameChangedAt;
@@ -232,11 +245,13 @@ export async function getPublicProfile(
     topPosts,
     isVerified: identity.isVerified,
     isCreator: identity.isCreator,
+    isChosen: identity.isChosen,
     activeTitleLabel: identity.titleLabel,
     bannerUrl: cosmetics.bannerUrl,
     profileFrame: cosmetics.profileFrame,
     profileBackground: cosmetics.profileBackground,
     accentColor: cosmetics.accentColor,
+    totalLikes,
     showcasedBadges
   };
 }

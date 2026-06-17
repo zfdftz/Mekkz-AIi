@@ -16,8 +16,12 @@ export type UserProfile = {
   isRewardsAdmin?: boolean;
   isVerified?: boolean;
   isCreator?: boolean;
+  isChosen?: boolean;
   activeTitle?: string | null;
   activeTitleLabel?: string | null;
+  plan?: "free" | "pro" | "ultra";
+  planLabel?: string;
+  totalLikes?: number;
   bannerUrl?: string | null;
   profileFrame?: string | null;
   profileBackground?: string | null;
@@ -147,11 +151,13 @@ export type PublicUserProfile = {
   topPosts: FeedPost[];
   isVerified?: boolean;
   isCreator?: boolean;
+  isChosen?: boolean;
   activeTitleLabel?: string | null;
   bannerUrl?: string | null;
   profileFrame?: string | null;
   profileBackground?: string | null;
   accentColor?: string;
+  totalLikes?: number;
   showcasedBadges?: { id: string; name: string; description: string; icon: string }[];
 };
 

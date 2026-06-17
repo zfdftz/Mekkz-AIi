@@ -178,6 +178,30 @@ export function getTitle(id: string) {
   return TITLES[id];
 }
 
+const FRAME_AS_BG: Record<string, string> = {
+  "frame-galaxy-ring": "reward-bg-galaxy-ring",
+  "frame-star-orbit": "reward-bg-star-orbit",
+  "frame-neon-grid": "reward-bg-neon-ring",
+  "frame-cyber-pulse": "reward-bg-cyber-ring",
+  "frame-royal-gold": "reward-bg-royal-ring",
+  "frame-dragon-scale": "reward-bg-dragon-ring",
+  "frame-ice-crystal": "reward-bg-ice-ring",
+  "frame-snow-aura": "reward-bg-snow-ring",
+  "frame-ember-ring": "reward-bg-ember-ring",
+  "frame-inferno": "reward-bg-inferno-ring",
+  "frame-classic": "reward-bg-mekkz"
+};
+
+/** Profile card background — frames render as full backgrounds like Discord. */
+export function getProfileBackgroundClass(cosmeticId: string | null | undefined) {
+  if (!cosmeticId) return "reward-bg-mekkz";
+  const def = getCosmetic(cosmeticId);
+  if (!def) return "reward-bg-mekkz";
+  if (def.type === "background") return def.previewClass;
+  if (def.type === "frame") return FRAME_AS_BG[def.id] ?? def.previewClass;
+  return def.previewClass;
+}
+
 export const RARITY_WEIGHTS: Record<CosmeticRarity, number> = {
   common: 50,
   rare: 30,

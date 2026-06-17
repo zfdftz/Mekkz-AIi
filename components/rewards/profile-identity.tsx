@@ -1,22 +1,116 @@
 "use client";
 
-import { BadgeCheck } from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
+import { Check } from "lucide-react";
 import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
 
 type BadgeChip = { id: string; name: string; description: string; icon: string };
 
-function UltraCreatorMark({ compact, profileView }: { compact?: boolean; profileView?: boolean }) {
+/** Permanent account status icons (DB flags) — not showcase badges. Order: Chosen → Verified → Creator → Ultra. */
+function IdentityMark({
+  size,
+  className,
+  children,
+  label,
+  description,
+  style
+}: {
+  size: number;
+  className: string;
+  children: ReactNode;
+  label: string;
+  description: string;
+  style?: CSSProperties;
+}) {
   return (
-    <DiscordTooltip label="Ultra Creator" description="100.000+ Follower">
+    <DiscordTooltip label={label} description={description}>
       <span
-        className={`inline-flex shrink-0 items-center justify-center rounded-full bg-sky-500/20 font-bold text-sky-300 ${
-          profileView ? "h-5 w-5 text-[10px]" : compact ? "h-3.5 w-3.5 text-[8px]" : "h-4 w-4 text-[10px]"
-        }`}
-        aria-label="Ultra Creator"
+        className={`inline-flex shrink-0 items-center justify-center rounded-full ${className}`}
+        style={{ width: size, height: size, minWidth: size, ...style }}
+        aria-label={label}
       >
-        ✕
+        {children}
       </span>
     </DiscordTooltip>
+  );
+}
+
+function ChosenMark({ size }: { size: number }) {
+  return (
+    <IdentityMark
+      size={size}
+      className="bg-red-500 text-white shadow-sm shadow-red-500/40"
+      label="The Chosen One"
+      description="Von Mekkz AI ausgewählt — permanent, nur Admin kann entfernen."
+    >
+      <Check size={Math.round(size * 0.58)} strokeWidth={3} aria-hidden />
+    </IdentityMark>
+  );
+}
+
+function VerifiedMark({ size }: { size: number }) {
+  return (
+    <IdentityMark
+      size={size}
+      className="bg-[#20D5EC] text-white shadow-sm shadow-sky-400/30"
+      label="Verified"
+      description="Verifiziertes Konto (25.000+ Follower)."
+    >
+      <Check size={Math.round(size * 0.58)} strokeWidth={3} aria-hidden />
+    </IdentityMark>
+  );
+}
+
+function CreatorMark({ size }: { size: number }) {
+  return (
+    <IdentityMark
+      size={size}
+      className="bg-emerald-500 font-bold leading-none text-white shadow-sm shadow-emerald-500/30"
+      label="Mekkz AI Creator"
+      description="Offizieller Mekkz AI Creator — permanent."
+      style={{ fontSize: Math.max(8, Math.round(size * 0.48)) }}
+    >
+      ✦
+    </IdentityMark>
+  );
+}
+
+function UltraCreatorMark({ size }: { size: number }) {
+  return (
+    <IdentityMark
+      size={size}
+      className="bg-sky-600 font-bold leading-none text-white shadow-sm shadow-sky-600/30"
+      label="Ultra Creator"
+      description="100.000+ Follower."
+      style={{ fontSize: Math.max(7, Math.round(size * 0.42)) }}
+    >
+      ✕
+    </IdentityMark>
+  );
+}
+
+function IdentityMarks({
+  isVerified,
+  isCreator,
+  isChosen,
+  isUltraCreator,
+  markSize
+}: {
+  isVerified?: boolean;
+  isCreator?: boolean;
+  isChosen?: boolean;
+  isUltraCreator?: boolean;
+  markSize: number;
+}) {
+  if (!isChosen && !isVerified && !isCreator && !isUltraCreator) return null;
+
+  return (
+    <span className="inline-flex shrink-0 items-center gap-[3px]">
+      {isChosen ? <ChosenMark size={markSize} /> : null}
+      {isVerified ? <VerifiedMark size={markSize} /> : null}
+      {isCreator ? <CreatorMark size={markSize} /> : null}
+      {isUltraCreator ? <UltraCreatorMark size={markSize} /> : null}
+    </span>
   );
 }
 
@@ -39,48 +133,36 @@ export function ProfileIdentity({
   isUltraCreator?: boolean;
   badges?: BadgeChip[];
   compact?: boolean;
-  /** TikTok-style header: name + badges inline, no @ prefix */
+  /** Profile header: larger name, no @ prefix (TikTok-style). */
   profileView?: boolean;
 }) {
+  const markSize = profileView ? 18 : compact ? 14 : 16;
   const nameClass = profileView
-    ? "truncate text-lg font-bold leading-tight"
+    ? "truncate text-lg font-bold leading-none"
     : compact
-      ? "truncate font-medium"
-      : "truncate font-medium";
-  const iconSize = profileView ? 18 : compact ? 14 : 16;
+      ? "truncate text-sm font-semibold leading-none"
+      : "truncate font-semibold leading-none";
 
   return (
-    <span className={`inline-flex min-w-0 flex-col ${compact && !profileView ? "" : "gap-0.5"}`}>
-      <span className="inline-flex min-w-0 flex-wrap items-center gap-1">
-        {!profileView ? <span className={nameClass}>@{username}</span> : null}
-        {profileView ? <span className={nameClass}>{username}</span> : null}
-        {isVerified ? (
-          <DiscordTooltip label="Verified" description="Verifiziertes Konto (25.000+ Follower)">
-            <span className="inline-flex shrink-0 text-sky-400" aria-label="Verified">
-              <BadgeCheck size={iconSize} className="fill-sky-500/25 stroke-[2.5]" />
-            </span>
-          </DiscordTooltip>
-        ) : null}
-        {isCreator ? (
-          <DiscordTooltip label="Mekkz AI Creator" description="Offizieller Creator">
-            <span
-              className={`inline-flex shrink-0 items-center justify-center rounded-full bg-emerald-500/25 font-bold text-emerald-300 ${
-                profileView ? "h-5 min-w-5 text-[11px]" : compact ? "h-3.5 min-w-3.5 px-0.5 text-[8px]" : "h-4 min-w-4 px-1 text-[10px]"
-              }`}
-            >
-              ✦
-            </span>
-          </DiscordTooltip>
-        ) : null}
-        {isChosen ? (
-          <DiscordTooltip label="The Chosen One" description="Von Mekkz AI ausgewählt">
-            <span className="inline-flex shrink-0 text-red-500" aria-label="The Chosen One">
-              <BadgeCheck size={iconSize} className="fill-red-500/30 stroke-[2.5]" />
-            </span>
-          </DiscordTooltip>
-        ) : null}
-        {isUltraCreator ? <UltraCreatorMark compact={compact} profileView={profileView} /> : null}
+    <span className={`inline-flex min-w-0 max-w-full flex-col ${profileView ? "gap-1" : "gap-0.5"}`}>
+      {/* TikTok / YouTube: name + status icons on one tight row */}
+      <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+        <span className={`inline-flex min-w-0 items-center gap-1 ${profileView ? "" : ""}`}>
+          {!profileView ? (
+            <span className={`${nameClass} text-foreground`}>@{username}</span>
+          ) : (
+            <span className={`${nameClass} text-foreground`}>{username}</span>
+          )}
+          <IdentityMarks
+            isChosen={isChosen}
+            isVerified={isVerified}
+            isCreator={isCreator}
+            isUltraCreator={isUltraCreator}
+            markSize={markSize}
+          />
+        </span>
       </span>
+
       {title ? (
         <span
           className={`truncate text-primary ${profileView ? "text-sm" : compact ? "text-[10px]" : "text-xs"}`}
@@ -88,8 +170,9 @@ export function ProfileIdentity({
           {title}
         </span>
       ) : null}
+
       {badges && badges.length > 0 && !compact ? (
-        <span className={`flex flex-wrap gap-1 ${profileView ? "mt-2" : "mt-1"}`}>
+        <span className={`flex flex-wrap gap-1 ${profileView ? "mt-1.5" : "mt-1"}`}>
           {badges.map((b) => (
             <DiscordTooltip key={b.id} label={b.name} description={b.description}>
               <span className="inline-flex cursor-help rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs">

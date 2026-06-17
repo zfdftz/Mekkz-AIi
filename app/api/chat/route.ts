@@ -52,7 +52,9 @@ import {
 } from "@/lib/memory";
 import {
   buildPersonalityLock,
-  buildPersonalitySystemPrompt
+  buildPersonalitySystemPrompt,
+  injectPersonalityIntoMessages,
+  isActivePersonalityMode
 } from "@/lib/personality";
 import { buildTutorSystemPrompt } from "@/lib/tutor";
 import {
@@ -310,7 +312,9 @@ export async function POST(req: Request) {
 
   let systemContent =
     "You are MEKKZ AI — the assistant of this app (not ChatGPT, Claude, Groq, or any other product). " +
-    buildLanguageSystemPrompt() +
+    buildLanguageSystemPrompt({
+      activePersonality: isActivePersonalityMode(aiPreferences.personalityMode)
+    }) +
     " ";
 
   if (hasImageInLastMessage) {
@@ -332,12 +336,18 @@ export async function POST(req: Request) {
     }
   }
 
+  const personalityBlock = buildPersonalitySystemPrompt(
+    aiPreferences.personalityMode,
+    replyLanguage
+  );
+  const personalityLock = buildPersonalityLock(aiPreferences.personalityMode, replyLanguage);
+
   const system = {
     role: "system" as const,
     content:
+      personalityBlock +
       systemContent +
       `${planRules}\n` +
-      `${buildPersonalitySystemPrompt(aiPreferences.personalityMode, userLanguage)}\n` +
       (aiPreferences.tutorModeEnabled
         ? `${buildTutorSystemPrompt(aiPreferences.tutorLevel)}\n`
         : "") +
@@ -349,8 +359,22 @@ export async function POST(req: Request) {
       `${buildChatFormatInstructions(chatContext.username)}\n` +
       `${songLyricsPrompt ? `${songLyricsPrompt}\n` : ""}` +
       `${followUpPrompt}\n` +
-      `${buildPersonalityLock(aiPreferences.personalityMode, userLanguage)}\n` +
+      `${personalityLock}\n` +
       `\n${buildReplyLanguageLock(replyLanguage)}`
+  };
+
+  const formattedMessages = applyChatLineFormat(
+    messagesForAI(contextMessages),
+    chatContext.username
+  );
+  const aiConversation = injectPersonalityIntoMessages(
+    formattedMessages,
+    aiPreferences.personalityMode,
+    replyLanguage
+  );
+  const aiOptions = {
+    language: replyLanguage,
+    personalityMode: aiPreferences.personalityMode
   };
 
   let reply = "";
@@ -439,11 +463,7 @@ export async function POST(req: Request) {
         lastUserMessage?.content?.trim() ||
         (lastUserMessage?.imageName ? `[Bild: ${lastUserMessage.imageName}]` : "");
 
-      const aiMessages = [
-        system,
-        ...applyChatLineFormat(messagesForAI(contextMessages), chatContext.username)
-      ];
-      const streamLanguage = replyLanguage;
+      const aiMessages = [system, ...aiConversation];
       const streamTimeoutMs = hasImageInLastMessage ? 90000 : 45000;
 
       const body = new ReadableStream<Uint8Array>({
@@ -466,9 +486,7 @@ export async function POST(req: Request) {
               if (planState.textReadyDelayMs > 0) {
                 await sleep(planState.textReadyDelayMs);
               }
-              for await (const chunk of streamAIResponse(aiMessages, {
-                language: streamLanguage
-              })) {
+              for await (const chunk of streamAIResponse(aiMessages, aiOptions)) {
                 fullReply += chunk;
                 if (chunk) {
                   emit({ type: "delta", text: chunk });
@@ -585,12 +603,7 @@ export async function POST(req: Request) {
         await sleep(planState.textReadyDelayMs);
       }
       reply = await Promise.race([
-        generateAIResponse(
-          [system, ...applyChatLineFormat(messagesForAI(contextMessages), chatContext.username)],
-          {
-            language: replyLanguage
-          }
-        ),
+        generateAIResponse([system, ...aiConversation], aiOptions),
         new Promise<string>((_, reject) =>
           setTimeout(
             () =>

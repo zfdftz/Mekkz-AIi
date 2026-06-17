@@ -39,6 +39,7 @@ export type TranslationKey =
   | "personality.genzDesc"
   | "personality.hardcoreCoach"
   | "personality.hardcoreCoachDesc"
+  | "personality.popular"
   | "personality.philosopher"
   | "personality.philosopherDesc"
   | "personality.comedian"

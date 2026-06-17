@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import type { PersonalityMode } from "./personality";
+import { isActivePersonalityMode } from "./personality";
 import { ChatMessage } from "./types";
 import {
   DEFAULT_LANGUAGE,
@@ -177,7 +179,31 @@ function resolveVisionProvider(): ExtendedAIProvider {
 type GenerateAIOptions = {
   provider?: ExtendedAIProvider;
   language?: LanguageCode;
+  personalityMode?: PersonalityMode;
 };
+
+function resolveTemperature(personalityMode?: PersonalityMode, base = 0.45) {
+  if (personalityMode && isActivePersonalityMode(personalityMode)) return 0.82;
+  return base;
+}
+
+function buildGroqChatMessages(messages: ChatMessage[], maxPairs: number) {
+  const systemText = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content)
+    .join("\n\n");
+  const conversation = messages.filter((message) => message.role !== "system");
+  const trimmed = conversation.slice(-Math.max(2, maxPairs * 2));
+
+  const apiMessages: Array<{ role: string; content: string }> = [];
+  if (systemText.trim()) {
+    apiMessages.push({ role: "system", content: systemText });
+  }
+  for (const message of trimmed) {
+    apiMessages.push({ role: message.role, content: message.content });
+  }
+  return apiMessages;
+}
 
 function normalizeGenerateOptions(
   options?: GenerateAIOptions | ExtendedAIProvider
@@ -275,7 +301,8 @@ async function* readOllamaNDJSON(
 async function* streamGroqResponse(
   messages: ChatMessage[],
   language: LanguageCode,
-  needsVision: boolean
+  needsVision: boolean,
+  personalityMode?: PersonalityMode
 ): AsyncGenerator<string, void, undefined> {
   if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY fehlt.");
@@ -284,13 +311,14 @@ async function* streamGroqResponse(
   const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", needsVision ? 3 : 3);
   const groqMessages = needsVision
     ? buildVisionApiMessages(trimMessagesForContext(messages, groqContextTurns), language)
-    : trimMessagesForContext(messages, groqContextTurns);
+    : buildGroqChatMessages(messages, groqContextTurns);
   const model = needsVision
     ? process.env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"
     : process.env.GROQ_MODEL || "llama-3.1-8b-instant";
   const maxTokens = needsVision
     ? parseEnvInt("GROQ_VISION_MAX_TOKENS", 520)
     : parseEnvInt("GROQ_MAX_TOKENS", 360);
+  const temperature = resolveTemperature(personalityMode);
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -301,7 +329,7 @@ async function* streamGroqResponse(
     body: JSON.stringify({
       model,
       stream: true,
-      temperature: 0.45,
+      temperature,
       max_tokens: maxTokens,
       messages: groqMessages
     }),
@@ -327,7 +355,8 @@ async function* streamGroqResponse(
 async function* streamOpenAIResponse(
   messages: ChatMessage[],
   language: LanguageCode,
-  needsVision: boolean
+  needsVision: boolean,
+  personalityMode?: PersonalityMode
 ): AsyncGenerator<string, void, undefined> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY fehlt.");
@@ -343,7 +372,7 @@ async function* streamOpenAIResponse(
       model: needsVision
         ? process.env.OPENAI_VISION_MODEL || "gpt-4o-mini"
         : process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.7,
+      temperature: resolveTemperature(personalityMode, 0.7),
       stream: true,
       messages: apiMessages
     });
@@ -358,7 +387,7 @@ async function* streamOpenAIResponse(
       apiError.status === 429 || /quota|billing/i.test(apiError.message ?? "");
 
     if (isQuota && process.env.GROQ_API_KEY) {
-      yield* streamGroqResponse(messages, language, needsVision);
+      yield* streamGroqResponse(messages, language, needsVision, personalityMode);
       return;
     }
 
@@ -431,12 +460,12 @@ export async function* streamAIResponse(
   const { provider, language, needsVision } = resolveActiveProvider(messages, resolved);
 
   if (provider === "groq") {
-    yield* streamGroqResponse(messages, language, needsVision);
+    yield* streamGroqResponse(messages, language, needsVision, resolved.personalityMode);
     return;
   }
 
   if (provider === "openai") {
-    yield* streamOpenAIResponse(messages, language, needsVision);
+    yield* streamOpenAIResponse(messages, language, needsVision, resolved.personalityMode);
     return;
   }
 
@@ -521,7 +550,7 @@ export async function generateAIResponse(
     const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", vision ? 3 : 3);
     const groqMessages = vision
       ? buildVisionApiMessages(trimMessagesForContext(messages, groqContextTurns), language)
-      : trimMessagesForContext(messages, groqContextTurns);
+      : buildGroqChatMessages(messages, groqContextTurns);
     const model = vision
       ? process.env.GROQ_VISION_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct"
       : process.env.GROQ_MODEL || "llama-3.1-8b-instant";
@@ -537,7 +566,7 @@ export async function generateAIResponse(
       },
       body: JSON.stringify({
         model,
-        temperature: 0.45,
+        temperature: resolveTemperature(resolved.personalityMode),
         max_tokens: maxTokens,
         messages: groqMessages
       }),
@@ -621,7 +650,7 @@ export async function generateAIResponse(
       model: vision
         ? process.env.OPENAI_VISION_MODEL || "gpt-4o-mini"
         : process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.7,
+      temperature: resolveTemperature(resolved.personalityMode, 0.7),
       messages: (vision
         ? buildVisionApiMessages(messages, language)
         : messages) as OpenAI.Chat.ChatCompletionMessageParam[]

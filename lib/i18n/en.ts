@@ -47,6 +47,7 @@ export const en: MessageTable = {
   "personality.genzDesc": "Casual, modern internet tone",
   "personality.hardcoreCoach": "Hardcore Coach",
   "personality.hardcoreCoachDesc": "Direct tough-love coach, firm and motivating",
+  "personality.popular": "Popular",
   "personality.philosopher": "Philosopher",
   "personality.philosopherDesc": "Thoughtful, deep questions",
   "personality.comedian": "Comedian",

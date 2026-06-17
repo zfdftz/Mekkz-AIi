@@ -66,6 +66,7 @@ const de: MessageTable = {
   "personality.genzDesc": "Locker, moderner Internet-Ton",
   "personality.hardcoreCoach": "Hardcore Coach",
   "personality.hardcoreCoachDesc": "Direkter Tough-Love-Coach, klar und motivierend",
+  "personality.popular": "Beliebt",
   "personality.philosopher": "Philosoph",
   "personality.philosopherDesc": "Nachdenklich, stellt tiefe Fragen",
   "personality.comedian": "Comedian",

@@ -408,6 +408,7 @@ export function SettingsPanel({
                   {PERSONALITY_MODES.map((mode) => (
                     <option key={mode.id} value={mode.id} className="bg-neutral-900">
                       {t(mode.labelKey as Parameters<typeof t>[0])}
+                      {mode.popular ? ` (${t("personality.popular")})` : ""}
                     </option>
                   ))}
                 </select>

@@ -48,6 +48,7 @@ export const pt = createLocale(en, {
   "personality.swissDesc": "Toque caloroso de suíço-alemão",
   "personality.genz": "Gen Z",
   "personality.genzDesc": "Tom casual e moderno da internet",
+  "personality.popular": "Popular",
   "tutor.beginner": "Iniciante",
   "tutor.intermediate": "Intermédio",
   "tutor.advanced": "Avançado",

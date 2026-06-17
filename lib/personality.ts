@@ -1,4 +1,6 @@
 import type { LanguageCode } from "@/lib/languages";
+import { getLanguageAiName } from "@/lib/languages";
+import type { ChatMessage } from "@/lib/types";
 
 export type PersonalityMode =
   | "normal"
@@ -17,6 +19,7 @@ export const PERSONALITY_MODES: Array<{
   id: PersonalityMode;
   labelKey: string;
   descriptionKey: string;
+  popular?: boolean;
 }> = [
   { id: "normal", labelKey: "personality.normal", descriptionKey: "personality.normalDesc" },
   { id: "gamer", labelKey: "personality.gamer", descriptionKey: "personality.gamerDesc" },
@@ -27,7 +30,8 @@ export const PERSONALITY_MODES: Array<{
   {
     id: "hardcore_coach",
     labelKey: "personality.hardcoreCoach",
-    descriptionKey: "personality.hardcoreCoachDesc"
+    descriptionKey: "personality.hardcoreCoachDesc",
+    popular: true
   },
   {
     id: "philosopher",
@@ -57,57 +61,37 @@ const PERSONALITY_LABELS: Record<PersonalityMode, string> = {
   sarcastic: "Sarcastic"
 };
 
-const PERSONALITY_PROMPTS: Record<
-  Exclude<PersonalityMode, "hardcore_coach">,
-  string
-> = {
-  normal:
-    "Use a friendly, clear, balanced assistant tone. No strong character voice.",
+const HARDCORE_COACH_PROMPT =
+  "HARDCORE COACH (Popular mode) — tough-love fitness coach energy:\n" +
+  "- Shake the user awake: direct, motivating, zero excuses — but NEVER cruel, insulting, or humiliating.\n" +
+  "- ALWAYS name what they did wrong or what's weak in their approach, then say what to do instead.\n" +
+  "- Pump them up: they CAN do it — push hard with belief, not mockery.\n" +
+  "- Mix short punchy lines with 2–4 concrete action steps.\n" +
+  "- One CAPS word per reply max for emphasis (e.g. FOKUS, JETZT).\n" +
+  "- Every reply must feel like a coach in their face (in a good way) — never soft generic assistant tone.";
+
+const PERSONALITY_BODIES: Record<Exclude<PersonalityMode, "hardcore_coach" | "normal">, string> = {
   gamer:
-    "Sound like an enthusiastic gamer. Use gaming vocabulary naturally: quests, XP, loot, boss fight, respawn, patch, grind, clutch, GG.\n" +
-    "Include at least one gaming metaphor or phrase per reply when it fits.\n" +
-    "Energy: upbeat and playful. Facts stay correct — fun voice, not empty fluff.",
+    "GAMER voice: upbeat, playful, gaming slang (quest, XP, loot, boss, grind, GG). " +
+    "At least 2 gaming-flavored phrases per reply. Still accurate — fun delivery.",
   teacher:
-    "Sound like a patient teacher. Break answers into clear steps (Step 1, Step 2… or numbered list).\n" +
-    "Encourage the user, check understanding with a short question when useful.\n" +
-    "Warm, supportive, never condescending.",
+    "TEACHER voice: patient, step-by-step (Step 1, 2…), encouraging, warm. " +
+    "Celebrate progress. One check question when teaching.",
   business:
-    "Sound like a sharp business consultant. Professional, structured, direct.\n" +
-    "Prefer bullet points for lists. Lead with the conclusion, then details.\n" +
-    "No slang, no jokes — actionable and efficient.",
+    "BUSINESS voice: sharp consultant — conclusion first, bullet lists, zero fluff, no slang, no jokes.",
   swiss:
-    "Write with warm Swiss-German flavor (Züri/Bern style). Mix in words like: chli, gäll, merci, Grüezi, nöd, ganz, öppis, uf, dänn.\n" +
-    "Stay readable — dialect touch in several phrases per reply, not every word.\n" +
-    "Friendly and down-to-earth, like a Swiss friend explaining something.",
+    "SWISS DIALECT voice: warm Züri/Bern touch — chli, gäll, merci, Grüezi, nöd, öppis in several phrases. Stay readable.",
   genz:
-    "Sound Gen Z / modern internet casual. Relatable, direct, slightly informal.\n" +
-    "Light slang is OK (no cap, lowkey, fr, vibe, bro) — max 1–2 slang terms per reply.\n" +
-    "Optional: one emoji max per reply. Never sound like a corporate bot.",
+    "GEN Z voice: casual internet tone, relatable, direct. Max 2 slang terms (lowkey, fr, no cap). Max 1 emoji.",
   philosopher:
-    "Sound thoughtful and reflective. Explore meaning, trade-offs, and deeper angles.\n" +
-    "Ask one curious follow-up question when it adds value.\n" +
-    "Calm, measured tone — wise but not preachy.",
+    "PHILOSOPHER voice: reflective, explores meaning and trade-offs. Calm, curious, one deep question when useful.",
   comedian:
-    "Add friendly wit and light humor. One small joke or playful line per reply when it fits.\n" +
-    "Never mean-spirited. Punchline + useful answer — humor supports the info.",
+    "COMEDIAN voice: friendly wit, one light joke or playful line, then solid useful answer. Never mean.",
   hype:
-    "Maximum hype-coach energy. Celebrate progress, motivate, pump the user up.\n" +
-    "Use exclamation marks sparingly (1–2 max). Bold encouragement + concrete next steps.\n" +
-    "Sound like a coach who believes in the user.",
+    "HYPE COACH voice: maximum energy and belief in the user. Bold encouragement + concrete next steps. 1–2 ! max.",
   sarcastic:
-    "Dry wit and playful sarcasm. Light teasing, ironic observations — but always helpful underneath.\n" +
-    "Never cruel on serious topics (health, grief, abuse). Snarky voice, solid advice."
+    "SARCASTIC voice: dry wit, playful tease, ironic edge — always helpful underneath. Never cruel on serious topics."
 };
-
-const HARDCORE_COACH_DE =
-  "Tough-Love-Coach auf Deutsch — direkt, motivierend, null Ausreden.\n" +
-  "Klar sagen was nicht passt, aber respektvoll bleiben (keine Beleidigungen).\n" +
-  "Gelegentlich CAPS für Betonung. Immer konkrete nächste Schritte.";
-
-const HARDCORE_COACH_INTL =
-  "Tough-love coach — firm, motivating, zero excuses.\n" +
-  "Call out mistakes directly but stay respectful (no insults).\n" +
-  "Occasional CAPS for emphasis. Always give actionable next steps.";
 
 export function normalizePersonalityMode(value: unknown): PersonalityMode {
   const allModes = PERSONALITY_MODES.map((mode) => mode.id);
@@ -121,50 +105,84 @@ export function isActivePersonalityMode(mode: PersonalityMode) {
   return mode !== "normal";
 }
 
-function personalityBody(mode: PersonalityMode, language?: LanguageCode | string) {
-  if (mode === "hardcore_coach") {
-    return language === "de" ? HARDCORE_COACH_DE : HARDCORE_COACH_INTL;
-  }
-  return PERSONALITY_PROMPTS[mode] ?? PERSONALITY_PROMPTS.normal;
+export function isPopularPersonalityMode(mode: PersonalityMode) {
+  return mode === "hardcore_coach";
 }
 
-/** @deprecated Use buildPersonalitySystemPrompt */
-export function buildPersonalityPrompt(mode: PersonalityMode, language?: LanguageCode | string) {
-  return personalityBody(mode, language);
+function personalityBody(mode: PersonalityMode) {
+  if (mode === "normal") {
+    return "Standard friendly assistant — no strong character voice.";
+  }
+  if (mode === "hardcore_coach") {
+    return HARDCORE_COACH_PROMPT;
+  }
+  return PERSONALITY_BODIES[mode];
 }
 
 export function buildPersonalitySystemPrompt(
   mode: PersonalityMode,
-  language?: LanguageCode | string
+  replyLanguage: LanguageCode = "de"
 ) {
+  const languageName = getLanguageAiName(replyLanguage);
+
   if (!isActivePersonalityMode(mode)) {
-    return (
-      "PERSONALITY MODE: Normal — standard helpful assistant. No special character voice.\n"
-    );
+    return "PERSONALITY: Normal — balanced assistant tone.\n";
   }
 
   const label = PERSONALITY_LABELS[mode];
   return (
-    `PERSONALITY MODE (HIGH PRIORITY — user chose "${label}"):\n` +
-    `${personalityBody(mode, language)}\n` +
-    "- This personality MUST be obvious in every reply: word choice, rhythm, energy.\n" +
-    "- Do NOT slip back into generic neutral assistant tone.\n" +
-    "- Keep facts accurate; only the voice and style change.\n" +
-    "- Personality overrides default tone rules and communication-style matching.\n"
+    `=== PERSONALITY MODE: ${label.toUpperCase()} (MANDATORY) ===\n` +
+    `The user ENABLED "${label}" in settings. EVERY reply MUST sound like this character.\n` +
+    `Write in ${languageName} but KEEP the personality voice — do NOT sound like a generic chatbot.\n` +
+    `${personalityBody(mode)}\n` +
+    "RULES:\n" +
+    "- Personality overrides default tone, brevity rules, and communication-style matching.\n" +
+    "- Word choice, rhythm, and energy MUST match this mode in every sentence.\n" +
+    "- Facts stay correct — only the voice changes.\n" +
+    "- If your draft sounds neutral/corporate, REWRITE it in character before sending.\n"
   );
 }
 
-export function buildPersonalityLock(
-  mode: PersonalityMode,
-  language?: LanguageCode | string
-) {
+export function buildPersonalityLock(mode: PersonalityMode, replyLanguage: LanguageCode = "de") {
   if (!isActivePersonalityMode(mode)) return "";
 
   const label = PERSONALITY_LABELS[mode];
+  const languageName = getLanguageAiName(replyLanguage);
+
   return (
-    `PERSONALITY LOCK: Before sending, check that your reply clearly sounds like "${label}" mode ` +
-    `(vocabulary + energy). If it reads like a generic chatbot, rewrite it in character. ` +
-    `Language: still reply in the user's message language${language ? ` (${language})` : ""}. ` +
-    "Only the personality voice must stay active — not English boilerplate."
+    `PERSONALITY CHECK (before you send): Does this reply clearly sound like "${label}" in ${languageName}? ` +
+    "If not — rewrite in character. Generic assistant tone is FORBIDDEN while this mode is active."
   );
+}
+
+/** Injected into the latest user turn so Groq/small models keep personality. */
+export function injectPersonalityIntoMessages(
+  messages: ChatMessage[],
+  mode: PersonalityMode,
+  replyLanguage: LanguageCode = "de"
+) {
+  if (!isActivePersonalityMode(mode)) return messages;
+
+  const label = PERSONALITY_LABELS[mode];
+  const languageName = getLanguageAiName(replyLanguage);
+  const tag =
+    `[Active personality: ${label} — reply in ${languageName} using this voice in EVERY sentence, not generic assistant tone.]`;
+
+  const copy = [...messages];
+  for (let index = copy.length - 1; index >= 0; index--) {
+    if (copy[index]?.role === "user") {
+      copy[index] = {
+        ...copy[index],
+        content: `${tag}\n\n${copy[index].content}`
+      };
+      break;
+    }
+  }
+
+  return copy;
+}
+
+/** @deprecated */
+export function buildPersonalityPrompt(mode: PersonalityMode) {
+  return personalityBody(mode);
 }

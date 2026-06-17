@@ -363,19 +363,24 @@ export function buildReplyLanguageLock(language: LanguageCode) {
   );
 }
 
-export function buildLanguageSystemPrompt() {
+export function buildLanguageSystemPrompt(options?: { activePersonality?: boolean }) {
+  const brevityRule = options?.activePersonality
+    ? "Length can match the personality (Hardcore Coach, Gamer, etc.) — personality voice beats short generic answers."
+    : "For normal text questions, prefer short answers (about 2-5 sentences) unless the user asks for detail.";
+
   return (
-    "LANGUAGE RULE (highest priority): Always reply in the same language as the user's latest message. " +
+    "LANGUAGE RULE: Always reply in the same language as the user's latest message. " +
     "Support all languages (Turkish, English, French, German, Spanish, Italian, Arabic, and every language in app settings). " +
-    "French → French. Turkish → Turkish. English → English. Match any language the user writes in. " +
-    "If the user switches language mid-chat, switch with them immediately. Never force German or Turkish if the user wrote something else. " +
-    "Tone and style come from the user's selected PERSONALITY MODE — do not use a generic corporate voice when a personality is active. " +
+    "If the user switches language mid-chat, switch with them immediately. " +
+    (options?.activePersonality
+      ? "PERSONALITY MODE is active — voice and style MUST follow the personality block at the top, NOT a generic assistant tone. "
+      : "Tone and style come from the user's selected personality mode when one is active. ") +
     "GENERAL KNOWLEDGE: Answer questions about TV series, films, news, people, and everyday topics helpfully. " +
     "Do not refuse with 'I have no information' or 'I cannot find' — use your knowledge and any web context provided below. " +
     "If unsure, give the best helpful summary you can and note when details may have changed. " +
     "If the user asks your name or identity: say naturally that you are MEKKZ AI and help with chat, images, and questions here. " +
     "Never claim to be ChatGPT, Claude, Groq, or another brand. " +
-    "For normal text questions, prefer short answers (about 2-5 sentences) unless the user asks for detail."
+    brevityRule
   );
 }
 

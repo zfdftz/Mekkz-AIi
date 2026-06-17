@@ -18,22 +18,54 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { BoardTab } from "@/components/community/board-tab";
 import { FeedTab } from "@/components/community/feed-tab";
-import { FriendsTab } from "@/components/community/friends-tab";
-import { GroupsTab } from "@/components/community/groups-tab";
-import { ProfileTab } from "@/components/community/profile-tab";
-import {
-  CalendarTab,
-  NotesTab,
-  RemindersTab,
-  TasksTab
-} from "@/components/community/productivity-tabs";
-import { RoomsTab } from "@/components/community/rooms-tab";
+import { LoadingState } from "@/components/community/shared";
 import { ProfileProvider } from "@/components/community/profile-context";
 import { useReminderAlerts } from "@/hooks/use-reminder-alerts";
 import type { CommunityTab } from "@/lib/community/types";
+
+const RoomsTab = dynamic(
+  () => import("@/components/community/rooms-tab").then((m) => ({ default: m.RoomsTab })),
+  { loading: () => <LoadingState /> }
+);
+const FriendsTab = dynamic(
+  () => import("@/components/community/friends-tab").then((m) => ({ default: m.FriendsTab })),
+  { loading: () => <LoadingState /> }
+);
+const GroupsTab = dynamic(
+  () => import("@/components/community/groups-tab").then((m) => ({ default: m.GroupsTab })),
+  { loading: () => <LoadingState /> }
+);
+const ProfileTab = dynamic(
+  () => import("@/components/community/profile-tab").then((m) => ({ default: m.ProfileTab })),
+  { loading: () => <LoadingState /> }
+);
+const TasksTab = dynamic(
+  () =>
+    import("@/components/community/productivity-tabs").then((m) => ({ default: m.TasksTab })),
+  { loading: () => <LoadingState /> }
+);
+const CalendarTab = dynamic(
+  () =>
+    import("@/components/community/productivity-tabs").then((m) => ({ default: m.CalendarTab })),
+  { loading: () => <LoadingState /> }
+);
+const RemindersTab = dynamic(
+  () =>
+    import("@/components/community/productivity-tabs").then((m) => ({ default: m.RemindersTab })),
+  { loading: () => <LoadingState /> }
+);
+const NotesTab = dynamic(
+  () =>
+    import("@/components/community/productivity-tabs").then((m) => ({ default: m.NotesTab })),
+  { loading: () => <LoadingState /> }
+);
+const BoardTab = dynamic(
+  () => import("@/components/community/board-tab").then((m) => ({ default: m.BoardTab })),
+  { loading: () => <LoadingState /> }
+);
 
 type TabId = CommunityTab | "reminders";
 
@@ -176,6 +208,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
           </div>
           <Link
             href="/chat"
+            prefetch
             className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 px-5 py-2.5 text-sm font-medium backdrop-blur-sm transition hover:bg-white/15"
           >
             ← Zurück zum Chat

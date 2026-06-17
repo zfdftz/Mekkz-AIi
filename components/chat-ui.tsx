@@ -67,6 +67,18 @@ function syncPlanBadge(plan?: PlanState) {
   window.dispatchEvent(new Event("mekkz-plan-refresh"));
 }
 
+function activeChatStorageKey(userId: string) {
+  return `mekkz_active_chat_${userId}`;
+}
+
+type BootstrapResponse = {
+  error?: string;
+  conversations?: Conversation[];
+  activeConversationId?: string | null;
+  messages?: ChatMessage[];
+  conversationLimit?: ConversationLimit | null;
+};
+
 export function ChatUI({
   userId,
   userEmail = "",
@@ -134,7 +146,10 @@ export function ChatUI({
       }
     }
 
-    void loadPreferences();
+    const idle =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(() => void loadPreferences())
+        : window.setTimeout(() => void loadPreferences(), 0);
 
     function onPreferences(event: Event) {
       const detail = (event as CustomEvent<UserAiPreferences>).detail;
@@ -142,7 +157,14 @@ export function ChatUI({
     }
 
     window.addEventListener("mekkz-ai-preferences", onPreferences);
-    return () => window.removeEventListener("mekkz-ai-preferences", onPreferences);
+    return () => {
+      window.removeEventListener("mekkz-ai-preferences", onPreferences);
+      if (typeof idle === "number") {
+        window.clearTimeout(idle);
+      } else if (typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idle);
+      }
+    };
   }, [userId]);
 
   const voice = useVoiceChat({
@@ -199,6 +221,28 @@ export function ChatUI({
     [userId]
   );
 
+  const ensureActiveConversation = useCallback(async () => {
+    if (activeConversationId) return activeConversationId;
+
+    const res = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId })
+    });
+    const data = await readJsonResponse<ConversationCreateResponse>(res);
+    if (!res.ok || !data.conversation) {
+      setLoadError(data.error || "Neuer Chat konnte nicht erstellt werden.");
+      return null;
+    }
+
+    const created = data.conversation as Conversation;
+    setActiveConversationId(created.id);
+    sessionStorage.setItem(activeChatStorageKey(userId), created.id);
+    setConversations((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
+    setChatLimit({ used: 0, limit: null, remaining: null });
+    return created.id;
+  }, [activeConversationId, userId]);
+
   const startNewChat = useCallback(async () => {
     const res = await fetch("/api/conversations", {
       method: "POST",
@@ -213,6 +257,7 @@ export function ChatUI({
 
     const created = data.conversation as Conversation;
     setActiveConversationId(created.id);
+    sessionStorage.setItem(activeChatStorageKey(userId), created.id);
     setMessages([]);
     setInput("");
     setShowWelcome(true);
@@ -233,13 +278,33 @@ export function ChatUI({
     let cancelled = false;
 
     async function init() {
-      const list = await loadConversations();
+      const storedId = sessionStorage.getItem(activeChatStorageKey(userId));
+      const params = new URLSearchParams({ userId });
+      if (storedId) params.set("conversationId", storedId);
+
+      const res = await fetch(`/api/chat/bootstrap?${params}`);
+      const data = await readJsonResponse<BootstrapResponse>(res);
       if (cancelled) return;
-      if (list.length > 0) {
-        setActiveConversationId(list[0].id);
-        await loadMessages(list[0].id);
+
+      if (!res.ok) {
+        setLoadError(data.error || "Chats konnten nicht geladen werden.");
+        return;
+      }
+
+      setLoadError(null);
+      setConversations(data.conversations ?? []);
+
+      if (data.activeConversationId) {
+        setActiveConversationId(data.activeConversationId);
+        sessionStorage.setItem(activeChatStorageKey(userId), data.activeConversationId);
+        setMessages(data.messages ?? []);
+        setChatLimit(data.conversationLimit ?? null);
+        setShowWelcome((data.messages ?? []).length === 0);
       } else {
-        await startNewChat();
+        setActiveConversationId(null);
+        setMessages([]);
+        setChatLimit(null);
+        setShowWelcome(true);
       }
     }
 
@@ -247,7 +312,7 @@ export function ChatUI({
     return () => {
       cancelled = true;
     };
-  }, [userId, loadConversations, loadMessages, startNewChat]);
+  }, [userId]);
 
   const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const container = chatScrollRef.current;
@@ -299,6 +364,7 @@ export function ChatUI({
       return;
     }
     setActiveConversationId(conversationId);
+    sessionStorage.setItem(activeChatStorageKey(userId), conversationId);
     setInput("");
     setShowWelcome(false);
     await loadMessages(conversationId);
@@ -507,6 +573,8 @@ export function ChatUI({
     voice.setProcessing(true);
     try {
       const useStream = !isImageGenRequest;
+      const conversationId = await ensureActiveConversation();
+      if (!conversationId) return;
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -516,7 +584,7 @@ export function ChatUI({
           language,
           generateImage: isImageGenRequest,
           stream: useStream,
-          ...(activeConversationId ? { conversationId: activeConversationId } : {}),
+          conversationId,
           messages: messagesForRequest(
             next.filter(
               (m) => m.content.trim().length > 0 || (m.images && m.images.length > 0)
@@ -532,8 +600,9 @@ export function ChatUI({
 
         await readChatStream(res, {
           onMeta: (event) => {
-            if (event.conversationId && event.conversationId !== activeConversationId) {
+            if (event.conversationId && event.conversationId !== conversationId) {
               setActiveConversationId(event.conversationId);
+              sessionStorage.setItem(activeChatStorageKey(userId), event.conversationId);
             }
             if (event.userImage) {
               setMessages((prev) => {
@@ -578,8 +647,9 @@ export function ChatUI({
             if (event.conversationLimit) {
               setChatLimit(event.conversationLimit);
             }
-            if (event.conversationId && event.conversationId !== activeConversationId) {
+            if (event.conversationId && event.conversationId !== conversationId) {
               setActiveConversationId(event.conversationId);
+              sessionStorage.setItem(activeChatStorageKey(userId), event.conversationId);
             }
             setMessages((prev) => {
               const copy = [...prev];
@@ -666,8 +736,9 @@ export function ChatUI({
         setChatLimit(data.conversationLimit);
       }
 
-      if (data.conversationId && data.conversationId !== activeConversationId) {
+      if (data.conversationId && data.conversationId !== conversationId) {
         setActiveConversationId(data.conversationId);
+        sessionStorage.setItem(activeChatStorageKey(userId), data.conversationId);
       }
 
       if (isImageGenRequest) {
@@ -918,6 +989,7 @@ export function ChatUI({
               ) : (
                 <Link
                   href="/community"
+                  prefetch
                   aria-label="Community"
                   title="Community"
                   className="rounded-xl bg-white/10 p-2 transition hover:scale-105 hover:bg-white/15"

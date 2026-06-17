@@ -11,6 +11,8 @@ export function AuthSessionBootstrap() {
 
   useEffect(() => {
     const supabase = createClient();
+    const STRIPE_SYNC_KEY = "mekkz_stripe_sync_at";
+    const STRIPE_SYNC_INTERVAL_MS = 10 * 60 * 1000;
 
     async function bootstrap() {
       const {
@@ -27,9 +29,13 @@ export function AuthSessionBootstrap() {
       if (!syncedRef.current) {
         syncedRef.current = true;
         try {
+          const lastSync = Number(sessionStorage.getItem(STRIPE_SYNC_KEY) || 0);
+          if (Date.now() - lastSync < STRIPE_SYNC_INTERVAL_MS) return;
+
           await fetch("/api/stripe/sync", { method: "POST" });
+          sessionStorage.setItem(STRIPE_SYNC_KEY, String(Date.now()));
         } catch {
-          // Best-effort — Plan wird auch auf /chat synchronisiert.
+          // Best-effort — Plan wird auch über /api/plan aktualisiert.
         }
       }
     }

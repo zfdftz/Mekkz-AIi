@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
+import type { Route } from "next";
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
@@ -38,7 +39,14 @@ export function AuthRequiredModal({
 
   if (!mounted) return null;
 
-  const nextQuery = returnTo ? `?next=${encodeURIComponent(returnTo)}` : "";
+  const registerHref = (
+    returnTo
+      ? `/auth/register?next=${encodeURIComponent(returnTo)}`
+      : "/auth/register"
+  ) as Route;
+  const loginHref = (
+    returnTo ? `/auth/login?next=${encodeURIComponent(returnTo)}` : "/auth/login"
+  ) as Route;
 
   return createPortal(
     <AnimatePresence>
@@ -77,14 +85,14 @@ export function AuthRequiredModal({
 
             <div className="mt-5 flex flex-col gap-2 sm:flex-row">
               <Link
-                href={`/auth/register${nextQuery}`}
+                href={registerHref}
                 className="btn-primary flex-1 rounded-xl px-4 py-3 text-center text-sm font-medium"
                 onClick={onClose}
               >
                 Registrieren
               </Link>
               <Link
-                href={`/auth/login${nextQuery}`}
+                href={loginHref}
                 className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-medium transition hover:bg-white/10"
                 onClick={onClose}
               >

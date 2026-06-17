@@ -33,25 +33,31 @@ export function ProfileModal({
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const seasonClass = getSeasonUiClass();
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/community/users/${userId}`);
+      const res = await fetch(`/api/community/users/${userId}?quick=1`);
       const data = await readJsonResponse<{ profile?: PublicUserProfile; error?: string }>(res);
       if (!res.ok) throw new Error(data.error || "Profil nicht gefunden.");
       setProfile(data.profile ?? null);
       if (data.profile) onProfileLoaded?.(userId, data.profile);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler.");
+      if (!silent) setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [userId, onProfileLoaded]);
 
   useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+    if (initialProfile) {
+      setProfile(initialProfile);
+      setLoading(false);
+      void load(true);
+      return;
+    }
+    void load(false);
+  }, [userId, initialProfile, load]);
 
   async function toggleFollow() {
     if (!profile || profile.isSelf) return;

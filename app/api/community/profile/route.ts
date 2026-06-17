@@ -6,63 +6,20 @@ import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH
 } from "@/lib/community/profile-rules";
-import { ensureUserProfile, getProfile, touchPresence, updateProfile } from "@/lib/community/profile";
+import { fetchOwnProfile } from "@/lib/community/own-profile";
+import { updateProfile } from "@/lib/community/profile";
 import { getFollowerCounts, getTotalLikes } from "@/lib/community/public-profile";
-import { syncUserRewards } from "@/lib/rewards/sync";
 import { getAuthorIdentity } from "@/lib/rewards/identity";
-import { canManageRewards } from "@/lib/rewards/admin-access";
 import { updateShowcasedBadges } from "@/lib/rewards/badges";
 import { getProfileCosmetics, updateProfileCosmetics } from "@/lib/rewards/cosmetics";
-import { getPlanInfo } from "@/lib/plans";
-import { resolveEntitledPlan } from "@/lib/user-plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
   const auth = await requireRegisteredUser();
   if (auth.error) return auth.error;
   const admin = createAdminClient();
-  await ensureUserProfile(admin, auth.user!.id, auth.user!.email);
-  await touchPresence(admin, auth.user!.id, true);
-  await syncUserRewards(admin, auth.user!.id, auth.user!.email);
-  const profile = await getProfile(admin, auth.user!.id);
-  const counts = await getFollowerCounts(admin, auth.user!.id);
-  const identity = await getAuthorIdentity(admin, auth.user!.id);
-  const isRewardsAdmin = await canManageRewards(admin, auth.user!.id, auth.user!.email);
-  const totalLikes = await getTotalLikes(admin, auth.user!.id);
-  const cosmetics = await getProfileCosmetics(admin, auth.user!.id);
-  const { data: planRow } = await admin
-    .from("user_plans")
-    .select("plan, stripe_subscription_status")
-    .eq("user_id", auth.user!.id)
-    .maybeSingle();
-  const plan = resolveEntitledPlan(planRow as Parameters<typeof resolveEntitledPlan>[0]);
-  const planInfo = getPlanInfo(plan);
-  return NextResponse.json({
-    profile: profile
-      ? {
-          ...profile,
-          ...counts,
-          isRewardsAdmin,
-          isVerified: identity.isVerified,
-          isCreator: identity.isCreator,
-          isChosen: identity.isChosen,
-          isUltraCreator: identity.isUltraCreator,
-          activeTitleLabel: identity.titleLabel,
-          accentColor: cosmetics.accentColor,
-          profileBackground: cosmetics.profileBackground,
-          activeTitle: cosmetics.activeTitle,
-          totalLikes,
-          plan,
-          planLabel: planInfo.label,
-          showcasedBadges: identity.showcasedBadges.map((b) => ({
-            id: b.id,
-            name: b.name,
-            description: b.description,
-            icon: b.icon
-          }))
-        }
-      : null
-  });
+  const profile = await fetchOwnProfile(admin, auth.user!.id, auth.user!.email);
+  return NextResponse.json({ profile });
 }
 
 const avatarSchema = z
@@ -146,7 +103,7 @@ export async function PATCH(req: Request) {
             isVerified: identity.isVerified,
             isCreator: identity.isCreator,
             isChosen: identity.isChosen,
-          isUltraCreator: identity.isUltraCreator,
+            isUltraCreator: identity.isUltraCreator,
             activeTitleLabel: identity.titleLabel,
             accentColor: cosmetics.accentColor,
             profileBackground: cosmetics.profileBackground,

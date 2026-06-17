@@ -27,33 +27,42 @@ import {
 import { ProfileStyleShell } from "@/components/rewards/profile-style-banner";
 import { BadgesTitlesPanel } from "@/components/rewards/badges-titles-panel";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
+import { storeAccent } from "@/lib/accent-color";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { UserProfile } from "@/lib/community/types";
 
 const AVATAR_MAX_MB = Math.round(AVATAR_MAX_BYTES / (1024 * 1024));
 
-const EMPTY_REWARDS: RewardsFormState = {
-  showcaseIds: [],
-  profileBackground: null,
-  accentColor: "#8b5cf6",
-  activeTitle: null
-};
+function profileToRewardsForm(profile: UserProfile | null): RewardsFormState {
+  return {
+    showcaseIds: (profile?.showcasedBadges ?? []).map((b) => b.id),
+    profileBackground: profile?.profileBackground ?? null,
+    accentColor: profile?.accentColor ?? "#8b5cf6",
+    activeTitle: profile?.activeTitle ?? null
+  };
+}
 
-export function ProfileTab() {
+export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | null }) {
   const { openProfile } = useProfileModal();
   const seasonClass = getSeasonUiClass();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [username, setUsername] = useState("");
-  const [bio, setBio] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(initialProfile ?? null);
+  const [username, setUsername] = useState(initialProfile?.username ?? "");
+  const [bio, setBio] = useState(initialProfile?.bio ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(initialProfile?.avatarUrl ?? "");
+  const [loading, setLoading] = useState(!initialProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const [showBadgesPanel, setShowBadgesPanel] = useState(false);
-  const [rewardsForm, setRewardsForm] = useState<RewardsFormState>(EMPTY_REWARDS);
+  const [rewardsForm, setRewardsForm] = useState<RewardsFormState>(() =>
+    profileToRewardsForm(initialProfile ?? null)
+  );
+
+  useEffect(() => {
+    if (initialProfile?.accentColor) storeAccent(initialProfile.accentColor);
+  }, [initialProfile?.accentColor]);
 
   const usernameLocked = profile?.canChangeUsername === false;
   const usernameHint = useMemo(() => {
@@ -63,6 +72,8 @@ export function ProfileTab() {
     return `Mindestens ${USERNAME_MIN_LENGTH}, maximal ${USERNAME_MAX_LENGTH} Zeichen. Jeder Name ist einmalig (Groß/Klein egal).`;
   }, [usernameLocked, profile?.nextUsernameChangeAt]);
 
+  const rewardsSeed = useMemo(() => profileToRewardsForm(profile), [profile]);
+
   const planBadgeClass =
     profile?.plan === "ultra"
       ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
@@ -70,7 +81,8 @@ export function ProfileTab() {
         ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
         : "border-white/20 bg-white/10 text-muted";
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/community/profile");
@@ -80,22 +92,19 @@ export function ProfileTab() {
       setUsername(data.profile?.username ?? "");
       setBio(data.profile?.bio ?? "");
       setAvatarUrl(data.profile?.avatarUrl ?? "");
-      setRewardsForm({
-        showcaseIds: (data.profile?.showcasedBadges ?? []).map((b) => b.id),
-        profileBackground: data.profile?.profileBackground ?? null,
-        accentColor: data.profile?.accentColor ?? "#8b5cf6",
-        activeTitle: data.profile?.activeTitle ?? null
-      });
+      setRewardsForm(profileToRewardsForm(data.profile ?? null));
+      if (data.profile?.accentColor) storeAccent(data.profile.accentColor);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler.");
+      if (!silent) setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (initialProfile) return;
+    void load(false);
+  }, [initialProfile, load]);
 
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
@@ -134,8 +143,9 @@ export function ProfileTab() {
 
       setProfile(profileData.profile ?? null);
       setUsername(profileData.profile?.username ?? username);
+      if (profileData.profile?.accentColor) storeAccent(profileData.profile.accentColor);
       setSuccess("Profil gespeichert.");
-      void load();
+      void load(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
     } finally {
@@ -164,7 +174,7 @@ export function ProfileTab() {
     reader.readAsDataURL(file);
   }
 
-  if (loading) return <LoadingState />;
+  if (loading && !profile) return <LoadingState />;
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
@@ -305,7 +315,11 @@ export function ProfileTab() {
           </div>
 
           <div className="border-t border-white/10 pt-4">
-            <ProfileRewardsPanel embedded onFormChange={setRewardsForm} />
+            <ProfileRewardsPanel
+              embedded
+              profileSeed={rewardsSeed}
+              onFormChange={setRewardsForm}
+            />
           </div>
 
           <button

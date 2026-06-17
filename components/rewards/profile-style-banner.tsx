@@ -42,7 +42,7 @@ export function ProfileStyleBackground({
       aria-hidden
     >
       {isFrameStyle ? <div className="profile-style-rings" /> : null}
-      {!hasCustomStyle ? <div className="season-stars opacity-60" /> : null}
+      {!hasCustomStyle ? <div className="season-profile-fx" aria-hidden /> : null}
       {hasCustomStyle ? <div className="profile-bg-drift-layer" /> : null}
       {accentColor ? (
         <div
@@ -66,7 +66,7 @@ export function ProfileStyleShell({
   children
 }: StyleProps & { className?: string; children: ReactNode }) {
   return (
-    <div className={`profile-style-shell relative isolate overflow-hidden ${className}`}>
+    <div className={`profile-style-shell ${seasonClass ?? ""} relative isolate overflow-hidden ${className}`}>
       <ProfileStyleBackground
         styleId={styleId}
         profileFrame={profileFrame}

@@ -3,7 +3,9 @@ import { ProfileTab } from "@/components/community/profile-tab";
 import { ProfileProvider } from "@/components/community/profile-context";
 import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
 import { WavyBackground } from "@/components/wavy-background";
+import { fetchOwnProfile } from "@/lib/community/own-profile";
 import { isGuestUser } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
@@ -14,8 +16,11 @@ export default async function ProfilePage() {
   if (!data.user) redirect("/auth/login?next=/profile");
   if (isGuestUser(data.user)) redirect("/auth/register?next=/profile");
 
+  const admin = createAdminClient();
+  const initialProfile = await fetchOwnProfile(admin, data.user.id, data.user.email);
+
   return (
-    <WavyBackground>
+    <WavyBackground accentColor={initialProfile?.accentColor}>
       <ProfileProvider>
         <RewardsAdminButton />
         <div className="mx-auto min-h-screen max-w-2xl px-4 py-6 sm:px-6">
@@ -32,7 +37,7 @@ export default async function ProfilePage() {
               ← Chat
             </Link>
           </div>
-          <ProfileTab />
+          <ProfileTab initialProfile={initialProfile} />
         </div>
       </ProfileProvider>
     </WavyBackground>

@@ -8,3 +8,7 @@ export function getSeasonUiClass(now = new Date()) {
 export function getSeasonButtonClass(now = new Date()) {
   return `${getSeasonUiClass(now)} season-btn`;
 }
+
+export function getSeasonAccent(now = new Date()) {
+  return getCurrentSeasonInfo(now).current.accent;
+}

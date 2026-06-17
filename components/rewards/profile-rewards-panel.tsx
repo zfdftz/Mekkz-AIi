@@ -7,6 +7,7 @@ import { Panel, PrimaryButton } from "@/components/community/shared";
 import { DiscordTooltip } from "@/components/rewards/discord-tooltip";
 import { ProfileStyleBanner } from "@/components/rewards/profile-style-banner";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { storeAccent } from "@/lib/accent-color";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { TITLES } from "@/lib/rewards/catalog";
 import { toggleShowcaseBadge } from "@/lib/rewards/showcase-rules";
@@ -46,32 +47,46 @@ function formatCooldown(ms: number) {
 
 export function ProfileRewardsPanel({
   embedded,
-  onFormChange
+  onFormChange,
+  profileSeed
 }: {
   embedded?: boolean;
   onFormChange?: (state: RewardsFormState) => void;
+  profileSeed?: RewardsFormState;
 }) {
   const [state, setState] = useState<RewardsState | null>(null);
   const [loading, setLoading] = useState(true);
   const [crateOpen, setCrateOpen] = useState(false);
   const [crateReward, setCrateReward] = useState<{ name: string; rarity: string } | null>(null);
-  const [showcaseIds, setShowcaseIds] = useState<string[]>([]);
-  const [profileBackground, setProfileBackground] = useState<string | null>(null);
-  const [accentColor, setAccentColor] = useState("#8b5cf6");
-  const [activeTitle, setActiveTitle] = useState<string | null>(null);
+  const [showcaseIds, setShowcaseIds] = useState<string[]>(profileSeed?.showcaseIds ?? []);
+  const [profileBackground, setProfileBackground] = useState<string | null>(
+    profileSeed?.profileBackground ?? null
+  );
+  const [accentColor, setAccentColor] = useState(profileSeed?.accentColor ?? "#8b5cf6");
+  const [activeTitle, setActiveTitle] = useState<string | null>(profileSeed?.activeTitle ?? null);
 
   const emitForm = useCallback(
     (next: Partial<RewardsFormState>) => {
-      onFormChange?.({
+      const merged = {
         showcaseIds,
         profileBackground,
         accentColor,
         activeTitle,
         ...next
-      });
+      };
+      if (next.accentColor) storeAccent(next.accentColor);
+      onFormChange?.(merged);
     },
     [onFormChange, showcaseIds, profileBackground, accentColor, activeTitle]
   );
+
+  useEffect(() => {
+    if (!profileSeed) return;
+    setShowcaseIds(profileSeed.showcaseIds);
+    setProfileBackground(profileSeed.profileBackground);
+    setAccentColor(profileSeed.accentColor);
+    setActiveTitle(profileSeed.activeTitle);
+  }, [profileSeed]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,7 +137,13 @@ export function ProfileRewardsPanel({
   }
 
   if (loading) {
-    const loader = (
+    const loader = embedded ? (
+      <div className="space-y-3 animate-pulse">
+        <div className="h-16 rounded-xl bg-white/10" />
+        <div className="h-24 rounded-xl bg-white/10" />
+        <div className="h-10 rounded-xl bg-white/10" />
+      </div>
+    ) : (
       <div className="flex justify-center py-8 text-muted">
         <Loader2 className="animate-spin" size={20} />
       </div>

@@ -202,9 +202,9 @@ export function resolveEquippedStyleId(
 }
 
 export function getProfileBackgroundClass(cosmeticId: string | null | undefined) {
-  if (!cosmeticId) return "reward-bg-mekkz";
+  if (!cosmeticId) return "";
   const def = getCosmetic(cosmeticId);
-  if (!def) return "reward-bg-mekkz";
+  if (!def) return "";
   if (def.type === "background") return def.previewClass;
   if (def.type === "frame") return FRAME_AS_BG[def.id] ?? def.previewClass;
   return def.previewClass;

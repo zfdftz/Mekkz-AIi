@@ -27,6 +27,7 @@ import { FeedTab } from "@/components/community/feed-tab";
 import { LoadingState } from "@/components/community/shared";
 import { ProfileProvider } from "@/components/community/profile-context";
 import { RewardsAdminButton } from "@/components/rewards/rewards-admin-button";
+import { AdSenseAd } from "@/components/adsense-ad";
 import { getSeasonUiClass } from "@/lib/rewards/season-theme";
 import { useReminderAlerts } from "@/hooks/use-reminder-alerts";
 import type { CommunityTab } from "@/lib/community/types";
@@ -357,6 +358,9 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
         <aside className="hidden w-[240px] shrink-0 lg:block">
           <div className="community-sidebar sticky top-6 rounded-2xl border border-white/10 bg-black/20 p-4 backdrop-blur-xl">
             {navButtons}
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <AdSenseAd placement="sidebar" />
+            </div>
           </div>
         </aside>
 

@@ -4,6 +4,7 @@ import Script from "next/script";
 import { LanguageProvider } from "@/components/language-provider";
 import { AuthSessionBootstrap } from "@/components/auth-session-bootstrap";
 import { AchievementProvider } from "@/components/rewards/achievement-provider";
+import { AdSenseScript } from "@/components/adsense-script";
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://mekkzai.com";
 const siteDescription =
@@ -89,6 +90,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {`(function(){try{var t=localStorage.getItem("theme")||"dark";var c=localStorage.getItem("color-theme")||"violet";var l=localStorage.getItem("mekkz_lang");var r=document.documentElement;r.classList.toggle("light",t==="light");r.classList.toggle("dark",t==="dark");r.setAttribute("data-color",c);if(l){r.lang=l;}}catch(e){}})();`}
         </Script>
+        <AdSenseScript />
         <LanguageProvider>
           <AuthSessionBootstrap />
           <AchievementProvider>{children}</AchievementProvider>

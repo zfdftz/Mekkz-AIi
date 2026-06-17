@@ -7,6 +7,7 @@ import { MekkzLogo } from "@/components/mekkz-logo";
 import { WavyBackground } from "@/components/wavy-background";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileInstall } from "@/components/mobile-install";
+import { AdSenseAd } from "@/components/adsense-ad";
 
 export function LandingPageClient() {
   const { t } = useLanguage();
@@ -46,6 +47,10 @@ export function LandingPageClient() {
           </div>
 
           <MobileInstall />
+
+          <div className="mx-auto mt-10 w-full max-w-xl">
+            <AdSenseAd placement="landing" />
+          </div>
         </div>
       </main>
     </WavyBackground>

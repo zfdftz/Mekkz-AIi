@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart, MessageCircle, Repeat2, TrendingUp } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import {
   ChatComposer,
   EmptyState,
@@ -17,6 +17,7 @@ import {
 } from "@/components/community/shared";
 import { ProfileLink } from "@/components/community/profile-context";
 import { ProfileIdentity } from "@/components/rewards/profile-identity";
+import { AdSenseAd } from "@/components/adsense-ad";
 import { FEED_IMAGE_MAX_BYTES, FEED_VIDEO_MAX_SECONDS } from "@/lib/community/media-safety";
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { FeedComment, FeedPost } from "@/lib/community/types";
@@ -319,8 +320,10 @@ export function FeedTab() {
         <EmptyState>Noch keine Posts — sei der Erste!</EmptyState>
       ) : (
         <div className="space-y-4">
-          {posts.map((post) => (
-            <Panel key={post.id} className="animate-in fade-in">
+          {posts.map((post, index) => (
+            <Fragment key={post.id}>
+              {index > 0 && index % 5 === 0 ? <AdSenseAd placement="feed" /> : null}
+              <Panel className="animate-in fade-in">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <ProfileLink userId={post.userId} className="min-w-0">
@@ -410,6 +413,7 @@ export function FeedTab() {
                 </div>
               ) : null}
             </Panel>
+            </Fragment>
           ))}
           <GhostButton className="w-full" onClick={() => load(true)}>
             Mehr laden

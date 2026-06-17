@@ -1,13 +1,4 @@
-export function WavyBackground({
-  children,
-  enabled = true
-}: {
-  children: React.ReactNode;
-  enabled?: boolean;
-}) {
-  if (!enabled) {
-    return <>{children}</>;
-  }
+export function WavyBackground({ children }: { children: React.ReactNode }) {
   return (
     <div className="wavy-page ai-canvas relative min-h-[100dvh] overflow-hidden">
       <div className="ai-canvas__base" aria-hidden />

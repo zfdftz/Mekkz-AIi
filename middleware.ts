@@ -41,7 +41,6 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = pathname.startsWith("/auth");
   const isProtected =
     pathname.startsWith("/chat") ||
-    pathname.startsWith("/hub") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/tools") ||
     pathname.startsWith("/community");
@@ -63,14 +62,10 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/auth/register") ||
       pathname.startsWith("/auth/login")
     ) {
-      const layoutCookie = request.cookies.get("mekkz_layout")?.value;
-      const target = layoutCookie === "classic" ? "/chat" : "/hub";
-      return NextResponse.redirect(new URL(target, request.url));
+      return NextResponse.redirect(new URL("/chat", request.url));
     }
     if (pathname === "/") {
-      const layoutCookie = request.cookies.get("mekkz_layout")?.value;
-      const target = layoutCookie === "classic" ? "/chat" : "/hub";
-      return NextResponse.redirect(new URL(target, request.url));
+      return NextResponse.redirect(new URL("/chat", request.url));
     }
   }
 
@@ -93,7 +88,6 @@ export const config = {
   matcher: [
     "/",
     "/chat/:path*",
-    "/hub/:path*",
     "/settings/:path*",
     "/tools/:path*",
     "/community/:path*",

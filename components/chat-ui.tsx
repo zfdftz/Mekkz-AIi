@@ -18,6 +18,7 @@ import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
 import { createClient } from "@/lib/supabase/client";
+import { ChatMarkdown } from "./chat-markdown";
 import { WavyBackground } from "./wavy-background";
 import { AuthRequiredModal } from "./auth-required-modal";
 import { MekkzLogo } from "./mekkz-logo";
@@ -1103,14 +1104,18 @@ function ChatUIInner({
                     />
                   ) : null}
                   {showContent || isLiveAssistant ? (
-                    <p className="whitespace-pre-wrap">
-                      {m.role === "user"
-                        ? stripUserChatPrefix(m.content, chatUsername)
-                        : stripAssistantChatPrefix(m.content)}
-                      {isLiveAssistant ? (
-                        <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
-                      ) : null}
-                    </p>
+                    m.role === "assistant" ? (
+                      <div>
+                        <ChatMarkdown content={stripAssistantChatPrefix(m.content)} />
+                        {isLiveAssistant ? (
+                          <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">
+                        {stripUserChatPrefix(m.content, chatUsername)}
+                      </p>
+                    )
                   ) : null}
                 </div>
               );

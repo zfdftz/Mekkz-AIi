@@ -40,6 +40,8 @@ export function displayAssistantChatContent(content: string) {
   return formatAssistantChatLine(content);
 }
 
+import { buildChatMarkdownInstructions } from "./chat-markdown";
+
 export function buildChatFormatInstructions(username: string) {
   return (
     `CHAT CONTEXT:\n` +
@@ -48,7 +50,8 @@ export function buildChatFormatInstructions(username: string) {
     `- One reply only, one language — never duplicate in two languages.\n` +
     `- Focus on the RECENT messages in this chat. Older lines are background only — do not continue finished topics unless the user explicitly refers back.\n` +
     `- The user's latest message defines the current topic.\n` +
-    `- Profile, friends, notes, and community history below are for reference when relevant — not to reopen old chat topics.`
+    `- Profile, friends, notes, and community history below are for reference when relevant — not to reopen old chat topics.\n` +
+    buildChatMarkdownInstructions()
   );
 }
 

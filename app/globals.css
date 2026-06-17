@@ -478,6 +478,144 @@ body > * { position: relative; z-index: 1; }
   color: var(--bubble-ai-text);
 }
 
+.chat-markdown {
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown p {
+  margin: 0.65em 0;
+}
+
+.chat-markdown p:first-child {
+  margin-top: 0;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.55em 0;
+  padding-left: 1.35em;
+}
+
+.chat-markdown ul {
+  list-style: disc;
+}
+
+.chat-markdown ol {
+  list-style: decimal;
+}
+
+.chat-markdown li {
+  margin: 0.2em 0;
+}
+
+.chat-markdown li > p {
+  margin: 0;
+}
+
+.chat-markdown strong {
+  font-weight: 700;
+}
+
+.chat-markdown em {
+  font-style: italic;
+}
+
+.chat-markdown code {
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+.chat-markdown pre {
+  margin: 0.75em 0;
+  overflow-x: auto;
+  border-radius: 0.65rem;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.75em 0.9em;
+}
+
+.chat-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.chat-markdown blockquote {
+  margin: 0.75em 0;
+  border-left: 3px solid rgba(255, 255, 255, 0.25);
+  padding-left: 0.85em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.chat-markdown a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-md-table-wrap {
+  margin: 0.75em 0;
+  overflow-x: auto;
+}
+
+.chat-markdown table {
+  width: 100%;
+  min-width: 12rem;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 0.45em 0.65em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.chat-markdown th {
+  background: rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+}
+
+.chat-markdown tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.chat-md-red {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.chat-md-green {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.chat-md-yellow {
+  color: #facc15;
+  font-weight: 600;
+}
+
+.chat-md-blue {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.chat-md-orange {
+  color: #fb923c;
+  font-weight: 600;
+}
+
 .chat-item-active {
   background: var(--active-chat-bg);
   color: var(--active-chat-text);

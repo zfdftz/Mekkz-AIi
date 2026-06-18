@@ -3,8 +3,6 @@ import { banksDe, banksEn } from "./banks";
 import { chance, intBetween, pick } from "./rng";
 import type { WatcherBanks, WatcherContext, WatcherLocale } from "./types";
 
-export const WATCHER_VARIANT_ESTIMATE = estimateVariantCount();
-
 type Template = {
   weight: number;
   build: (banks: WatcherBanks, ctx: WatcherContext, rand: () => number) => string;
@@ -352,6 +350,8 @@ function estimateVariantCount() {
   const activityEstimate = activityLines.length * avgBank * 48;
   return Math.floor(proceduralEstimate + builderEstimate + activityEstimate);
 }
+
+export const WATCHER_VARIANT_ESTIMATE = estimateVariantCount();
 
 export const estimateWatcherCombinations = WATCHER_VARIANT_ESTIMATE;
 

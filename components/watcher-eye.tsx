@@ -116,7 +116,7 @@ export function WatcherEye({ context, activitySignal = 0 }: WatcherEyeProps) {
   if (dismissed) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-2 left-2 z-[35] flex flex-col items-start gap-2 sm:bottom-3 sm:left-3">
+    <div className="pointer-events-none fixed bottom-0 left-0 z-[35] flex flex-col items-start gap-1.5 p-0">
       <AnimatePresence>
         {visible ? (
           <motion.div
@@ -151,9 +151,9 @@ export function WatcherEye({ context, activitySignal = 0 }: WatcherEyeProps) {
         onClick={onEyeClick}
         aria-label={t("watcher.openAria")}
         title={t("watcher.openAria")}
-        className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/45 text-sm text-white/55 shadow-[0_0_12px_rgba(139,92,246,0.12)] backdrop-blur-sm transition hover:border-violet-400/35 hover:bg-black/65 hover:text-violet-200/90 hover:shadow-[0_0_18px_rgba(139,92,246,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 sm:h-9 sm:w-9 sm:text-base"
+        className="pointer-events-auto flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-black/40 text-[10px] leading-none text-white/50 shadow-[0_0_8px_rgba(139,92,246,0.1)] backdrop-blur-sm transition hover:border-violet-400/30 hover:bg-black/55 hover:text-violet-200/85 hover:shadow-[0_0_12px_rgba(139,92,246,0.18)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-violet-400/40 sm:h-6 sm:w-6 sm:text-[11px]"
       >
-        <span aria-hidden className="select-none leading-none">
+        <span aria-hidden className="select-none leading-none scale-90">
           👁️
         </span>
       </button>

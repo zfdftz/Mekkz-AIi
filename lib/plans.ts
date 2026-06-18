@@ -62,7 +62,7 @@ export const PLANS: Record<PlanId, PlanInfo> = {
     priceLabel: "3 € / Monat",
     dailyImageLimit: 7,
     dailyUploadLimit: 9,
-    messagesPerChatLimit: 50,
+    messagesPerChatLimit: CHATGPT_MESSAGES_PER_CHAT + 10,
     imageReadyDelayMs: 850,
     textReadyDelayMs: 180,
     description: "50 Nachrichten pro Chat, 7 Bilder erstellen, 9 senden, etwas schneller als Free."

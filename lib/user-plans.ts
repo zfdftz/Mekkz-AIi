@@ -210,11 +210,11 @@ export function buildPlanSystemPrompt(
         : "- Auf Ultra: bestätige dass du mit voller Energie und ohne Einschränkung antwortest.\n") +
     "Wenn der Nutzer fragt, ob er MEHR als 40 Nachrichten im gleichen Chat senden kann:\n" +
     (planState.plan === "free"
-      ? "- Auf Free: NEIN, maximal 40 Nachrichten pro Chat (wie ChatGPT). Danach neuer Chat oder Upgrade auf Plus (50) / Pro (80) / Ultra (unbegrenzt).\n"
+      ? `- Auf Free: NEIN, maximal ${PLANS.free.messagesPerChatLimit} Nachrichten pro Chat (wie ChatGPT). Danach neuer Chat oder Upgrade auf Plus (${PLANS.plus.messagesPerChatLimit}) / Pro (${PLANS.pro.messagesPerChatLimit}) / Ultra (unbegrenzt).\n`
       : planState.plan === "plus"
-        ? "- Auf Plus: maximal 50 Nachrichten pro Chat. Pro = 80, Ultra = unbegrenzt.\n"
+        ? `- Auf Plus: maximal ${PLANS.plus.messagesPerChatLimit} Nachrichten pro Chat. Pro = ${PLANS.pro.messagesPerChatLimit}, Ultra = unbegrenzt.\n`
       : planState.plan === "pro"
-        ? "- Auf Pro: maximal 80 Nachrichten pro Chat, nicht unbegrenzt. Ultra = unbegrenzt.\n"
+        ? `- Auf Pro: maximal ${PLANS.pro.messagesPerChatLimit} Nachrichten pro Chat, nicht unbegrenzt. Ultra = unbegrenzt.\n`
         : "- Auf Ultra: ja, unbegrenzte Nachrichten pro Chat.\n") +
     "Nenne immer die echten Limits des aktuellen Plans. Erfinde keine höheren Limits. Upgrade-Hinweis nur sachlich, nicht aufdringlich.\n" +
     "PLAN-EMPFEHLUNG (WICHTIG):\n" +

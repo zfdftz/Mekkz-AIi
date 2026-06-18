@@ -148,7 +148,37 @@ function ChatUIInner({
   const [chatUsername, setChatUsername] = useState(
     () => userEmail.split("@")[0]?.replace(/[^\w.-]/g, "").slice(0, 21) || "user"
   );
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const streamTargetConversationIdRef = useRef<string | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
   const sendMessageRef = useRef<(textOverride?: string) => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  const refreshChatLimit = useCallback(
+    async (conversationId: string) => {
+      const res = await fetch(
+        `/api/history?userId=${userId}&conversationId=${conversationId}&_=${Date.now()}`,
+        { cache: "no-store" }
+      );
+      const data = await readJsonResponse<HistoryResponse>(res);
+      if (!res.ok) return;
+      if (activeConversationIdRef.current !== conversationId) return;
+      setChatLimit(data.conversationLimit ?? null);
+    },
+    [userId]
+  );
+
+  const applyStreamMessages = useCallback(
+    (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      const targetId = streamTargetConversationIdRef.current;
+      if (!targetId || activeConversationIdRef.current !== targetId) return;
+      setMessages(updater);
+    },
+    []
+  );
 
   const chatFull = hasFiniteChatLimit(chatLimit) && chatLimit.remaining <= 0;
 
@@ -184,6 +214,20 @@ function ChatUIInner({
 
   const voiceRef = useRef(voice);
   voiceRef.current = voice;
+
+  const abortActiveStream = useCallback(() => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    streamTargetConversationIdRef.current = null;
+    pendingStreamTextRef.current = "";
+    if (streamRenderRef.current != null) {
+      window.cancelAnimationFrame(streamRenderRef.current);
+      streamRenderRef.current = null;
+    }
+    setIsStreaming(false);
+    setIsLoading(false);
+    voiceRef.current.setProcessing(false);
+  }, []);
 
   const canSend = useMemo(
     () => (input.trim().length > 0 || pendingImage) && !isLoading && !chatFull,
@@ -261,9 +305,9 @@ function ChatUIInner({
     setActiveConversationId(created.id);
     sessionStorage.setItem(activeChatStorageKey(userId), created.id);
     setConversations((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
-    setChatLimit({ used: 0, limit: null, remaining: null });
+    void refreshChatLimit(created.id);
     return created.id;
-  }, [activeConversationId, userId, language, t]);
+  }, [activeConversationId, userId, language, t, refreshChatLimit]);
 
   const startNewChat = useCallback(async () => {
     const res = await fetch("/api/conversations", {
@@ -283,18 +327,10 @@ function ChatUIInner({
     setMessages([]);
     setInput("");
     setShowWelcome(true);
-    setChatLimit({ used: 0, limit: null, remaining: null });
     await loadConversations();
     setSidebarOpen(false);
-
-    const limitRes = await fetch(
-      `/api/history?userId=${userId}&conversationId=${created.id}`
-    );
-    const limitData = await readJsonResponse<HistoryResponse>(limitRes);
-    if (limitRes.ok) {
-      setChatLimit(limitData.conversationLimit ?? null);
-    }
-  }, [userId, language, t, loadConversations]);
+    void refreshChatLimit(created.id);
+  }, [userId, language, t, loadConversations, refreshChatLimit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -335,6 +371,19 @@ function ChatUIInner({
       cancelled = true;
     };
   }, [userId]);
+
+  useEffect(() => {
+    function onPlanChange() {
+      const id = activeConversationIdRef.current;
+      if (id) void refreshChatLimit(id);
+    }
+    window.addEventListener("mekkz-plan-update", onPlanChange);
+    window.addEventListener("mekkz-plan-refresh", onPlanChange);
+    return () => {
+      window.removeEventListener("mekkz-plan-update", onPlanChange);
+      window.removeEventListener("mekkz-plan-refresh", onPlanChange);
+    };
+  }, [refreshChatLimit]);
 
   const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const container = chatScrollRef.current;
@@ -385,6 +434,7 @@ function ChatUIInner({
       closeSidebar();
       return;
     }
+    abortActiveStream();
     setActiveConversationId(conversationId);
     sessionStorage.setItem(activeChatStorageKey(userId), conversationId);
     setInput("");
@@ -600,9 +650,15 @@ function ChatUIInner({
       const conversationId = await ensureActiveConversation();
       if (!conversationId) return;
 
+      abortActiveStream();
+      const streamController = new AbortController();
+      streamAbortRef.current = streamController;
+      streamTargetConversationIdRef.current = conversationId;
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: streamController.signal,
         body: JSON.stringify({
           userId,
           language,
@@ -625,12 +681,8 @@ function ChatUIInner({
 
         await readChatStream(res, {
           onMeta: (event) => {
-            if (event.conversationId && event.conversationId !== conversationId) {
-              setActiveConversationId(event.conversationId);
-              sessionStorage.setItem(activeChatStorageKey(userId), event.conversationId);
-            }
             if (event.userImage) {
-              setMessages((prev) => {
+              applyStreamMessages((prev) => {
                 const copy = [...prev];
                 const userIndex = copy.length - 1;
                 if (copy[userIndex]?.role === "user") {
@@ -654,7 +706,7 @@ function ChatUIInner({
             streamRenderRef.current = window.requestAnimationFrame(() => {
               const nextText = pendingStreamTextRef.current;
               streamRenderRef.current = null;
-              setMessages((prev) => {
+              applyStreamMessages((prev) => {
                 const last = prev[prev.length - 1];
                 if (last?.role === "assistant") {
                   const copy = [...prev];
@@ -669,14 +721,13 @@ function ChatUIInner({
             });
           },
           onDone: (event) => {
-            if (event.conversationLimit) {
+            if (
+              streamTargetConversationIdRef.current === activeConversationIdRef.current &&
+              event.conversationLimit
+            ) {
               setChatLimit(event.conversationLimit);
             }
-            if (event.conversationId && event.conversationId !== conversationId) {
-              setActiveConversationId(event.conversationId);
-              sessionStorage.setItem(activeChatStorageKey(userId), event.conversationId);
-            }
-            setMessages((prev) => {
+            applyStreamMessages((prev) => {
               const copy = [...prev];
               const assistantIndex = copy.length - 1;
               const userIndex = copy.length - 2;
@@ -704,6 +755,9 @@ function ChatUIInner({
               return copy;
             });
             syncPlanBadge(event.plan);
+            if (streamTargetConversationIdRef.current === activeConversationIdRef.current) {
+              void refreshChatLimit(conversationId);
+            }
             void loadConversations();
           },
           onError: (message) => {
@@ -759,11 +813,6 @@ function ChatUIInner({
 
       if (data.conversationLimit) {
         setChatLimit(data.conversationLimit);
-      }
-
-      if (data.conversationId && data.conversationId !== conversationId) {
-        setActiveConversationId(data.conversationId);
-        sessionStorage.setItem(activeChatStorageKey(userId), data.conversationId);
       }
 
       if (isImageGenRequest) {
@@ -844,7 +893,13 @@ function ChatUIInner({
 
       void loadConversations();
       syncPlanBadge(data.plan);
+      if (activeConversationIdRef.current === conversationId) {
+        void refreshChatLimit(conversationId);
+      }
     } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : t("chat.networkError");
       setMessages((prev) => {

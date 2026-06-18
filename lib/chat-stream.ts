@@ -50,10 +50,16 @@ type ReadChatStreamHandlers = {
   onError?: (message: string) => void;
 };
 
+export type ReadChatStreamResult = {
+  fullText: string;
+  aborted: boolean;
+};
+
 export async function readChatStream(
   response: Response,
-  handlers: ReadChatStreamHandlers
-): Promise<string> {
+  handlers: ReadChatStreamHandlers,
+  options?: { signal?: AbortSignal }
+): Promise<ReadChatStreamResult> {
   if (!response.body) {
     throw new Error("Streaming-Antwort fehlt.");
   }
@@ -63,8 +69,24 @@ export async function readChatStream(
   let buffer = "";
   let fullText = "";
 
+  try {
   while (true) {
-    const { done, value } = await reader.read();
+    if (options?.signal?.aborted) {
+      await reader.cancel().catch(() => undefined);
+      return { fullText, aborted: true };
+    }
+
+    let readResult: ReadableStreamReadResult<Uint8Array>;
+    try {
+      readResult = await reader.read();
+    } catch (error) {
+      if (options?.signal?.aborted) {
+        return { fullText, aborted: true };
+      }
+      throw error;
+    }
+
+    const { done, value } = readResult;
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
@@ -104,6 +126,9 @@ export async function readChatStream(
       }
     }
   }
+  } finally {
+    reader.releaseLock();
+  }
 
-  return fullText;
+  return { fullText, aborted: false };
 }

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
-import { Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, User, Users, Wrench, X } from "lucide-react";
+import { Check, Copy, Menu, MessageSquarePlus, Mic, Paperclip, Send, Settings, Square, User, Users, Wrench, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsPanel } from "./settings-panel";
@@ -17,6 +17,8 @@ import { ChatImage } from "./chat-image";
 import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
+import { createSmoothStreamReveal } from "@/lib/chat-smooth-stream";
+import type { TranslationKey } from "@/lib/i18n/messages";
 import { createClient } from "@/lib/supabase/client";
 import { ChatMarkdown } from "./chat-markdown";
 import { WavyBackground } from "./wavy-background";
@@ -122,6 +124,7 @@ function ChatUIInner({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isRevealing, setIsRevealing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingImage, setPendingImage] = useState<{
     base64: string;
@@ -130,9 +133,9 @@ function ChatUIInner({
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const streamRenderRef = useRef<number | null>(null);
   const streamScrollRef = useRef<number | null>(null);
-  const pendingStreamTextRef = useRef("");
+  const smoothRevealRef = useRef(createSmoothStreamReveal());
+  const lastVoiceFedLengthRef = useRef(0);
   const voiceModeRef = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -152,6 +155,7 @@ function ChatUIInner({
   const streamTargetConversationIdRef = useRef<string | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const sendMessageRef = useRef<(textOverride?: string) => Promise<void>>(async () => {});
+  const sendInFlightRef = useRef(false);
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -219,19 +223,38 @@ function ChatUIInner({
     streamAbortRef.current?.abort();
     streamAbortRef.current = null;
     streamTargetConversationIdRef.current = null;
-    pendingStreamTextRef.current = "";
-    if (streamRenderRef.current != null) {
-      window.cancelAnimationFrame(streamRenderRef.current);
-      streamRenderRef.current = null;
-    }
+    smoothRevealRef.current.stop();
+    smoothRevealRef.current.reset();
+    setIsRevealing(false);
     setIsStreaming(false);
     setIsLoading(false);
     voiceRef.current.setProcessing(false);
   }, []);
 
+  const stopGeneration = useCallback(() => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    smoothRevealRef.current.stop({ flush: false });
+    setIsRevealing(false);
+    setIsStreaming(false);
+    setIsLoading(false);
+    voiceRef.current.setProcessing(false);
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === "assistant" && !last.content.trim()) {
+        return prev.slice(0, -1);
+      }
+      return prev;
+    });
+  }, []);
+
   const canSend = useMemo(
-    () => (input.trim().length > 0 || pendingImage) && !isLoading && !chatFull,
-    [input, pendingImage, isLoading, chatFull]
+    () =>
+      (input.trim().length > 0 || pendingImage) &&
+      !isLoading &&
+      !isStreaming &&
+      !chatFull,
+    [input, pendingImage, isLoading, isStreaming, chatFull]
   );
 
   const watcherContext = useMemo(() => {
@@ -392,11 +415,11 @@ function ChatUIInner({
   }, []);
 
   useEffect(() => {
-    scrollChatToBottom(isStreaming ? "auto" : "smooth");
-  }, [messages.length, isLoading, isStreaming, scrollChatToBottom]);
+    scrollChatToBottom(isStreaming || isRevealing ? "auto" : "smooth");
+  }, [messages.length, isLoading, isStreaming, isRevealing, scrollChatToBottom]);
 
   useEffect(() => {
-    if (!isStreaming) return;
+    if (!isStreaming && !isRevealing) return;
     if (streamScrollRef.current != null) {
       window.cancelAnimationFrame(streamScrollRef.current);
     }
@@ -410,7 +433,7 @@ function ChatUIInner({
         streamScrollRef.current = null;
       }
     };
-  }, [messages, isStreaming, scrollChatToBottom]);
+  }, [messages, isStreaming, isRevealing, scrollChatToBottom]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -547,9 +570,12 @@ function ChatUIInner({
   }
 
   async function sendMessage(extraContext?: string, textOverride?: string) {
+    if (sendInFlightRef.current) return;
+
+    const busy = isLoading || isStreaming || isRevealing;
     const rawText = textOverride ?? (extraContext ? `${input}\n\n${extraContext}` : input.trim());
     const canProceed =
-      (rawText.length > 0 || pendingImage) && !isLoading && !chatFull;
+      (rawText.length > 0 || pendingImage) && !busy && !chatFull;
     if (!canProceed && !extraContext && !textOverride) return;
 
     if (chatFull) {
@@ -620,6 +646,7 @@ function ChatUIInner({
     };
 
     const imagePrompt = isImageGenRequest ? extractImagePrompt(content) : "";
+    const useStream = !isImageGenRequest;
 
     const next: ChatMessage[] = isImageGenRequest
       ? [
@@ -631,7 +658,9 @@ function ChatUIInner({
             imageGenPrompt: imagePrompt
           }
         ]
-      : [...messages, userMessage];
+      : useStream
+        ? [...messages, userMessage, { role: "assistant", content: "" }]
+        : [...messages, userMessage];
 
     setMessages(next);
     setInput("");
@@ -643,10 +672,11 @@ function ChatUIInner({
     setLoadingHint(
       isImageGenRequest ? t("chat.creatingImage") : t("chat.aiWriting")
     );
+    if (sendInFlightRef.current) return;
+    sendInFlightRef.current = true;
     setIsLoading(true);
     voice.setProcessing(true);
     try {
-      const useStream = !isImageGenRequest;
       const conversationId = await ensureActiveConversation();
       if (!conversationId) return;
 
@@ -679,12 +709,44 @@ function ChatUIInner({
         voice.resetSpeech();
         let gotFirstDelta = false;
 
-        await readChatStream(res, {
+        smoothRevealRef.current.reset();
+        lastVoiceFedLengthRef.current = 0;
+        smoothRevealRef.current.start(
+          (visible) => {
+            applyStreamMessages((prev) => {
+              const copy = [...prev];
+              const last = copy[copy.length - 1];
+              if (last?.role === "assistant") {
+                copy[copy.length - 1] = { ...last, content: visible };
+                return copy;
+              }
+              return [...prev, { role: "assistant", content: visible }];
+            });
+            if (voiceModeRef.current) {
+              const trimmed = visible.trim();
+              if (trimmed.length >= lastVoiceFedLengthRef.current + 24) {
+                lastVoiceFedLengthRef.current = trimmed.length;
+                voiceRef.current.feedAssistantText(trimmed);
+              }
+            }
+          },
+          () => {
+            setIsRevealing(false);
+            if (voiceModeRef.current) {
+              const full = smoothRevealRef.current.getVisible().trim();
+              if (full) voiceRef.current.feedAssistantText(full);
+            }
+          }
+        );
+
+        await readChatStream(
+          res,
+          {
           onMeta: (event) => {
             if (event.userImage) {
               applyStreamMessages((prev) => {
                 const copy = [...prev];
-                const userIndex = copy.length - 1;
+                const userIndex = copy.length - 2;
                 if (copy[userIndex]?.role === "user") {
                   copy[userIndex] = {
                     ...copy[userIndex],
@@ -700,27 +762,14 @@ function ChatUIInner({
               gotFirstDelta = true;
               setIsLoading(false);
             }
-            pendingStreamTextRef.current = fullText;
-            if (streamRenderRef.current != null) return;
-
-            streamRenderRef.current = window.requestAnimationFrame(() => {
-              const nextText = pendingStreamTextRef.current;
-              streamRenderRef.current = null;
-              applyStreamMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { ...last, content: nextText };
-                  return copy;
-                }
-                return [...prev, { role: "assistant", content: nextText }];
-              });
-              if (voiceModeRef.current) {
-                voiceRef.current.feedAssistantText(nextText.trim());
-              }
-            });
+            smoothRevealRef.current.setTarget(fullText);
           },
           onDone: (event) => {
+            const finalReply = event.reply || smoothRevealRef.current.getTarget();
+            smoothRevealRef.current.setTarget(finalReply);
+            smoothRevealRef.current.setFlushing(true);
+            setIsRevealing(true);
+
             if (
               streamTargetConversationIdRef.current === activeConversationIdRef.current &&
               event.conversationLimit
@@ -729,15 +778,7 @@ function ChatUIInner({
             }
             applyStreamMessages((prev) => {
               const copy = [...prev];
-              const assistantIndex = copy.length - 1;
               const userIndex = copy.length - 2;
-
-              if (copy[assistantIndex]?.role === "assistant") {
-                copy[assistantIndex] = {
-                  ...copy[assistantIndex],
-                  content: event.reply || copy[assistantIndex].content
-                };
-              }
 
               if (event.userImage && copy[userIndex]?.role === "user") {
                 copy[userIndex] = {
@@ -763,7 +804,9 @@ function ChatUIInner({
           onError: (message) => {
             throw new Error(message);
           }
-        });
+        },
+          { signal: streamController.signal }
+        );
 
         if (!gotFirstDelta) {
           setIsLoading(false);
@@ -911,6 +954,7 @@ function ChatUIInner({
       });
       await streamAssistantMessage(`Fehler: ${message}`);
     } finally {
+      sendInFlightRef.current = false;
       setIsLoading(false);
       setIsStreaming(false);
       if (voiceMode) {
@@ -1119,17 +1163,23 @@ function ChatUIInner({
             {messages.map((m, i) => {
                 const showContent = Boolean(m.content.trim());
                 const isLiveAssistant =
-                  isStreaming &&
+                  (isStreaming || isRevealing) &&
                   i === messages.length - 1 &&
                   m.role === "assistant";
+                const assistantPlain = stripAssistantChatPrefix(m.content);
 
                 return (
                 <div
                   key={`${i}-${m.role}`}
-                  className={`max-w-[min(92%,52rem)] rounded-xl border border-transparent p-2.5 text-sm sm:max-w-[min(88%,52rem)] sm:rounded-2xl sm:p-3 sm:text-base lg:max-w-[min(100%,52rem)] lg:p-4 ${
+                  className={`group relative max-w-[min(92%,52rem)] rounded-xl border border-transparent p-2.5 text-sm sm:max-w-[min(88%,52rem)] sm:rounded-2xl sm:p-3 sm:text-base lg:max-w-[min(100%,52rem)] lg:p-4 ${
                     m.role === "user" ? "chat-bubble-user ml-auto" : "chat-bubble-ai"
                   }`}
                 >
+                  {m.role === "assistant" && showContent && !isLiveAssistant ? (
+                    <div className="absolute -top-2 left-1 z-10 flex opacity-100 transition-opacity sm:-top-3 sm:opacity-0 sm:group-hover:opacity-100">
+                      <AssistantMessageCopyButton content={assistantPlain} t={t} />
+                    </div>
+                  ) : null}
                   {m.images?.[0] ? (
                     <ChatImage
                       src={m.images[0]}
@@ -1150,7 +1200,7 @@ function ChatUIInner({
                   {showContent || isLiveAssistant ? (
                     m.role === "assistant" ? (
                       <div>
-                        <ChatMarkdown content={stripAssistantChatPrefix(m.content)} />
+                        <ChatMarkdown content={assistantPlain} />
                         {isLiveAssistant ? (
                           <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
                         ) : null}
@@ -1251,16 +1301,30 @@ function ChatUIInner({
                   isGuest ? t("chat.guestPlaceholder") : t("chat.messagePlaceholder")
                 }
                 className="min-w-0 flex-1 rounded-xl bg-white/10 p-2.5 text-sm placeholder:text-muted sm:p-3 sm:text-base"
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  if (isLoading || isStreaming || isRevealing) return;
+                  void sendMessage();
+                }}
                 readOnly={Boolean(voice.interimText)}
               />
               <button
-                onClick={() => sendMessage()}
-                disabled={!canSend && !voice.interimText}
-                className="shrink-0 rounded-xl btn-primary p-2.5 disabled:opacity-50 lg:p-3"
-                aria-label={t("chat.send")}
+                onClick={isLoading || isStreaming ? stopGeneration : () => sendMessage()}
+                disabled={!isLoading && !isStreaming && !canSend && !voice.interimText}
+                className={`shrink-0 rounded-xl p-2.5 lg:p-3 ${
+                  isLoading || isStreaming
+                    ? "bg-white text-black"
+                    : "btn-primary disabled:opacity-50"
+                }`}
+                aria-label={
+                  isLoading || isStreaming ? t("chat.stopGenerating") : t("chat.send")
+                }
               >
-                <Send size={18} />
+                {isLoading || isStreaming ? (
+                  <Square size={18} fill="currentColor" />
+                ) : (
+                  <Send size={18} />
+                )}
               </button>
             </div>
             {!voice.supported ? (
@@ -1400,5 +1464,37 @@ function ChatSidebarPanel({
 
       <PlanUpgrade userId={userId} isGuest={isGuest} />
     </>
+  );
+}
+
+function AssistantMessageCopyButton({
+  content,
+  t
+}: {
+  content: string;
+  t: (key: TranslationKey) => string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard may be unavailable.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      aria-label={copied ? t("chat.copied") : t("chat.copy")}
+      title={copied ? t("chat.copied") : t("chat.copy")}
+      className="rounded-lg border border-white/10 bg-black/50 p-1.5 text-muted backdrop-blur-sm transition hover:bg-white/10 hover:text-foreground"
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
   );
 }

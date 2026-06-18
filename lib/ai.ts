@@ -8,6 +8,7 @@ import {
   buildVisionFallbackPrompt,
   type LanguageCode
 } from "./languages";
+import { groqChatCompletion } from "./groq-client";
 
 type AIProvider = "openai" | "claude" | "gemini";
 type ExtendedAIProvider =
@@ -308,7 +309,7 @@ async function* streamGroqResponse(
     throw new Error("GROQ_API_KEY fehlt.");
   }
 
-  const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", needsVision ? 3 : 3);
+  const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", needsVision ? 2 : 2);
   const groqMessages = needsVision
     ? buildVisionApiMessages(trimMessagesForContext(messages, groqContextTurns), language)
     : buildGroqChatMessages(messages, groqContextTurns);
@@ -320,30 +321,16 @@ async function* streamGroqResponse(
     : parseEnvInt("GROQ_MAX_TOKENS", 360);
   const temperature = resolveTemperature(personalityMode);
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.GROQ_API_KEY}`
-    },
-    body: JSON.stringify({
+  const res = await groqChatCompletion(
+    {
       model,
       stream: true,
       temperature,
       max_tokens: maxTokens,
       messages: groqMessages
-    }),
-    signal: AbortSignal.timeout(needsVision ? 28000 : 12000)
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(
-      needsVision
-        ? `Bild-Analyse fehlgeschlagen: ${errorText.slice(0, 220)}`
-        : `Groq API Fehler: ${errorText.slice(0, 220)}`
-    );
-  }
+    },
+    { vision: needsVision, timeoutMs: needsVision ? 28000 : 12000 }
+  );
 
   if (!res.body) {
     throw new Error("Groq Streaming-Antwort fehlt.");
@@ -547,7 +534,7 @@ export async function generateAIResponse(
     }
 
     const vision = needsVision;
-    const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", vision ? 3 : 3);
+    const groqContextTurns = parseEnvInt("GROQ_MAX_TURNS", vision ? 2 : 2);
     const groqMessages = vision
       ? buildVisionApiMessages(trimMessagesForContext(messages, groqContextTurns), language)
       : buildGroqChatMessages(messages, groqContextTurns);
@@ -558,29 +545,15 @@ export async function generateAIResponse(
       ? parseEnvInt("GROQ_VISION_MAX_TOKENS", 520)
       : parseEnvInt("GROQ_MAX_TOKENS", 360);
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
+    const res = await groqChatCompletion(
+      {
         model,
         temperature: resolveTemperature(resolved.personalityMode),
         max_tokens: maxTokens,
         messages: groqMessages
-      }),
-      signal: AbortSignal.timeout(vision ? 28000 : 12000)
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(
-        vision
-          ? `Bild-Analyse fehlgeschlagen: ${errorText.slice(0, 220)}`
-          : `Groq API Fehler: ${errorText.slice(0, 220)}`
-      );
-    }
+      },
+      { vision, timeoutMs: vision ? 28000 : 12000 }
+    );
 
     const data = await res.json();
     return data?.choices?.[0]?.message?.content ?? "No response";

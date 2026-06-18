@@ -280,6 +280,9 @@ export type TranslationKey =
   | "common.send"
   | "common.online"
   | "common.offline"
-  | "common.you";
+  | "common.you"
+  | "watcher.title"
+  | "watcher.openAria"
+  | "watcher.dismissAria";
 
 export type MessageTable = Record<TranslationKey, string>;

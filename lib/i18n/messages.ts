@@ -326,7 +326,10 @@ const de: MessageTable = {
   "common.send": "Senden",
   "common.online": "Online",
   "common.offline": "Offline",
-  "common.you": "Du"
+  "common.you": "Du",
+  "watcher.title": "DER WÄCHTER",
+  "watcher.openAria": "Der Wächter — eine leise Präsenz",
+  "watcher.dismissAria": "Den Wächter für zwei Stunden wegschicken"
 };
 
 const tr: MessageTable = {

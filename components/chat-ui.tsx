@@ -33,6 +33,8 @@ import {
 } from "@/lib/chat-user-context";
 import { useVoiceChat } from "@/hooks/use-voice-chat";
 import { useAiPreferences } from "@/hooks/use-ai-preferences";
+import { WatcherEye } from "@/components/watcher-eye";
+import { buildWatcherContext } from "@/lib/watcher";
 
 type ChatApiResponse = {
   error?: string;
@@ -141,6 +143,7 @@ function ChatUIInner({
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [watcherActivitySignal, setWatcherActivitySignal] = useState(0);
   const { preferences: aiPreferences } = useAiPreferences(userId);
   const [chatUsername, setChatUsername] = useState(
     () => userEmail.split("@")[0]?.replace(/[^\w.-]/g, "").slice(0, 21) || "user"
@@ -186,6 +189,28 @@ function ChatUIInner({
     () => (input.trim().length > 0 || pendingImage) && !isLoading && !chatFull,
     [input, pendingImage, isLoading, chatFull]
   );
+
+  const watcherContext = useMemo(() => {
+    const last = messages[messages.length - 1];
+    return buildWatcherContext({
+      messageCount: messages.length,
+      conversationCount: conversations.length,
+      messagesInCurrentChat: messages.length,
+      isGuest,
+      username: chatUsername,
+      lastMessagePreview: last?.content?.slice(0, 120),
+      lastMessageWasUser: last?.role === "user",
+      hasPendingImage: Boolean(pendingImage),
+      isVoiceMode: voiceMode
+    });
+  }, [
+    messages,
+    conversations.length,
+    isGuest,
+    chatUsername,
+    pendingImage,
+    voiceMode
+  ]);
 
   const loadConversations = useCallback(async () => {
     const res = await fetch(`/api/conversations?userId=${userId}`);
@@ -837,6 +862,7 @@ function ChatUIInner({
         await voice.waitUntilSpeechDone();
       }
       voice.setProcessing(false);
+      setWatcherActivitySignal((n) => n + 1);
     }
   }
 
@@ -955,7 +981,7 @@ function ChatUIInner({
           />
         </aside>
 
-        <section className="glass flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl">
+        <section className="glass relative flex min-h-0 min-w-0 flex-1 flex-col rounded-2xl">
           <header className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2.5 sm:gap-3 sm:p-4">
             <button
               type="button"
@@ -1196,6 +1222,7 @@ function ChatUIInner({
               }}
             />
           </footer>
+          <WatcherEye context={watcherContext} activitySignal={watcherActivitySignal} />
         </section>
       </div>
       <AuthRequiredModal

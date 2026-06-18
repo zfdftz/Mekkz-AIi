@@ -301,5 +301,8 @@ export const en: MessageTable = {
   "common.send": "Send",
   "common.online": "Online",
   "common.offline": "Offline",
-  "common.you": "You"
+  "common.you": "You",
+  "watcher.title": "THE WATCHER",
+  "watcher.openAria": "The Watcher — a quiet presence",
+  "watcher.dismissAria": "Dismiss The Watcher for two hours"
 };

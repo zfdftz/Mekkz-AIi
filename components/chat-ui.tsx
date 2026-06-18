@@ -34,7 +34,7 @@ import {
 import { useVoiceChat } from "@/hooks/use-voice-chat";
 import { useAiPreferences } from "@/hooks/use-ai-preferences";
 import { WatcherEye } from "@/components/watcher-eye";
-import { buildWatcherContext } from "@/lib/watcher";
+import { buildWatcherContext } from "@/lib/watcher/generator";
 
 type ChatApiResponse = {
   error?: string;

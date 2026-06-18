@@ -9,8 +9,8 @@ export {
   buildWatcherContext,
   estimateWatcherCombinations,
   generateWatcherMessage,
-  toWatcherLocale,
-  WATCHER_VARIANT_ESTIMATE
+  getWatcherVariantEstimate,
+  toWatcherLocale
 } from "./generator";
 export {
   clearWatcherDismissIfExpired,

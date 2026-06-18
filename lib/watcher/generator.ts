@@ -351,9 +351,21 @@ function estimateVariantCount() {
   return Math.floor(proceduralEstimate + builderEstimate + activityEstimate);
 }
 
-export const WATCHER_VARIANT_ESTIMATE = estimateVariantCount();
+let cachedVariantEstimate: number | null = null;
 
-export const estimateWatcherCombinations = WATCHER_VARIANT_ESTIMATE;
+export function getWatcherVariantEstimate() {
+  if (cachedVariantEstimate == null) {
+    cachedVariantEstimate = estimateVariantCount();
+  }
+  return cachedVariantEstimate;
+}
+
+/** @deprecated Use getWatcherVariantEstimate() — avoids eager module-init crashes in client bundles. */
+export const WATCHER_VARIANT_ESTIMATE = 500_000;
+
+export function estimateWatcherCombinations() {
+  return getWatcherVariantEstimate();
+}
 
 export function toWatcherLocale(language: string): WatcherLocale {
   return language === "de" ? "de" : "en";

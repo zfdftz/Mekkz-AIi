@@ -4,16 +4,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
+import { generateWatcherMessage, toWatcherLocale } from "@/lib/watcher/generator";
 import {
   clearWatcherDismissIfExpired,
   dismissWatcher,
-  generateWatcherMessage,
   isWatcherDismissed,
-  msUntilWatcherReturns,
-  playWatcherSound,
-  toWatcherLocale,
-  type WatcherContext
-} from "@/lib/watcher";
+  msUntilWatcherReturns
+} from "@/lib/watcher/dismiss";
+import { playWatcherSound } from "@/lib/watcher/sounds";
+import type { WatcherContext } from "@/lib/watcher/types";
 
 const CLICK_COOLDOWN_MS = 2500;
 const BUBBLE_VISIBLE_MS = 7000;

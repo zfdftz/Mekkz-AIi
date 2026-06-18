@@ -15,7 +15,6 @@ import {
   zh
 } from "./locales/secondary";
 export type { TranslationKey, MessageTable } from "./types";
-export { en } from "./en";
 import type { MessageTable, TranslationKey } from "./types";
 
 const de: MessageTable = {

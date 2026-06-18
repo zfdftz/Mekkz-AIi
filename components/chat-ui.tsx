@@ -16,6 +16,7 @@ import { extractImagePrompt, wantsImageGeneration } from "@/lib/image-intent";
 import { ChatImage } from "./chat-image";
 import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
+import { formatChatErrorForUser } from "@/lib/groq-context";
 import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
 import type { TranslationKey } from "@/lib/i18n/messages";
 import { createClient } from "@/lib/supabase/client";
@@ -841,7 +842,7 @@ function ChatUIInner({
             }
             return prev;
           });
-          await streamAssistantMessage(`Fehler: ${message}`);
+          await streamAssistantMessage(formatChatErrorForUser(message));
         }
         if (res.status === 429) {
           syncPlanBadge(data.plan);
@@ -947,7 +948,7 @@ function ChatUIInner({
         }
         return prev;
       });
-      await streamAssistantMessage(`Fehler: ${message}`);
+      await streamAssistantMessage(formatChatErrorForUser(message));
     } finally {
       sendInFlightRef.current = false;
       setIsLoading(false);

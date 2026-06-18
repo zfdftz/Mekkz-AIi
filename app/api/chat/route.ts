@@ -76,6 +76,7 @@ import {
   getDefaultConversationTitle,
   isDefaultConversationTitle
 } from "@/lib/i18n/conversation-title";
+import { formatGroqApiError, groqLeanChatEnabled, truncateForGroq } from "@/lib/groq-context";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -310,6 +311,19 @@ export async function POST(req: Request) {
     );
   }
 
+  const groqLean = groqLeanChatEnabled(hasImageInLastMessage);
+  const compactMemoryText = groqLean ? truncateForGroq(memoryText, 500) : memoryText;
+  const compactStylePrompt =
+    groqLean && stylePrompt ? truncateForGroq(stylePrompt, 220) : stylePrompt;
+  const compactCustomInstructions = groqLean
+    ? truncateForGroq(aiPreferences.customInstructions, 280)
+    : aiPreferences.customInstructions;
+  const compactFollowUpPrompt = groqLean ? "" : followUpPrompt;
+  const compactSongLyricsPrompt =
+    groqLean && !songLyricsPrompt ? "" : songLyricsPrompt;
+  const compactActivityContext =
+    groqLean && !needsActivityContext ? "" : activityContext;
+
   let systemContent =
     "You are MEKKZ AI — the assistant of this app (not ChatGPT, Claude, Groq, or any other product). " +
     buildLanguageSystemPrompt({
@@ -325,7 +339,7 @@ export async function POST(req: Request) {
       "If the user wants a new image, reply in one short sentence that real image generation happens in the app — do not describe the scene.";
   }
 
-  if (!willGenerateImage && !hasImageInLastMessage && needsWebLookup(userText)) {
+  if (!willGenerateImage && !hasImageInLastMessage && !groqLean && needsWebLookup(userText)) {
     try {
       const webContext = await fetchWebContext(userText);
       if (webContext) {
@@ -351,14 +365,14 @@ export async function POST(req: Request) {
       (aiPreferences.tutorModeEnabled
         ? `${buildTutorSystemPrompt(aiPreferences.tutorLevel)}\n`
         : "") +
-      (stylePrompt ? `${stylePrompt}\n` : "") +
-      `${buildCustomInstructionsPrompt(aiPreferences.customInstructions)}\n` +
-      `${buildMemorySystemPrompt(memoryText)}\n` +
+      (compactStylePrompt ? `${compactStylePrompt}\n` : "") +
+      `${buildCustomInstructionsPrompt(compactCustomInstructions)}\n` +
+      `${buildMemorySystemPrompt(compactMemoryText)}\n` +
       `${chatContext.prompt}\n` +
-      `${activityContext}\n` +
+      `${compactActivityContext}\n` +
       `${buildChatFormatInstructions(chatContext.username)}\n` +
-      `${songLyricsPrompt ? `${songLyricsPrompt}\n` : ""}` +
-      `${followUpPrompt}\n` +
+      `${compactSongLyricsPrompt ? `${compactSongLyricsPrompt}\n` : ""}` +
+      `${compactFollowUpPrompt ? `${compactFollowUpPrompt}\n` : ""}` +
       `${personalityLock}\n` +
       `\n${buildReplyLanguageLock(replyLanguage)}`
   };
@@ -582,7 +596,9 @@ export async function POST(req: Request) {
           } catch (error) {
             streamError =
               error instanceof Error
-                ? error.message
+                ? /rate limit|tokens per minute|Groq API|tpm|rpm|429/i.test(error.message)
+                  ? formatGroqApiError(error.message)
+                  : error.message
                 : "KI-Antwort konnte nicht erzeugt werden.";
             emit({ type: "error", error: streamError });
           } finally {

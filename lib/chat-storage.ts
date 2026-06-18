@@ -1,4 +1,5 @@
 import { ChatMessage } from "./types";
+import { isGroqNoiseMessage } from "./groq-context";
 
 /** Max message objects (user+assistant pairs ≈ count/2 turns) sent to the model. */
 const DEFAULT_MAX_CHAT_MESSAGES = 24;
@@ -178,8 +179,13 @@ export async function countConversationMessages(
 }
 
 export function messagesForRequest(messages: ChatMessage[]) {
-  return messages.map((message, index) => {
-    const isLast = index === messages.length - 1;
+  return messages
+    .filter(
+      (message) =>
+        !(message.role === "assistant" && isGroqNoiseMessage(message.content))
+    )
+    .map((message, index, filtered) => {
+    const isLast = index === filtered.length - 1;
     const payload: ChatMessage = {
       role: message.role,
       content: message.content
@@ -195,8 +201,13 @@ export function messagesForRequest(messages: ChatMessage[]) {
 }
 
 export function messagesForAI(messages: ChatMessage[]) {
-  return messages.map((message, index) => {
-    const isLast = index === messages.length - 1;
+  return messages
+    .filter(
+      (message) =>
+        !(message.role === "assistant" && isGroqNoiseMessage(message.content))
+    )
+    .map((message, index, filtered) => {
+    const isLast = index === filtered.length - 1;
     if (message.role === "user" && message.images?.length && !isLast) {
       return {
         ...message,

@@ -17,7 +17,6 @@ import { ChatImage } from "./chat-image";
 import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
-import { createSmoothStreamReveal } from "@/lib/chat-smooth-stream";
 import type { TranslationKey } from "@/lib/i18n/messages";
 import { createClient } from "@/lib/supabase/client";
 import { ChatMarkdown } from "./chat-markdown";
@@ -124,7 +123,6 @@ function ChatUIInner({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isRevealing, setIsRevealing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingImage, setPendingImage] = useState<{
     base64: string;
@@ -134,8 +132,8 @@ function ChatUIInner({
   const fileRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const streamScrollRef = useRef<number | null>(null);
-  const smoothRevealRef = useRef(createSmoothStreamReveal());
-  const lastVoiceFedLengthRef = useRef(0);
+  const streamRenderRef = useRef<number | null>(null);
+  const pendingStreamTextRef = useRef("");
   const voiceModeRef = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -211,7 +209,7 @@ function ChatUIInner({
       setInput(text);
       void sendMessageRef.current(text);
     },
-    disabled: isLoading || chatFull
+    disabled: isLoading || isStreaming || chatFull
   });
 
   voiceModeRef.current = voiceMode;
@@ -223,9 +221,11 @@ function ChatUIInner({
     streamAbortRef.current?.abort();
     streamAbortRef.current = null;
     streamTargetConversationIdRef.current = null;
-    smoothRevealRef.current.stop();
-    smoothRevealRef.current.reset();
-    setIsRevealing(false);
+    pendingStreamTextRef.current = "";
+    if (streamRenderRef.current != null) {
+      window.cancelAnimationFrame(streamRenderRef.current);
+      streamRenderRef.current = null;
+    }
     setIsStreaming(false);
     setIsLoading(false);
     voiceRef.current.setProcessing(false);
@@ -234,8 +234,11 @@ function ChatUIInner({
   const stopGeneration = useCallback(() => {
     streamAbortRef.current?.abort();
     streamAbortRef.current = null;
-    smoothRevealRef.current.stop({ flush: false });
-    setIsRevealing(false);
+    pendingStreamTextRef.current = "";
+    if (streamRenderRef.current != null) {
+      window.cancelAnimationFrame(streamRenderRef.current);
+      streamRenderRef.current = null;
+    }
     setIsStreaming(false);
     setIsLoading(false);
     voiceRef.current.setProcessing(false);
@@ -415,11 +418,11 @@ function ChatUIInner({
   }, []);
 
   useEffect(() => {
-    scrollChatToBottom(isStreaming || isRevealing ? "auto" : "smooth");
-  }, [messages.length, isLoading, isStreaming, isRevealing, scrollChatToBottom]);
+    scrollChatToBottom(isStreaming ? "auto" : "smooth");
+  }, [messages.length, isLoading, isStreaming, scrollChatToBottom]);
 
   useEffect(() => {
-    if (!isStreaming && !isRevealing) return;
+    if (!isStreaming) return;
     if (streamScrollRef.current != null) {
       window.cancelAnimationFrame(streamScrollRef.current);
     }
@@ -433,7 +436,7 @@ function ChatUIInner({
         streamScrollRef.current = null;
       }
     };
-  }, [messages, isStreaming, isRevealing, scrollChatToBottom]);
+  }, [messages, isStreaming, scrollChatToBottom]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -572,7 +575,7 @@ function ChatUIInner({
   async function sendMessage(extraContext?: string, textOverride?: string) {
     if (sendInFlightRef.current) return;
 
-    const busy = isLoading || isStreaming || isRevealing;
+    const busy = isLoading || isStreaming;
     const rawText = textOverride ?? (extraContext ? `${input}\n\n${extraContext}` : input.trim());
     const canProceed =
       (rawText.length > 0 || pendingImage) && !busy && !chatFull;
@@ -708,36 +711,7 @@ function ChatUIInner({
         setIsStreaming(true);
         voice.resetSpeech();
         let gotFirstDelta = false;
-
-        smoothRevealRef.current.reset();
-        lastVoiceFedLengthRef.current = 0;
-        smoothRevealRef.current.start(
-          (visible) => {
-            applyStreamMessages((prev) => {
-              const copy = [...prev];
-              const last = copy[copy.length - 1];
-              if (last?.role === "assistant") {
-                copy[copy.length - 1] = { ...last, content: visible };
-                return copy;
-              }
-              return [...prev, { role: "assistant", content: visible }];
-            });
-            if (voiceModeRef.current) {
-              const trimmed = visible.trim();
-              if (trimmed.length >= lastVoiceFedLengthRef.current + 24) {
-                lastVoiceFedLengthRef.current = trimmed.length;
-                voiceRef.current.feedAssistantText(trimmed);
-              }
-            }
-          },
-          () => {
-            setIsRevealing(false);
-            if (voiceModeRef.current) {
-              const full = smoothRevealRef.current.getVisible().trim();
-              if (full) voiceRef.current.feedAssistantText(full);
-            }
-          }
-        );
+        pendingStreamTextRef.current = "";
 
         await readChatStream(
           res,
@@ -762,14 +736,27 @@ function ChatUIInner({
               gotFirstDelta = true;
               setIsLoading(false);
             }
-            smoothRevealRef.current.setTarget(fullText);
+            pendingStreamTextRef.current = fullText;
+            if (streamRenderRef.current != null) return;
+
+            streamRenderRef.current = window.requestAnimationFrame(() => {
+              const nextText = pendingStreamTextRef.current;
+              streamRenderRef.current = null;
+              applyStreamMessages((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.role === "assistant") {
+                  const copy = [...prev];
+                  copy[copy.length - 1] = { ...last, content: nextText };
+                  return copy;
+                }
+                return [...prev, { role: "assistant", content: nextText }];
+              });
+              if (voiceModeRef.current) {
+                voiceRef.current.feedAssistantText(nextText.trim());
+              }
+            });
           },
           onDone: (event) => {
-            const finalReply = event.reply || smoothRevealRef.current.getTarget();
-            smoothRevealRef.current.setTarget(finalReply);
-            smoothRevealRef.current.setFlushing(true);
-            setIsRevealing(true);
-
             if (
               streamTargetConversationIdRef.current === activeConversationIdRef.current &&
               event.conversationLimit
@@ -778,7 +765,15 @@ function ChatUIInner({
             }
             applyStreamMessages((prev) => {
               const copy = [...prev];
+              const assistantIndex = copy.length - 1;
               const userIndex = copy.length - 2;
+
+              if (copy[assistantIndex]?.role === "assistant") {
+                copy[assistantIndex] = {
+                  ...copy[assistantIndex],
+                  content: event.reply || copy[assistantIndex].content
+                };
+              }
 
               if (event.userImage && copy[userIndex]?.role === "user") {
                 copy[userIndex] = {
@@ -1163,7 +1158,7 @@ function ChatUIInner({
             {messages.map((m, i) => {
                 const showContent = Boolean(m.content.trim());
                 const isLiveAssistant =
-                  (isStreaming || isRevealing) &&
+                  isStreaming &&
                   i === messages.length - 1 &&
                   m.role === "assistant";
                 const assistantPlain = stripAssistantChatPrefix(m.content);
@@ -1220,7 +1215,7 @@ function ChatUIInner({
           </div>
 
           <footer className="shrink-0 border-t border-white/10 p-2.5 sm:p-4 lg:p-5">
-            {isLoading ? (
+            {isLoading || isStreaming ? (
               <p className="mb-2 text-sm text-muted">{loadingHint}</p>
             ) : null}
             {hasFiniteChatLimit(chatLimit) ? (
@@ -1303,7 +1298,7 @@ function ChatUIInner({
                 className="min-w-0 flex-1 rounded-xl bg-white/10 p-2.5 text-sm placeholder:text-muted sm:p-3 sm:text-base"
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
-                  if (isLoading || isStreaming || isRevealing) return;
+                  if (isLoading || isStreaming) return;
                   void sendMessage();
                 }}
                 readOnly={Boolean(voice.interimText)}

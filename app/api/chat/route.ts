@@ -72,7 +72,6 @@ import {
   stripAssistantChatPrefix
 } from "@/lib/chat-user-context";
 import { buildExtendedUserActivityContext, looksLikeMessageLookup } from "@/lib/chat-user-activity-context";
-import { enqueueUserChatRequest } from "@/lib/chat-request-queue";
 import {
   getDefaultConversationTitle,
   isDefaultConversationTitle
@@ -225,8 +224,6 @@ export async function POST(req: Request) {
   if (!conversationId) {
     return NextResponse.json({ error: "Conversation fehlt." }, { status: 500 });
   }
-
-  return enqueueUserChatRequest(userId, async () => {
 
   try {
     await assertCanSendChatMessage(admin, userId, conversationId);
@@ -740,7 +737,6 @@ export async function POST(req: Request) {
     conversationId,
     plan: latestPlanState,
     conversationLimit: await getConversationLimitState(admin, userId, conversationId)
-  });
   });
   } catch (error) {
     const message =

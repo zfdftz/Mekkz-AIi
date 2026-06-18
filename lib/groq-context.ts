@@ -103,6 +103,14 @@ export async function requestGroqChatCompletion(
   throw new Error(formatGroqApiError(lastError));
 }
 
+export function shouldFallbackFromGroqToOpenAI(error: unknown) {
+  if (!process.env.OPENAI_API_KEY) return false;
+  const message = error instanceof Error ? error.message : String(error);
+  return /rate limit|tokens per minute|tpm|rpm|429|überlastet|nicht erreichbar|groq api|timeout|timed out|503|502/i.test(
+    message
+  );
+}
+
 export function groqLeanChatEnabled(hasImageInLastMessage: boolean) {
   if (hasImageInLastMessage) return false;
   const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();

@@ -12,6 +12,7 @@ import {
   compactGroqSystemPrompt,
   isGroqNoiseMessage,
   requestGroqChatCompletion,
+  shouldFallbackFromGroqToOpenAI,
   truncateForGroq
 } from "./groq-context";
 
@@ -151,15 +152,21 @@ function stripImageBase64(ref: string) {
   return ref;
 }
 
-/** Nur normaler Chat-Text — Groq wenn AI_PROVIDER=groq. */
+/** Nur normaler Chat-Text — Groq wenn GROQ_API_KEY gesetzt. */
 function resolveTextProvider(): ExtendedAIProvider {
-  const configured = (process.env.AI_PROVIDER as ExtendedAIProvider) || "openai";
+  const configured = process.env.AI_PROVIDER as ExtendedAIProvider | undefined;
 
-  if (configured === "ollama" && process.env.VERCEL) {
-    return process.env.GROQ_API_KEY ? "groq" : "openai";
+  if (configured) {
+    if (configured === "ollama" && process.env.VERCEL) {
+      return process.env.GROQ_API_KEY ? "groq" : "openai";
+    }
+    return configured;
   }
 
-  return configured;
+  if (process.env.GROQ_API_KEY) return "groq";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  if (!process.env.VERCEL) return "ollama";
+  return "openai";
 }
 
 /** Hochgeladene Bilder — gratis über Groq Vision auf Vercel, lokal Ollama. */
@@ -338,15 +345,26 @@ async function* streamGroqResponse(
     : parseEnvInt("GROQ_MAX_TOKENS", 360);
   const temperature = resolveTemperature(personalityMode);
 
-  const res = await requestGroqChatCompletion(
-    {
-      stream: true,
-      temperature,
-      max_tokens: maxTokens,
-      messages: groqMessages
-    },
-    { stream: true, timeoutMs: needsVision ? 28000 : 12000, models: groqModels }
-  );
+  let res: Response;
+  try {
+    res = await requestGroqChatCompletion(
+      {
+        stream: true,
+        temperature,
+        max_tokens: maxTokens,
+        messages: groqMessages
+      },
+      { stream: true, timeoutMs: needsVision ? 28000 : 12000, models: groqModels }
+    );
+  } catch (error) {
+    if (shouldFallbackFromGroqToOpenAI(error)) {
+      yield* streamOpenAIResponse(messages, language, needsVision, personalityMode, {
+        skipGroqFallback: true
+      });
+      return;
+    }
+    throw error;
+  }
 
   if (!res.body) {
     throw new Error("Groq Streaming-Antwort fehlt.");
@@ -359,7 +377,8 @@ async function* streamOpenAIResponse(
   messages: ChatMessage[],
   language: LanguageCode,
   needsVision: boolean,
-  personalityMode?: PersonalityMode
+  personalityMode?: PersonalityMode,
+  options?: { skipGroqFallback?: boolean }
 ): AsyncGenerator<string, void, undefined> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY fehlt.");
@@ -389,7 +408,7 @@ async function* streamOpenAIResponse(
     const isQuota =
       apiError.status === 429 || /quota|billing/i.test(apiError.message ?? "");
 
-    if (isQuota && process.env.GROQ_API_KEY) {
+    if (isQuota && process.env.GROQ_API_KEY && !options?.skipGroqFallback) {
       yield* streamGroqResponse(messages, language, needsVision, personalityMode);
       return;
     }
@@ -561,17 +580,27 @@ export async function generateAIResponse(
       ? parseEnvInt("GROQ_VISION_MAX_TOKENS", 520)
       : parseEnvInt("GROQ_MAX_TOKENS", 360);
 
-    const res = await requestGroqChatCompletion(
-      {
-        temperature: resolveTemperature(resolved.personalityMode),
-        max_tokens: maxTokens,
-        messages: groqMessages
-      },
-      { timeoutMs: vision ? 28000 : 12000, models: groqModels }
-    );
+    try {
+      const res = await requestGroqChatCompletion(
+        {
+          temperature: resolveTemperature(resolved.personalityMode),
+          max_tokens: maxTokens,
+          messages: groqMessages
+        },
+        { timeoutMs: vision ? 28000 : 12000, models: groqModels }
+      );
 
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content ?? "No response";
+      const data = await res.json();
+      return data?.choices?.[0]?.message?.content ?? "No response";
+    } catch (error) {
+      if (shouldFallbackFromGroqToOpenAI(error)) {
+        return generateAIResponse(messages, {
+          ...resolved,
+          provider: "openai"
+        });
+      }
+      throw error;
+    }
   }
 
   if (provider === "ollama") {

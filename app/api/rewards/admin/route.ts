@@ -179,7 +179,8 @@ export async function POST(req: Request) {
         await deleteUserAccount(admin, userId);
         return NextResponse.json({ ok: true, deleted: true });
     }
-    return NextResponse.json({ ok: true });
+    const user = await buildUserPayload(admin, userId);
+    return NextResponse.json({ ok: true, user });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Fehler." },

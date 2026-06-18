@@ -9,7 +9,7 @@ import { fetchWebContext } from "@/lib/web-search";
 import { createClient } from "@/lib/supabase/server";
 import { resolveUserLanguage } from "@/lib/user-language";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildReplyLanguageLock, resolveReplyLanguage } from "@/lib/languages";
+import { buildReplyLanguageLock } from "@/lib/languages";
 import { sleep } from "@/lib/plans";
 import { consumeImageCreateSlot, tryGetUserPlanState } from "@/lib/user-plans";
 
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const replyLanguage = resolveReplyLanguage(userPrompt, userLanguage);
+    const replyLanguage = userLanguage;
     const systemContent =
       `You are MEKKZ AI Tool: ${tool.name}. ${tool.systemPrompt}\n` +
       `\n${buildReplyLanguageLock(replyLanguage)}`;

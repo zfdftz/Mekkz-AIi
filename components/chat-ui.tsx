@@ -32,12 +32,7 @@ import {
   stripUserChatPrefix
 } from "@/lib/chat-user-context";
 import { useVoiceChat } from "@/hooks/use-voice-chat";
-import type { UserAiPreferences } from "@/lib/user-ai-preferences";
-import { DEFAULT_AI_PREFERENCES } from "@/lib/user-ai-preferences";
-import {
-  readCachedAiPreferences,
-  writeCachedAiPreferences
-} from "@/lib/ai-preferences-client";
+import { useAiPreferences } from "@/hooks/use-ai-preferences";
 
 type ChatApiResponse = {
   error?: string;
@@ -146,10 +141,7 @@ function ChatUIInner({
   );
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [aiPreferences, setAiPreferences] = useState<UserAiPreferences>(() => {
-    const cached = readCachedAiPreferences(userId);
-    return cached ?? DEFAULT_AI_PREFERENCES;
-  });
+  const { preferences: aiPreferences } = useAiPreferences(userId);
   const [chatUsername, setChatUsername] = useState(
     () => userEmail.split("@")[0]?.replace(/[^\w.-]/g, "").slice(0, 21) || "user"
   );
@@ -171,45 +163,6 @@ function ChatUIInner({
       })
       .catch(() => undefined);
   }, [isGuest]);
-
-  useEffect(() => {
-    const cached = readCachedAiPreferences(userId);
-    if (cached) setAiPreferences(cached);
-
-    async function loadPreferences() {
-      const res = await fetch(`/api/ai-preferences?userId=${userId}&_=${Date.now()}`, {
-        cache: "no-store"
-      });
-      const data = await readJsonResponse<{ preferences?: UserAiPreferences }>(res);
-      if (res.ok && data.preferences) {
-        setAiPreferences(data.preferences);
-        writeCachedAiPreferences(userId, data.preferences);
-      }
-    }
-
-    const idle =
-      typeof window.requestIdleCallback === "function"
-        ? window.requestIdleCallback(() => void loadPreferences())
-        : window.setTimeout(() => void loadPreferences(), 0);
-
-    function onPreferences(event: Event) {
-      const detail = (event as CustomEvent<UserAiPreferences>).detail;
-      if (detail) {
-        setAiPreferences(detail);
-        writeCachedAiPreferences(userId, detail);
-      }
-    }
-
-    window.addEventListener("mekkz-ai-preferences", onPreferences);
-    return () => {
-      window.removeEventListener("mekkz-ai-preferences", onPreferences);
-      if (typeof idle === "number") {
-        window.clearTimeout(idle);
-      } else if (typeof window.cancelIdleCallback === "function") {
-        window.cancelIdleCallback(idle);
-      }
-    };
-  }, [userId]);
 
   const voice = useVoiceChat({
     language,

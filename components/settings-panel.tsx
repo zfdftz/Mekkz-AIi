@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Moon, Sun, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/components/language-provider";
+import { useAiPreferences } from "@/hooks/use-ai-preferences";
 import {
   applyAppearance,
   COLOR_THEMES,
@@ -12,16 +13,7 @@ import {
   type ThemeMode
 } from "@/lib/theme-config";
 import type { LanguageCode } from "@/lib/languages";
-import { readJsonResponse } from "@/lib/fetch-json";
 import { normalizePersonalityMode, PERSONALITY_MODES, type PersonalityMode } from "@/lib/personality";
-import { TUTOR_LEVELS, type TutorLevel } from "@/lib/tutor";
-import {
-  patchCachedAiPreferences,
-  readCachedAiPreferences,
-  writeCachedAiPreferences
-} from "@/lib/ai-preferences-client";
-import type { UserAiPreferences } from "@/lib/user-ai-preferences";
-import { DEFAULT_AI_PREFERENCES } from "@/lib/user-ai-preferences";
 
 type SettingsPanelProps = {
   open: boolean;
@@ -37,11 +29,6 @@ type StyleProfile = {
   enabled: boolean;
 };
 
-type AiPreferencesResponse = {
-  error?: string;
-  preferences?: UserAiPreferences;
-};
-
 export function SettingsPanel({
   open,
   onClose,
@@ -52,13 +39,13 @@ export function SettingsPanel({
   onLogout
 }: SettingsPanelProps) {
   const { language, languages, setLanguage, t } = useLanguage();
+  const { preferences: aiPreferences, loading: prefsLoading, updatePreferences } =
+    useAiPreferences(userId);
   const [mode, setMode] = useState<ThemeMode>("dark");
   const [color, setColor] = useState<ColorTheme>("violet");
   const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
   const [styleLoading, setStyleLoading] = useState(false);
   const [languageSaving, setLanguageSaving] = useState(false);
-  const [aiPreferences, setAiPreferences] = useState<UserAiPreferences | null>(null);
-  const [prefsLoading, setPrefsLoading] = useState(false);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState("");
   const customInstructionsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -88,70 +75,8 @@ export function SettingsPanel({
   }, [open, userId]);
 
   useEffect(() => {
-    if (!userId) return;
-    const uid = userId;
-
-    const cached = readCachedAiPreferences(uid);
-    if (cached) {
-      setAiPreferences(cached);
-      setCustomInstructionsDraft(cached.customInstructions ?? "");
-      window.dispatchEvent(new CustomEvent("mekkz-ai-preferences", { detail: cached }));
-    }
-
-    async function loadPreferences() {
-      setPrefsLoading(true);
-      const res = await fetch(`/api/ai-preferences?userId=${uid}&_=${Date.now()}`, {
-        cache: "no-store"
-      });
-      const data = await readJsonResponse<AiPreferencesResponse>(res);
-      if (res.ok && data.preferences) {
-        setAiPreferences(data.preferences);
-        setCustomInstructionsDraft(data.preferences.customInstructions ?? "");
-        writeCachedAiPreferences(uid, data.preferences);
-        window.dispatchEvent(
-          new CustomEvent("mekkz-ai-preferences", { detail: data.preferences })
-        );
-      }
-      setPrefsLoading(false);
-    }
-
-    void loadPreferences();
-  }, [userId]);
-
-  useEffect(() => {
-    if (!open || !userId || aiPreferences) return;
-    const cached = readCachedAiPreferences(userId);
-    if (cached) setAiPreferences(cached);
-  }, [open, userId, aiPreferences]);
-
-  async function updateAiPreferences(patch: Partial<UserAiPreferences>) {
-    if (!userId) return;
-
-    const optimistic = patchCachedAiPreferences(
-      userId,
-      patch,
-      aiPreferences ?? readCachedAiPreferences(userId) ?? DEFAULT_AI_PREFERENCES
-    );
-    setAiPreferences(optimistic);
-    window.dispatchEvent(new CustomEvent("mekkz-ai-preferences", { detail: optimistic }));
-    setPrefsLoading(true);
-
-    const res = await fetch("/api/ai-preferences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, ...patch })
-    });
-    const data = await readJsonResponse<AiPreferencesResponse>(res);
-
-    if (res.ok && data.preferences) {
-      setAiPreferences(data.preferences);
-      writeCachedAiPreferences(userId, data.preferences);
-      window.dispatchEvent(
-        new CustomEvent("mekkz-ai-preferences", { detail: data.preferences })
-      );
-    }
-    setPrefsLoading(false);
-  }
+    setCustomInstructionsDraft(aiPreferences.customInstructions ?? "");
+  }, [aiPreferences.customInstructions]);
 
   function scheduleCustomInstructionsSave(nextValue: string) {
     if (!userId) return;
@@ -159,7 +84,7 @@ export function SettingsPanel({
       clearTimeout(customInstructionsSaveTimer.current);
     }
     customInstructionsSaveTimer.current = setTimeout(() => {
-      void updateAiPreferences({ customInstructions: nextValue });
+      void updatePreferences({ customInstructions: nextValue });
     }, 700);
   }
 
@@ -376,7 +301,7 @@ export function SettingsPanel({
                     value={customInstructionsDraft}
                     onChange={(event) => handleCustomInstructionsChange(event.target.value)}
                     onBlur={() =>
-                      void updateAiPreferences({ customInstructions: customInstructionsDraft })
+                      void updatePreferences({ customInstructions: customInstructionsDraft })
                     }
                     disabled={prefsLoading}
                     rows={5}
@@ -395,13 +320,13 @@ export function SettingsPanel({
                   <p className="text-sm text-muted">{t("settings.personalityHint")}</p>
                 </div>
                 <select
-                  value={aiPreferences?.personalityMode ?? "normal"}
+                  value={aiPreferences.personalityMode}
                   disabled={!userId || prefsLoading}
                   onChange={(event) => {
                     const personalityMode = normalizePersonalityMode(
                       event.target.value
                     ) as PersonalityMode;
-                    void updateAiPreferences({ personalityMode });
+                    void updatePreferences({ personalityMode });
                   }}
                   className="w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2.5 text-sm outline-none transition focus:border-primary/50 disabled:opacity-50"
                 >
@@ -412,78 +337,6 @@ export function SettingsPanel({
                     </option>
                   ))}
                 </select>
-              </section>
-
-              <section className="space-y-3 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-medium uppercase tracking-wide text-muted">
-                      {t("settings.tutor")}
-                    </h3>
-                    <p className="text-sm text-muted">{t("settings.tutorHint")}</p>
-                  </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-                      aiPreferences?.tutorModeEnabled
-                        ? "bg-emerald-500/20 text-emerald-100"
-                        : "bg-white/10 text-muted"
-                    }`}
-                  >
-                    {aiPreferences?.tutorModeEnabled
-                      ? t("settings.tutorEnabled")
-                      : t("settings.tutorDisabled")}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={!userId || prefsLoading}
-                    onClick={() => void updateAiPreferences({ tutorModeEnabled: true })}
-                    className={`rounded-xl px-3 py-3 text-sm font-medium transition disabled:opacity-50 ${
-                      aiPreferences?.tutorModeEnabled
-                        ? "bg-primary text-white shadow-glow"
-                        : "bg-white/10 hover:bg-white/15"
-                    }`}
-                  >
-                    {t("settings.tutorEnabled")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!userId || prefsLoading}
-                    onClick={() => void updateAiPreferences({ tutorModeEnabled: false })}
-                    className={`rounded-xl px-3 py-3 text-sm font-medium transition disabled:opacity-50 ${
-                      !aiPreferences?.tutorModeEnabled
-                        ? "bg-primary text-white shadow-glow"
-                        : "bg-white/10 hover:bg-white/15"
-                    }`}
-                  >
-                    {t("settings.tutorDisabled")}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                    {t("settings.tutorLevel")}
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {TUTOR_LEVELS.map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        disabled={!userId || prefsLoading}
-                        onClick={() => void updateAiPreferences({ tutorLevel: level })}
-                        className={`rounded-xl px-2 py-2.5 text-xs font-medium transition disabled:opacity-50 sm:text-sm ${
-                          aiPreferences?.tutorLevel === level
-                            ? "bg-primary text-white"
-                            : "bg-white/10 hover:bg-white/15"
-                        }`}
-                      >
-                        {t(`tutor.${level}` as Parameters<typeof t>[0])}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </section>
 
               <section className="space-y-3 rounded-2xl border border-white/15 bg-white/5 p-4">

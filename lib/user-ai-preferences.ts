@@ -10,6 +10,7 @@ export type UserAiPreferences = {
   voiceAutoSend: boolean;
   voiceGender: "female" | "male";
   customInstructions: string;
+  updatedAt?: string | null;
 };
 
 export const DEFAULT_AI_PREFERENCES: UserAiPreferences = {
@@ -60,7 +61,8 @@ function mapRow(row: Record<string, unknown> | null): UserAiPreferences {
     voiceOutputEnabled: Boolean(row.voice_output_enabled),
     voiceAutoSend: row.voice_auto_send !== false,
     voiceGender: row.voice_gender === "male" ? "male" : "female",
-    customInstructions: normalizeCustomInstructions(row.custom_instructions)
+    customInstructions: normalizeCustomInstructions(row.custom_instructions),
+    updatedAt: typeof row.updated_at === "string" ? row.updated_at : null
   };
 }
 
@@ -69,9 +71,9 @@ export async function getUserAiPreferences(
   userId: string
 ): Promise<UserAiPreferences> {
   const fullSelect =
-    "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender, custom_instructions";
+    "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender, custom_instructions, updated_at";
   const baseSelect =
-    "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender";
+    "personality_mode, tutor_mode_enabled, tutor_level, voice_output_enabled, voice_auto_send, voice_gender, updated_at";
 
   let { data, error } = await admin
     .from("user_ai_preferences")
@@ -133,9 +135,9 @@ export async function setUserAiPreferences(
   }
 
   if (error) {
-    if (isSchemaError(error.message)) return next;
+    if (isSchemaError(error.message)) return { ...next, updatedAt: payload.updated_at };
     throw new Error(error.message);
   }
 
-  return next;
+  return { ...next, updatedAt: payload.updated_at };
 }

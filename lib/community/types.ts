@@ -143,6 +143,8 @@ export type FeedPost = {
   imageUrl?: string | null;
   videoUrl?: string | null;
   mediaType?: "none" | "image" | "video";
+  isPrivate?: boolean;
+  isMine?: boolean;
 };
 
 export type PublicUserProfile = {

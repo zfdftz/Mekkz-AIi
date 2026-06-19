@@ -608,13 +608,24 @@ async function mapGroupMessageRow(
 export async function listFeed(
   admin: SupabaseClient,
   userId: string,
-  opts: { cursor?: string; tag?: string; search?: string; trending?: boolean } = {}
+  opts: {
+    cursor?: string;
+    tag?: string;
+    search?: string;
+    trending?: boolean;
+    authorId?: string;
+  } = {}
 ): Promise<FeedPost[]> {
   let query = admin
     .from("feed_posts")
     .select("*")
     .order(opts.trending ? "likes_count" : "created_at", { ascending: false })
     .limit(20);
+  if (opts.authorId) {
+    query = query.eq("user_id", opts.authorId);
+  } else {
+    query = query.eq("is_private", false);
+  }
   if (opts.cursor) query = query.lt("created_at", opts.cursor);
   if (opts.tag) query = query.contains("tags", [opts.tag]);
   if (opts.search?.trim()) {
@@ -633,22 +644,112 @@ export async function listFeed(
     ? await admin.from("feed_likes").select("post_id").eq("user_id", userId).in("post_id", postIds)
     : { data: [] };
   const liked = new Set((likes ?? []).map((l) => l.post_id));
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    userId: row.user_id,
-    content: row.content,
-    postType: row.post_type,
-    tags: row.tags ?? [],
-    likesCount: row.likes_count ?? 0,
-    commentsCount: row.comments_count ?? 0,
-    repostsCount: row.reposts_count ?? 0,
-    createdAt: row.created_at,
-    authorName: names.get(row.user_id) ?? null,
-    likedByMe: liked.has(row.id),
-    imageUrl: row.image_url ?? null,
-    videoUrl: row.video_url ?? null,
-    mediaType: row.media_type ?? "none"
-  }));
+  return (data ?? []).map((row) =>
+    mapFeedPostRow(row, {
+      likedByMe: liked.has(row.id),
+      authorName: names.get(row.user_id) ?? null,
+      viewerId: userId
+    })
+  );
+}
+
+function mapFeedPostRow(
+  row: Record<string, unknown>,
+  opts: { likedByMe: boolean; authorName?: string | null; viewerId?: string }
+): FeedPost {
+  const postUserId = row.user_id as string;
+  return {
+    id: row.id as string,
+    userId: postUserId,
+    content: row.content as string,
+    postType: row.post_type as FeedPost["postType"],
+    tags: (row.tags as string[]) ?? [],
+    likesCount: (row.likes_count as number) ?? 0,
+    commentsCount: (row.comments_count as number) ?? 0,
+    repostsCount: (row.reposts_count as number) ?? 0,
+    createdAt: row.created_at as string,
+    authorName: opts.authorName ?? null,
+    likedByMe: opts.likedByMe,
+    imageUrl: (row.image_url as string) ?? null,
+    videoUrl: (row.video_url as string) ?? null,
+    mediaType: (row.media_type as FeedPost["mediaType"]) ?? "none",
+    isPrivate: Boolean(row.is_private),
+    isMine: opts.viewerId ? postUserId === opts.viewerId : undefined
+  };
+}
+
+export async function getFeedPost(
+  admin: SupabaseClient,
+  postId: string
+): Promise<{ id: string; userId: string; isPrivate: boolean } | null> {
+  const { data, error } = await admin
+    .from("feed_posts")
+    .select("id, user_id, is_private")
+    .eq("id", postId)
+    .maybeSingle();
+  if (error) {
+    if (missing(error.message)) return null;
+    throw new Error(error.message);
+  }
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    userId: data.user_id as string,
+    isPrivate: Boolean(data.is_private)
+  };
+}
+
+export async function assertFeedPostAccessible(
+  admin: SupabaseClient,
+  postId: string,
+  viewerId: string
+) {
+  const post = await getFeedPost(admin, postId);
+  if (!post) throw new Error("Post nicht gefunden.");
+  if (post.isPrivate && post.userId !== viewerId) {
+    throw new Error("Dieser Post ist privat.");
+  }
+  return post;
+}
+
+export async function deleteFeedPost(admin: SupabaseClient, userId: string, postId: string) {
+  const post = await getFeedPost(admin, postId);
+  if (!post) throw new Error("Post nicht gefunden.");
+  if (post.userId !== userId) throw new Error("Nur eigene Posts können gelöscht werden.");
+
+  const { error } = await admin.from("feed_posts").delete().eq("id", postId).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+
+  const { data: profile } = await admin
+    .from("user_profiles")
+    .select("posts_count")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profile) {
+    const next = Math.max(0, (profile.posts_count ?? 0) - 1);
+    await admin.from("user_profiles").update({ posts_count: next }).eq("user_id", userId);
+  }
+}
+
+export async function setFeedPostPrivate(
+  admin: SupabaseClient,
+  userId: string,
+  postId: string,
+  isPrivate: boolean
+) {
+  const post = await getFeedPost(admin, postId);
+  if (!post) throw new Error("Post nicht gefunden.");
+  if (post.userId !== userId) throw new Error("Nur eigene Posts können geändert werden.");
+
+  const { data, error } = await admin
+    .from("feed_posts")
+    .update({ is_private: isPrivate })
+    .eq("id", postId)
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapFeedPostRow(data, { likedByMe: false, viewerId: userId });
 }
 
 export async function createFeedPost(
@@ -705,6 +806,7 @@ async function syncFeedPostCounter(
 }
 
 export async function toggleLike(admin: SupabaseClient, userId: string, postId: string) {
+  await assertFeedPostAccessible(admin, postId, userId);
   const { data: existing } = await admin
     .from("feed_likes")
     .select("post_id")
@@ -737,6 +839,9 @@ export async function listComments(
   postId: string,
   viewerUserId?: string
 ): Promise<FeedComment[]> {
+  if (viewerUserId) {
+    await assertFeedPostAccessible(admin, postId, viewerUserId);
+  }
   const { data, error } = await admin
     .from("feed_comments")
     .select("id, post_id, user_id, content, created_at, likes_count")
@@ -778,6 +883,7 @@ export async function addComment(
   postId: string,
   content: string
 ): Promise<{ comment: FeedComment; commentsCount: number }> {
+  await assertFeedPostAccessible(admin, postId, userId);
   const { data, error } = await admin
     .from("feed_comments")
     .insert({ post_id: postId, user_id: userId, content })

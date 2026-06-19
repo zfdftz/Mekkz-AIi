@@ -182,7 +182,7 @@ const SECTIONS: {
   { key: "productivity", labelKey: "community.sectionProductivity" }
 ];
 
-export function CommunityHub({ userId: _userId }: { userId: string }) {
+export function CommunityHub({ userId }: { userId: string }) {
   const { t } = useLanguage();
   const [tab, setTab] = useState<TabId>("feed");
   const [navOpen, setNavOpen] = useState(false);
@@ -212,7 +212,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
   function renderTab() {
     switch (tab) {
       case "feed":
-        return <FeedTab />;
+        return <FeedTab userId={userId} />;
       case "rooms":
         return <RoomsTab />;
       case "friends":
@@ -220,7 +220,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
       case "groups":
         return <GroupsTab />;
       case "clans":
-        return CLANS_DISABLED ? <FeedTab /> : <ClansTab />;
+        return CLANS_DISABLED ? <FeedTab userId={userId} /> : <ClansTab />;
       case "profile":
         return <ProfileTab />;
       case "tasks":
@@ -234,7 +234,7 @@ export function CommunityHub({ userId: _userId }: { userId: string }) {
       case "board":
         return <BoardTab />;
       default:
-        return <FeedTab />;
+        return <FeedTab userId={userId} />;
     }
   }
 

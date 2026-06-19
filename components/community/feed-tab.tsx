@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, MessageCircle, Plus, Search, TrendingUp, X } from "lucide-react";
+import { Heart, Lock, MessageCircle, Plus, Search, Trash2, TrendingUp, Unlock, User, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import {
   ChatComposer,
@@ -22,11 +22,13 @@ import { FEED_IMAGE_MAX_BYTES, FEED_VIDEO_MAX_SECONDS } from "@/lib/community/me
 import { readJsonResponse } from "@/lib/fetch-json";
 import type { FeedComment, FeedPost } from "@/lib/community/types";
 
-export function FeedTab() {
+export function FeedTab({ userId }: { userId: string }) {
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [trending, setTrending] = useState(false);
+  const [feedMode, setFeedMode] = useState<"latest" | "trending" | "mine">("latest");
   const [tag, setTag] = useState("");
   const [search, setSearch] = useState("");
   const [showComposer, setShowComposer] = useState(false);
@@ -49,10 +51,13 @@ export function FeedTab() {
     if (!append) setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (trending) params.set("trending", "1");
+      if (feedMode === "trending") params.set("trending", "1");
+      if (feedMode === "mine") params.set("mine", "1");
       if (tag.trim()) params.set("tag", tag.trim());
       if (search.trim()) params.set("q", search.trim());
-      if (append && posts.length > 0) params.set("cursor", posts[posts.length - 1].createdAt);
+      if (append && postsRef.current.length > 0) {
+        params.set("cursor", postsRef.current[postsRef.current.length - 1].createdAt);
+      }
       const res = await fetch(`/api/community/feed?${params}`);
       const data = await readJsonResponse<{ posts?: FeedPost[]; error?: string }>(res);
       if (!res.ok) throw new Error(data.error || "Feed konnte nicht geladen werden.");
@@ -62,12 +67,12 @@ export function FeedTab() {
     } finally {
       setLoading(false);
     }
-  }, [trending, tag, search, posts]);
+  }, [feedMode, tag, search]);
 
   useEffect(() => {
     void load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trending, tag, search]);
+  }, [feedMode, tag, search]);
 
   async function createPost() {
     if (!content.trim() && !imagePreview && !videoPreview) return;
@@ -268,15 +273,63 @@ export function FeedTab() {
     }
   }
 
+  async function deletePost(postId: string) {
+    if (!confirm("Post wirklich löschen? Die Likes verschwinden von deinem Profil.")) return;
+    const key = `delete:${postId}`;
+    if (!lockAction(key)) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/community/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", postId })
+      });
+      const data = await readJsonResponse<{ error?: string }>(res);
+      if (!res.ok) throw new Error(data.error || "Löschen fehlgeschlagen.");
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      if (expanded === postId) setExpanded(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler.");
+    } finally {
+      unlockAction(key);
+    }
+  }
+
+  async function togglePrivate(postId: string, isPrivate: boolean) {
+    const key = `private:${postId}`;
+    if (!lockAction(key)) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/community/feed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-private", postId, isPrivate: !isPrivate })
+      });
+      const data = await readJsonResponse<{ post?: FeedPost; error?: string }>(res);
+      if (!res.ok) throw new Error(data.error || "Änderung fehlgeschlagen.");
+      const nextPrivate = data.post?.isPrivate ?? !isPrivate;
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, isPrivate: nextPrivate } : p))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler.");
+    } finally {
+      unlockAction(key);
+    }
+  }
+
+  const isMineView = feedMode === "mine";
+
   return (
     <div className="space-y-6">
       <PillTabs
         items={[
           { id: "latest", label: "Neueste" },
-          { id: "trending", label: "Trending", icon: TrendingUp }
+          { id: "trending", label: "Trending", icon: TrendingUp },
+          { id: "mine", label: "Deine Posts", icon: User }
         ]}
-        value={trending ? "trending" : "latest"}
-        onChange={(id) => setTrending(id === "trending")}
+        value={feedMode}
+        onChange={(id) => setFeedMode(id as "latest" | "trending" | "mine")}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -373,7 +426,9 @@ export function FeedTab() {
       {loading ? (
         <LoadingState />
       ) : posts.length === 0 ? (
-        <EmptyState>Noch keine Posts — sei der Erste!</EmptyState>
+        <EmptyState>
+          {isMineView ? "Du hast noch keine Posts." : "Noch keine Posts — sei der Erste!"}
+        </EmptyState>
       ) : (
         <div className="space-y-4">
           {posts.map((post, index) => (
@@ -396,8 +451,46 @@ export function FeedTab() {
                   <span className="shrink-0 rounded-md bg-white/10 px-2.5 py-0.5 text-xs uppercase">
                     {post.postType}
                   </span>
+                  {post.isPrivate ? (
+                    <span className="shrink-0 rounded-md bg-amber-500/20 px-2.5 py-0.5 text-xs text-amber-200">
+                      <Lock size={12} className="mr-1 inline" />
+                      Privat
+                    </span>
+                  ) : null}
                 </div>
-                <span className="text-sm text-muted">{new Date(post.createdAt).toLocaleString()}</span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {(isMineView || post.userId === userId) ? (
+                    <>
+                      <GhostButton
+                        className="text-xs"
+                        disabled={actionBusy[`private:${post.id}`]}
+                        onClick={() => void togglePrivate(post.id, Boolean(post.isPrivate))}
+                        title={post.isPrivate ? "Öffentlich machen" : "Privat machen"}
+                      >
+                        {post.isPrivate ? (
+                          <>
+                            <Unlock size={14} className="mr-1 inline" />
+                            Öffentlich
+                          </>
+                        ) : (
+                          <>
+                            <Lock size={14} className="mr-1 inline" />
+                            Privat
+                          </>
+                        )}
+                      </GhostButton>
+                      <GhostButton
+                        className="text-xs text-red-300 hover:text-red-200"
+                        disabled={actionBusy[`delete:${post.id}`]}
+                        onClick={() => void deletePost(post.id)}
+                      >
+                        <Trash2 size={14} className="mr-1 inline" />
+                        Löschen
+                      </GhostButton>
+                    </>
+                  ) : null}
+                  <span className="text-sm text-muted">{new Date(post.createdAt).toLocaleString()}</span>
+                </div>
               </div>
               <p className="whitespace-pre-wrap text-[17px] leading-relaxed sm:text-lg">{post.content}</p>
               {post.imageUrl ? (

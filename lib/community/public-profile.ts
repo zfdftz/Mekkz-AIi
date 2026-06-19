@@ -155,6 +155,7 @@ export async function getTopPosts(admin: SupabaseClient, userId: string, limit =
     .from("feed_posts")
     .select("*")
     .eq("user_id", userId)
+    .eq("is_private", false)
     .order("likes_count", { ascending: false })
     .limit(limit);
   if (error) {
@@ -178,7 +179,8 @@ function mapFeedRow(row: Record<string, unknown>, likedByMe: boolean): FeedPost 
     imageUrl: (row.image_url as string) ?? null,
     videoUrl: (row.video_url as string) ?? null,
     mediaType: (row.media_type as FeedPost["mediaType"]) ?? "none",
-    likedByMe
+    likedByMe,
+    isPrivate: Boolean(row.is_private)
   };
 }
 

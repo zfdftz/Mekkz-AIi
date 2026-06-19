@@ -10,8 +10,10 @@ import {
 import {
   addComment,
   createFeedPost,
+  deleteFeedPost,
   listComments,
   listFeed,
+  setFeedPostPrivate,
   toggleCommentLike,
   toggleLike
 } from "@/lib/community/social";
@@ -40,11 +42,13 @@ export async function GET(req: Request) {
     });
   }
   await syncUserRewards(admin, auth.user!.id, auth.user!.email);
+  const mine = searchParams.get("mine") === "1";
   const posts = await listFeed(admin, auth.user!.id, {
     cursor: searchParams.get("cursor") ?? undefined,
-    tag: searchParams.get("tag") ?? undefined,
+    tag: mine ? undefined : searchParams.get("tag") ?? undefined,
     search: searchParams.get("q") ?? undefined,
-    trending: searchParams.get("trending") === "1"
+    trending: !mine && searchParams.get("trending") === "1",
+    authorId: mine ? auth.user!.id : undefined
   });
   const ids = posts.map((p) => p.userId);
   const map = await getAuthorIdentityMap(admin, ids);
@@ -71,7 +75,13 @@ const postSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("like"), postId: z.string().uuid() }),
   z.object({ action: z.literal("like-comment"), commentId: z.string().uuid() }),
-  z.object({ action: z.literal("comment"), postId: z.string().uuid(), content: z.string().min(1) })
+  z.object({ action: z.literal("comment"), postId: z.string().uuid(), content: z.string().min(1) }),
+  z.object({ action: z.literal("delete"), postId: z.string().uuid() }),
+  z.object({
+    action: z.literal("set-private"),
+    postId: z.string().uuid(),
+    isPrivate: z.boolean()
+  })
 ]);
 
 export async function POST(req: Request) {
@@ -154,6 +164,14 @@ export async function POST(req: Request) {
       },
       commentsCount
     });
+  }
+  if (parsed.data.action === "delete") {
+    await deleteFeedPost(admin, userId, parsed.data.postId);
+    return NextResponse.json({ ok: true });
+  }
+  if (parsed.data.action === "set-private") {
+    const post = await setFeedPostPrivate(admin, userId, parsed.data.postId, parsed.data.isPrivate);
+    return NextResponse.json({ post });
   }
   return NextResponse.json({ error: "Unbekannte Aktion." }, { status: 400 });
 }

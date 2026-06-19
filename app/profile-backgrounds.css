@@ -1,0 +1,653 @@
+/* Profile background themes — unique visuals per title */
+
+.profile-style-shell:has(.profile-bg-epic) .profile-style-scrim,
+.profile-style-shell:has(.profile-bg-legendary) .profile-style-scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(8, 8, 14, 0.1) 0%,
+    rgba(8, 8, 14, 0.38) 45%,
+    rgba(8, 8, 14, 0.55) 100%
+  );
+}
+
+.profile-style-background > .profile-bg-theme-fire,
+.profile-style-background > .profile-bg-theme-smoke,
+.profile-style-background > .profile-bg-theme-particles {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+}
+
+.profile-style-background > .profile-bg-texture-layer { z-index: 1; }
+.profile-style-background > .profile-bg-theme-fire { z-index: 2; }
+.profile-style-background > .profile-bg-theme-smoke { z-index: 3; }
+.profile-style-background > .profile-bg-theme-particles { z-index: 4; }
+.profile-style-background > .profile-bg-drift-layer { z-index: 5; }
+.profile-style-background > .profile-bg-legendary-layer { z-index: 6; }
+.profile-style-background > .profile-bg-legendary-shimmer { z-index: 7; }
+.profile-style-background > .profile-bg-grain-layer { z-index: 8; }
+
+/* —— New backgrounds (10 normal) —— */
+.reward-bg-soft-lilac {
+  background: linear-gradient(145deg, #f5f3ff 0%, #ddd6fe 45%, #a78bfa 100%);
+}
+.reward-bg-mint-frost {
+  background: linear-gradient(160deg, #ecfdf5 0%, #a7f3d0 40%, #0d9488 100%);
+}
+.reward-bg-warm-latte {
+  background: linear-gradient(180deg, #fef3c7 0%, #d6b38a 55%, #78350f 100%);
+}
+.reward-bg-sky-dawn {
+  background: linear-gradient(180deg, #bae6fd 0%, #f0abfc 35%, #fda4af 70%, #1e3a8a 100%);
+}
+.reward-bg-charcoal-silk {
+  background:
+    repeating-linear-gradient(90deg, transparent 0, transparent 3px, rgba(255, 255, 255, 0.03) 3px, rgba(255, 255, 255, 0.03) 4px),
+    linear-gradient(180deg, #27272a 0%, #18181b 100%);
+}
+.reward-bg-moonlit-sea {
+  background:
+    radial-gradient(ellipse 40% 25% at 75% 18%, rgba(253, 224, 71, 0.35), transparent),
+    radial-gradient(ellipse 80% 40% at 50% 100%, rgba(14, 116, 144, 0.55), transparent),
+    linear-gradient(180deg, #0c4a6e 0%, #082f49 55%, #020617 100%);
+}
+.reward-bg-autumn-leaves {
+  background:
+    radial-gradient(2px 2px at 20% 30%, #f97316, transparent),
+    radial-gradient(2px 2px at 55% 60%, #eab308, transparent),
+    radial-gradient(2px 2px at 80% 25%, #dc2626, transparent),
+    linear-gradient(165deg, #7c2d12 0%, #ca8a04 40%, #365314 100%);
+}
+.reward-bg-bamboo-grove {
+  background:
+    repeating-linear-gradient(90deg, rgba(34, 197, 94, 0.12) 0, rgba(34, 197, 94, 0.12) 8px, transparent 8px, transparent 28px),
+    linear-gradient(180deg, #14532d 0%, #052e16 60%, #022c22 100%);
+}
+.reward-bg-velvet-night {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.25), transparent 45%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #0f0a1a 100%);
+}
+.reward-bg-coral-reef {
+  background:
+    radial-gradient(ellipse 50% 35% at 30% 75%, rgba(251, 113, 133, 0.4), transparent),
+    radial-gradient(ellipse 45% 30% at 70% 80%, rgba(52, 211, 153, 0.35), transparent),
+    linear-gradient(180deg, #06b6d4 0%, #0e7490 45%, #164e63 100%);
+}
+
+/* —— New backgrounds (10 epic / legendary) —— */
+.reward-bg-lightning-rift {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+}
+.reward-bg-deep-jellyfish {
+  background: linear-gradient(180deg, #020617 0%, #1e1b4b 40%, #4c1d95 100%);
+}
+.reward-bg-phoenix-flame {
+  background: linear-gradient(180deg, #1c1917 0%, #431407 55%, #7c2d12 82%, #ea580c 100%);
+}
+.reward-bg-enchanted-grove {
+  background: linear-gradient(160deg, #052e16 0%, #166534 45%, #14532d 100%);
+}
+.reward-bg-synthwave-horizon {
+  background: linear-gradient(180deg, #2e1065 0%, #be185d 45%, #f97316 72%, #020617 100%);
+}
+.reward-bg-supernova {
+  background: radial-gradient(circle at 50% 45%, #fef08a 0%, #f97316 18%, #7c3aed 45%, #020617 75%);
+}
+.reward-bg-abyssal-deep {
+  background: linear-gradient(180deg, #020617 0%, #0c1929 35%, #001a33 70%, #000810 100%);
+}
+.reward-bg-hellforge {
+  background: linear-gradient(180deg, #1c1917 0%, #450a0a 50%, #7f1d1d 78%, #f97316 100%);
+}
+.reward-bg-stargate {
+  background: radial-gradient(circle at 50% 42%, #22d3ee 0%, #0891b2 12%, transparent 28%), #0f172a;
+}
+.reward-bg-queen-aurora {
+  background: linear-gradient(180deg, #020617 0%, #06b6d4 28%, #a855f7 52%, #ec4899 72%, #020617 100%);
+}
+
+/* —— Enhanced bases (distinct from each other) —— */
+.reward-bg-nebula {
+  background-color: #050010;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 25% 35%, rgba(236, 72, 153, 0.45), transparent),
+    radial-gradient(ellipse 60% 50% at 78% 62%, rgba(59, 130, 246, 0.4), transparent),
+    linear-gradient(125deg, #0a0118 0%, #1e0a3a 100%);
+}
+.reward-bg-neon {
+  background:
+    linear-gradient(180deg, rgba(236, 72, 153, 0.35) 0%, transparent 40%),
+    linear-gradient(0deg, rgba(34, 211, 238, 0.3) 0%, transparent 45%),
+    #0a0f1e;
+}
+.reward-bg-castle {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(120, 53, 15, 0.45), transparent),
+    linear-gradient(180deg, #334155 0%, #1e293b 40%, #451a03 100%);
+}
+.reward-bg-frozen {
+  background:
+    radial-gradient(ellipse 90% 45% at 50% 0%, rgba(224, 242, 254, 0.35), transparent),
+    linear-gradient(180deg, #bae6fd 0%, #0369a1 55%, #0c4a6e 100%);
+}
+.reward-bg-lava {
+  background: linear-gradient(180deg, #292524 0%, #7c2d12 65%, #ff5a00 100%);
+}
+.reward-bg-mekkz {
+  background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 40%, #2563eb 100%);
+}
+
+/* ═══════════════════════════════════════════
+   VOLCANO / FIRE — bright lava + rising smoke
+   ═══════════════════════════════════════════ */
+.profile-pbg-volcano.reward-bg-volcano,
+.profile-pbg-lava.reward-bg-lava,
+.profile-pbg-inferno.reward-bg-inferno-ring,
+.profile-pbg-ember.reward-bg-ember-ring,
+.profile-pbg-phoenix.reward-bg-phoenix-flame,
+.profile-pbg-hellforge.reward-bg-hellforge {
+  background-color: #120a08;
+  background-image: linear-gradient(180deg, #1c1410 0%, #2a1810 38%, #3d1a08 68%, #5a1a00 88%, #8a2800 100%);
+}
+
+.profile-pbg-volcano > .profile-bg-theme-fire,
+.profile-pbg-lava > .profile-bg-theme-fire,
+.profile-pbg-inferno > .profile-bg-theme-fire,
+.profile-pbg-phoenix > .profile-bg-theme-fire,
+.profile-pbg-hellforge > .profile-bg-theme-fire,
+.profile-pbg-ember > .profile-bg-theme-fire {
+  display: block;
+  inset: auto 0 0 0;
+  height: 52%;
+  background:
+    radial-gradient(ellipse 95% 90% at 50% 100%, #ff9500 0%, #ff5500 30%, rgba(255, 60, 0, 0.5) 55%, transparent 75%),
+    radial-gradient(ellipse 45% 50% at 28% 100%, #ffcc00 0%, transparent 65%),
+    radial-gradient(ellipse 40% 45% at 72% 100%, #ff7700 0%, transparent 60%),
+    linear-gradient(0deg, rgba(255, 90, 0, 0.95) 0%, rgba(255, 40, 0, 0.55) 35%, transparent 100%);
+  mix-blend-mode: normal;
+  opacity: 1;
+  filter: blur(1px) brightness(1.1);
+  animation: pbg-fire-flicker 1.6s ease-in-out infinite alternate;
+}
+
+.profile-pbg-volcano > .profile-bg-theme-smoke,
+.profile-pbg-lava > .profile-bg-theme-smoke,
+.profile-pbg-inferno > .profile-bg-theme-smoke,
+.profile-pbg-phoenix > .profile-bg-theme-smoke,
+.profile-pbg-hellforge > .profile-bg-theme-smoke {
+  display: block;
+  inset: auto 0 18% 0;
+  height: 50%;
+  background:
+    radial-gradient(ellipse 42% 70% at 22% 100%, rgba(230, 220, 210, 0.65), transparent 72%),
+    radial-gradient(ellipse 38% 65% at 55% 100%, rgba(200, 195, 190, 0.55), transparent 70%),
+    radial-gradient(ellipse 35% 60% at 80% 100%, rgba(210, 200, 195, 0.5), transparent 68%);
+  filter: blur(22px);
+  mix-blend-mode: normal;
+  opacity: 0.85;
+  animation: pbg-smoke-rise 9s ease-in-out infinite alternate;
+}
+
+.profile-pbg-volcano > .profile-bg-theme-particles,
+.profile-pbg-phoenix > .profile-bg-theme-particles,
+.profile-pbg-hellforge > .profile-bg-theme-particles {
+  display: block;
+  background-image:
+    radial-gradient(3px 3px at 15% 88%, #ffd080, transparent),
+    radial-gradient(2px 2px at 35% 92%, #ffaa44, transparent),
+    radial-gradient(2.5px 2.5px at 52% 85%, #ff8800, transparent),
+    radial-gradient(2px 2px at 68% 90%, #ffcc66, transparent),
+    radial-gradient(3px 3px at 82% 87%, #ff9933, transparent);
+  background-size: 100% 200%;
+  animation: pbg-embers-up 4s linear infinite;
+  opacity: 0.95;
+  mix-blend-mode: screen;
+}
+
+.profile-pbg-volcano > .profile-bg-drift-layer {
+  background: radial-gradient(ellipse 100% 30% at 50% 100%, rgba(255, 120, 0, 0.35), transparent);
+  animation: pbg-fire-flicker 3s ease-in-out infinite alternate-reverse;
+  opacity: 1;
+}
+
+/* ═══ BLIZZARD / ICE / FROZEN — snow ═══ */
+.profile-pbg-blizzard > .profile-bg-theme-particles,
+.profile-pbg-frozen > .profile-bg-theme-particles,
+.profile-pbg-ice > .profile-bg-theme-particles {
+  display: block;
+  background-image:
+    radial-gradient(2px 2px at 10% -5%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 25% -10%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(2px 2px at 42% -8%, #e0f2fe, transparent),
+    radial-gradient(1px 1px at 58% -12%, #fff, transparent),
+    radial-gradient(2px 2px at 75% -6%, #bae6fd, transparent),
+    radial-gradient(1.5px 1.5px at 90% -9%, #fff, transparent);
+  background-size: 100% 220%;
+  animation: pbg-snow-fall 8s linear infinite;
+  opacity: 0.9;
+}
+
+.profile-pbg-blizzard > .profile-bg-theme-smoke {
+  display: block;
+  background: radial-gradient(ellipse 100% 50% at 50% 0%, rgba(255, 255, 255, 0.2), transparent 70%);
+  animation: pbg-wind-sway 10s ease-in-out infinite alternate;
+  opacity: 0.7;
+}
+
+.profile-pbg-blizzard > .profile-bg-drift-layer,
+.profile-pbg-frozen > .profile-bg-drift-layer {
+  background: radial-gradient(ellipse 80% 40% at 50% 100%, rgba(125, 211, 252, 0.25), transparent);
+  animation: pbg-frost-pulse 7s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+/* ═══ DIGITAL RAIN / CYBER / NEON ═══ */
+.profile-pbg-rain > .profile-bg-theme-particles,
+.profile-pbg-cyber > .profile-bg-theme-particles {
+  display: block;
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0, transparent 4px, rgba(52, 211, 153, 0.35) 4px, rgba(52, 211, 153, 0.35) 5px),
+    repeating-linear-gradient(181deg, transparent 0, transparent 7px, rgba(34, 211, 238, 0.25) 7px, rgba(34, 211, 238, 0.25) 8px);
+  background-size: 100% 140px;
+  animation: pbg-matrix-fall 4s linear infinite;
+  opacity: 0.75;
+}
+
+.profile-pbg-neon > .profile-bg-theme-fire {
+  display: block;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.35) 0%, transparent 50%, rgba(34, 211, 238, 0.35) 100%);
+  animation: pbg-neon-pulse 5s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+
+.profile-pbg-cyber > .profile-bg-drift-layer {
+  background: repeating-linear-gradient(0deg, transparent 0, transparent 16px, rgba(236, 72, 153, 0.1) 16px, rgba(236, 72, 153, 0.1) 18px);
+  animation: pbg-scan-down 3.5s linear infinite;
+  opacity: 1;
+}
+
+/* ═══ DRAGON — fire breath corner ═══ */
+.profile-pbg-dragon > .profile-bg-theme-fire {
+  display: block;
+  background: radial-gradient(ellipse 65% 55% at 92% 95%, rgba(255, 80, 0, 0.7) 0%, rgba(220, 38, 38, 0.45) 40%, transparent 70%);
+  animation: pbg-dragon-breath 5s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+.profile-pbg-dragon > .profile-bg-theme-particles {
+  display: block;
+  background: repeating-linear-gradient(135deg, transparent 0, transparent 14px, rgba(239, 68, 68, 0.08) 14px, rgba(239, 68, 68, 0.08) 16px);
+  opacity: 0.8;
+}
+
+/* ═══ VOID / GALAXY / STARFIELD / NEBULA — space ═══ */
+.profile-pbg-void > .profile-bg-theme-particles,
+.profile-pbg-galaxy > .profile-bg-theme-particles,
+.profile-pbg-starfield > .profile-bg-theme-particles {
+  display: block;
+  background-image:
+    radial-gradient(1px 1px at 12% 22%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 35% 55%, rgba(196, 181, 253, 0.9), transparent),
+    radial-gradient(1px 1px at 58% 18%, #fff, transparent),
+    radial-gradient(2px 2px at 78% 68%, rgba(167, 139, 250, 0.85), transparent);
+  animation: pbg-star-twinkle 6s ease-in-out infinite alternate;
+  opacity: 0.9;
+}
+
+.profile-pbg-void > .profile-bg-drift-layer,
+.profile-pbg-nebula > .profile-bg-drift-layer {
+  background: radial-gradient(circle at 50% 50%, rgba(88, 28, 135, 0.35), transparent 58%);
+  animation: pbg-void-breathe 12s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+.profile-pbg-galaxy > .profile-bg-drift-layer {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 38%, rgba(167, 139, 250, 0.2) 39%, transparent 40%),
+    radial-gradient(circle at 50% 50%, transparent 58%, rgba(139, 92, 246, 0.15) 59%, transparent 60%);
+  animation: pbg-orbit-spin 30s linear infinite;
+  opacity: 1;
+}
+
+/* ═══ GENESIS / GROVE / CHERRY — organic ═══ */
+.profile-pbg-genesis > .profile-bg-theme-particles,
+.profile-pbg-grove > .profile-bg-theme-particles,
+.profile-pbg-cherry > .profile-bg-theme-particles {
+  display: block;
+  background-image:
+    radial-gradient(3px 3px at 18% 10%, rgba(252, 231, 243, 0.8), transparent),
+    radial-gradient(2.5px 2.5px at 48% 5%, rgba(244, 114, 182, 0.75), transparent),
+    radial-gradient(3px 3px at 72% 12%, rgba(253, 242, 248, 0.7), transparent);
+  background-size: 100% 180%;
+  animation: pbg-petals-fall 11s linear infinite;
+  opacity: 0.85;
+}
+
+.profile-pbg-grove > .profile-bg-theme-smoke {
+  display: block;
+  background: radial-gradient(ellipse 70% 50% at 50% 80%, rgba(52, 211, 153, 0.2), transparent);
+  animation: pbg-grove-mist 14s ease-in-out infinite alternate;
+  opacity: 0.7;
+}
+
+.profile-pbg-genesis > .profile-bg-drift-layer {
+  background: radial-gradient(circle at 40% 45%, rgba(168, 85, 247, 0.35), transparent 55%);
+  animation: pbg-bloom-pulse 10s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+/* ═══ PLASMA / SYNTHWAVE / BURST ═══ */
+.profile-pbg-plasma > .profile-bg-drift-layer,
+.profile-pbg-synthwave > .profile-bg-drift-layer,
+.profile-pbg-burst > .profile-bg-drift-layer {
+  background:
+    radial-gradient(ellipse 60% 40% at 25% 50%, rgba(236, 72, 153, 0.35), transparent),
+    radial-gradient(ellipse 55% 38% at 75% 50%, rgba(6, 182, 212, 0.32), transparent);
+  animation: pbg-plasma-sway 5s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+.profile-pbg-synthwave > .profile-bg-theme-fire {
+  display: block;
+  inset: auto 0 0 0;
+  height: 35%;
+  background: linear-gradient(0deg, rgba(236, 72, 153, 0.5) 0%, rgba(249, 115, 22, 0.35) 50%, transparent 100%);
+  animation: pbg-synth-pulse 4s ease-in-out infinite alternate;
+  opacity: 0.85;
+}
+
+/* ═══ SHADOW / ABYSS ═══ */
+.profile-pbg-shadow > .profile-bg-theme-smoke,
+.profile-pbg-abyss > .profile-bg-theme-smoke {
+  display: block;
+  background: radial-gradient(ellipse 100% 60% at 50% 110%, rgba(0, 0, 0, 0.55), transparent 70%);
+  animation: pbg-shadow-creep 15s ease-in-out infinite alternate;
+  opacity: 0.9;
+}
+
+.profile-pbg-abyss > .profile-bg-theme-particles {
+  display: block;
+  background-image:
+    radial-gradient(1px 1px at 20% 40%, rgba(34, 211, 238, 0.6), transparent),
+    radial-gradient(1px 1px at 60% 70%, rgba(59, 130, 246, 0.5), transparent);
+  animation: pbg-abyss-float 8s ease-in-out infinite alternate;
+  opacity: 0.7;
+}
+
+/* ═══ STORM / LIGHTNING ═══ */
+.profile-pbg-storm > .profile-bg-theme-smoke,
+.profile-pbg-lightning > .profile-bg-theme-smoke {
+  display: block;
+  background:
+    radial-gradient(ellipse 70% 45% at 35% 25%, rgba(148, 163, 184, 0.45), transparent),
+    radial-gradient(ellipse 60% 40% at 70% 30%, rgba(100, 116, 139, 0.4), transparent);
+  animation: pbg-storm-roll 8s ease-in-out infinite alternate;
+  opacity: 0.85;
+}
+
+.profile-pbg-lightning > .profile-bg-theme-fire,
+.profile-pbg-storm > .profile-bg-theme-fire {
+  display: block;
+  background: linear-gradient(165deg, transparent 40%, rgba(253, 224, 71, 0.55) 48%, transparent 52%);
+  animation: pbg-lightning-flash 7s ease-in-out infinite;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+.profile-pbg-storm > .profile-bg-theme-particles {
+  display: block;
+  background-image: repeating-linear-gradient(-15deg, transparent 0, transparent 24px, rgba(203, 213, 225, 0.08) 24px, rgba(203, 213, 225, 0.08) 26px);
+  animation: pbg-rain-drift 5s linear infinite;
+  opacity: 0.6;
+}
+
+/* ═══ OCEAN / JELLYFISH / CORAL ═══ */
+.profile-pbg-jellyfish > .profile-bg-theme-particles {
+  display: block;
+  background:
+    radial-gradient(ellipse 35% 45% at 35% 60%, rgba(167, 139, 250, 0.45), transparent),
+    radial-gradient(ellipse 30% 40% at 65% 45%, rgba(236, 72, 153, 0.35), transparent);
+  animation: pbg-jelly-float 9s ease-in-out infinite alternate;
+  opacity: 0.85;
+}
+
+.profile-pbg-ocean > .profile-bg-drift-layer {
+  background: radial-gradient(ellipse 90% 35% at 50% 100%, rgba(6, 182, 212, 0.3), transparent);
+  animation: pbg-wave-sway 8s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+/* ═══ CRYSTAL / CIRCUIT / TREASURE ═══ */
+.profile-pbg-crystal > .profile-bg-drift-layer {
+  background: radial-gradient(circle at 50% 60%, rgba(125, 211, 252, 0.4), transparent 58%);
+  animation: pbg-crystal-shine 6s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+.profile-pbg-circuit > .profile-bg-theme-particles {
+  display: block;
+  background: repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.12) 0, rgba(34, 211, 238, 0.12) 1px, transparent 1px, transparent 24px);
+  animation: pbg-scan-down 4s linear infinite;
+  opacity: 0.7;
+}
+
+.profile-pbg-treasure > .profile-bg-drift-layer {
+  background: radial-gradient(ellipse at 50% 40%, rgba(251, 191, 36, 0.4), transparent 60%);
+  animation: pbg-gold-pulse 4s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+/* ═══ SUPERNOVA / STARGATE / AURORA ═══ */
+.profile-pbg-supernova > .profile-bg-theme-fire {
+  display: block;
+  background: radial-gradient(circle at 50% 45%, rgba(254, 240, 138, 0.55) 0%, rgba(249, 115, 22, 0.35) 25%, transparent 55%);
+  animation: pbg-supernova-pulse 4s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+.profile-pbg-stargate > .profile-bg-drift-layer {
+  background: radial-gradient(circle at 50% 42%, transparent 22%, rgba(34, 211, 238, 0.35) 24%, transparent 26%);
+  animation: pbg-stargate-spin 12s linear infinite;
+  opacity: 1;
+}
+
+.profile-pbg-aurora > .profile-bg-theme-fire {
+  display: block;
+  background:
+    linear-gradient(180deg, transparent 20%, rgba(6, 182, 212, 0.35) 35%, rgba(168, 85, 247, 0.3) 50%, rgba(236, 72, 153, 0.25) 65%, transparent 80%);
+  animation: pbg-aurora-wave 10s ease-in-out infinite alternate;
+  opacity: 0.85;
+}
+
+.profile-pbg-castle > .profile-bg-theme-smoke {
+  display: block;
+  background: radial-gradient(ellipse 90% 45% at 50% 100%, rgba(148, 163, 184, 0.35), transparent);
+  filter: blur(12px);
+  animation: pbg-castle-fog 16s ease-in-out infinite alternate;
+  opacity: 0.65;
+}
+
+.profile-pbg-ember > .profile-bg-theme-fire {
+  display: block;
+  inset: auto 0 0 0;
+  height: 40%;
+  background: radial-gradient(ellipse 80% 70% at 50% 100%, rgba(251, 146, 60, 0.55), transparent);
+  animation: pbg-fire-flicker 2.5s ease-in-out infinite alternate;
+  opacity: 1;
+}
+
+/* Legendary shimmer per theme */
+.profile-pbg-volcano > .profile-bg-legendary-shimmer,
+.profile-pbg-hellforge > .profile-bg-legendary-shimmer,
+.profile-pbg-phoenix > .profile-bg-legendary-shimmer {
+  display: block;
+  background: linear-gradient(0deg, rgba(255, 140, 0, 0.35) 0%, transparent 50%);
+  opacity: 0.75;
+  animation: pbg-heat-wave 3s ease-in-out infinite alternate;
+}
+
+.profile-pbg-blizzard > .profile-bg-legendary-layer,
+.profile-pbg-frozen > .profile-bg-legendary-layer {
+  display: block;
+  opacity: 0.6;
+  background: radial-gradient(ellipse 100% 35% at 50% 0%, rgba(255, 255, 255, 0.18), transparent);
+  animation: pbg-frost-pulse 5s ease-in-out infinite alternate;
+}
+
+.profile-pbg-rain > .profile-bg-legendary-layer {
+  display: block;
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(180deg, transparent 0, transparent 3px, rgba(52, 211, 153, 0.2) 3px, rgba(52, 211, 153, 0.2) 4px);
+  background-size: 100% 100px;
+  animation: pbg-matrix-fall 3s linear infinite;
+}
+
+.profile-pbg-supernova > .profile-bg-legendary-layer {
+  display: block;
+  opacity: 0.7;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.2) 0%, transparent 40%);
+  animation: pbg-supernova-pulse 3s ease-in-out infinite alternate-reverse;
+}
+
+/* Keyframes */
+@keyframes pbg-fire-flicker {
+  0% { transform: scaleY(1) translateY(0); filter: brightness(1) saturate(1); }
+  50% { transform: scaleY(1.08) translateY(-2%); filter: brightness(1.25) saturate(1.2); }
+  100% { transform: scaleY(1.03) translateY(-1%); filter: brightness(1.1) saturate(1.1); }
+}
+@keyframes pbg-smoke-rise {
+  0% { transform: translateY(8%) scale(1); opacity: 0.55; }
+  100% { transform: translateY(-18%) scale(1.12); opacity: 0.9; }
+}
+@keyframes pbg-embers-up {
+  0% { background-position: 0 100%; }
+  100% { background-position: 0 -30%; }
+}
+@keyframes pbg-snow-fall {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 220%; }
+}
+@keyframes pbg-matrix-fall {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 140px; }
+}
+@keyframes pbg-wind-sway {
+  0% { transform: translateX(-4%); }
+  100% { transform: translateX(4%); }
+}
+@keyframes pbg-frost-pulse {
+  0% { opacity: 0.45; filter: brightness(1); }
+  100% { opacity: 0.85; filter: brightness(1.2); }
+}
+@keyframes pbg-neon-pulse {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+@keyframes pbg-scan-down {
+  0% { background-position: 0 -100%; }
+  100% { background-position: 0 200%; }
+}
+@keyframes pbg-dragon-breath {
+  0% { transform: scale(1); opacity: 0.75; }
+  100% { transform: scale(1.1); opacity: 1; }
+}
+@keyframes pbg-star-twinkle {
+  0% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+@keyframes pbg-void-breathe {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+@keyframes pbg-orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes pbg-petals-fall {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 180%; }
+}
+@keyframes pbg-grove-mist {
+  0% { transform: translateY(5%); opacity: 0.5; }
+  100% { transform: translateY(-8%); opacity: 0.8; }
+}
+@keyframes pbg-bloom-pulse {
+  0% { transform: scale(0.96); opacity: 0.7; }
+  100% { transform: scale(1.06); opacity: 1; }
+}
+@keyframes pbg-plasma-sway {
+  0% { transform: translateX(-5%); }
+  100% { transform: translateX(5%); }
+}
+@keyframes pbg-synth-pulse {
+  0% { opacity: 0.65; }
+  100% { opacity: 1; }
+}
+@keyframes pbg-shadow-creep {
+  0% { transform: translateY(3%); }
+  100% { transform: translateY(-5%); }
+}
+@keyframes pbg-abyss-float {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-6%); }
+}
+@keyframes pbg-storm-roll {
+  0% { transform: translateX(-3%); }
+  100% { transform: translateX(3%); }
+}
+@keyframes pbg-lightning-flash {
+  0%, 88%, 100% { opacity: 0; }
+  90%, 94% { opacity: 1; }
+}
+@keyframes pbg-rain-drift {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 80px; }
+}
+@keyframes pbg-jelly-float {
+  0% { transform: translateY(4%) scale(1); }
+  100% { transform: translateY(-6%) scale(1.05); }
+}
+@keyframes pbg-wave-sway {
+  0% { transform: translateX(-3%) scaleY(1); }
+  100% { transform: translateX(3%) scaleY(1.05); }
+}
+@keyframes pbg-crystal-shine {
+  0% { opacity: 0.7; filter: brightness(1); }
+  100% { opacity: 1; filter: brightness(1.3); }
+}
+@keyframes pbg-gold-pulse {
+  0% { transform: scale(1); opacity: 0.75; }
+  100% { transform: scale(1.05); opacity: 1; }
+}
+@keyframes pbg-supernova-pulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  100% { transform: scale(1.12); filter: brightness(1.35); }
+}
+@keyframes pbg-stargate-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes pbg-aurora-wave {
+  0% { transform: skewY(-2deg) translateY(0); opacity: 0.7; }
+  100% { transform: skewY(2deg) translateY(-3%); opacity: 1; }
+}
+@keyframes pbg-castle-fog {
+  0% { transform: translateY(5%); opacity: 0.45; }
+  100% { transform: translateY(-10%); opacity: 0.75; }
+}
+@keyframes pbg-heat-wave {
+  0% { transform: scaleY(1); opacity: 0.55; }
+  100% { transform: scaleY(1.15); opacity: 0.85; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-pbg-volcano > *,
+  .profile-pbg-lava > *,
+  .profile-pbg-hellforge > *,
+  .profile-pbg-phoenix > *,
+  .profile-pbg-blizzard > *,
+  .profile-pbg-rain > * {
+    animation: none !important;
+  }
+}

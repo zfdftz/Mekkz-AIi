@@ -189,7 +189,29 @@ export const COSMETICS: CosmeticDef[] = [
   cosmetic("bg-desert-dusk", "Desert Dusk", "background", "rare", -1, "reward-bg-desert-dusk"),
   cosmetic("bg-plasma-wave", "Plasma Wave", "background", "legendary", -1, "reward-bg-plasma-wave"),
   cosmetic("bg-shadow-realm", "Shadow Realm", "background", "legendary", -1, "reward-bg-shadow-realm"),
-  cosmetic("bg-ember-glow", "Ember Glow", "background", "rare", -1, "reward-bg-ember-glow")
+  cosmetic("bg-ember-glow", "Ember Glow", "background", "rare", -1, "reward-bg-ember-glow"),
+  // New profile backgrounds — 10 normal (common/rare)
+  cosmetic("bg-soft-lilac", "Soft Lilac", "background", "common", -1, "reward-bg-soft-lilac"),
+  cosmetic("bg-mint-frost", "Mint Frost", "background", "common", -1, "reward-bg-mint-frost"),
+  cosmetic("bg-warm-latte", "Warm Latte", "background", "common", -1, "reward-bg-warm-latte"),
+  cosmetic("bg-sky-dawn", "Sky Dawn", "background", "common", -1, "reward-bg-sky-dawn"),
+  cosmetic("bg-charcoal-silk", "Charcoal Silk", "background", "common", -1, "reward-bg-charcoal-silk"),
+  cosmetic("bg-moonlit-sea", "Moonlit Sea", "background", "rare", -1, "reward-bg-moonlit-sea"),
+  cosmetic("bg-autumn-leaves", "Autumn Leaves", "background", "rare", -1, "reward-bg-autumn-leaves"),
+  cosmetic("bg-bamboo-grove", "Bamboo Grove", "background", "rare", -1, "reward-bg-bamboo-grove"),
+  cosmetic("bg-velvet-night", "Velvet Night", "background", "rare", -1, "reward-bg-velvet-night"),
+  cosmetic("bg-coral-reef", "Coral Reef", "background", "rare", -1, "reward-bg-coral-reef"),
+  // New — 10 epic & legendary
+  cosmetic("bg-lightning-rift", "Lightning Rift", "background", "epic", -1, "reward-bg-lightning-rift"),
+  cosmetic("bg-deep-jellyfish", "Deep Jellyfish", "background", "epic", -1, "reward-bg-deep-jellyfish"),
+  cosmetic("bg-phoenix-flame", "Phoenix Flame", "background", "epic", -1, "reward-bg-phoenix-flame"),
+  cosmetic("bg-enchanted-grove", "Enchanted Grove", "background", "epic", -1, "reward-bg-enchanted-grove"),
+  cosmetic("bg-synthwave-horizon", "Synthwave Horizon", "background", "epic", -1, "reward-bg-synthwave-horizon"),
+  cosmetic("bg-supernova", "Supernova Burst", "background", "legendary", -1, "reward-bg-supernova"),
+  cosmetic("bg-abyssal-deep", "Abyssal Deep", "background", "legendary", -1, "reward-bg-abyssal-deep"),
+  cosmetic("bg-hellforge", "Hellforge", "background", "legendary", -1, "reward-bg-hellforge"),
+  cosmetic("bg-stargate", "Stargate", "background", "legendary", -1, "reward-bg-stargate"),
+  cosmetic("bg-queen-aurora", "Queen Aurora", "background", "legendary", -1, "reward-bg-queen-aurora")
 ];
 
 /** Profile backgrounds granted when a badge is earned (idempotent via inventory PK). */

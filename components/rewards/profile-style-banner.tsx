@@ -5,6 +5,7 @@ import {
   getProfileBackgroundClass,
   resolveEquippedStyleId
 } from "@/lib/rewards/catalog";
+import { resolveProfileBgTheme } from "@/lib/rewards/profile-bg-themes";
 import type { CSSProperties, ReactNode } from "react";
 
 type StyleProps = {
@@ -41,6 +42,7 @@ export function ProfileStyleBackground({
     styleId,
     profileFrame
   });
+  const bgTheme = resolveProfileBgTheme(bgClass);
 
   return (
     <div
@@ -54,24 +56,25 @@ export function ProfileStyleBackground({
               : seasonClass
                 ? `${seasonClass}-banner`
                 : ""
-      }`}
+      } profile-pbg-${bgTheme}`}
       aria-hidden
     >
       {isFrameStyle ? <div className="profile-style-rings" /> : null}
       {!hasCustomStyle ? <div className="season-profile-fx" aria-hidden /> : null}
-      {motionTier === "epic" ? (
+      {motionTier ? (
         <>
-          <div className="profile-bg-texture-layer" />
-          <div className="profile-bg-drift-layer" />
-        </>
-      ) : null}
-      {motionTier === "legendary" ? (
-        <>
-          <div className="profile-bg-texture-layer" />
-          <div className="profile-bg-grain-layer" />
-          <div className="profile-bg-drift-layer" />
-          <div className="profile-bg-legendary-layer" />
-          <div className="profile-bg-legendary-shimmer" />
+          <div className="profile-bg-theme-fire" aria-hidden />
+          <div className="profile-bg-theme-smoke" aria-hidden />
+          <div className="profile-bg-theme-particles" aria-hidden />
+          <div className="profile-bg-texture-layer" aria-hidden />
+          {motionTier === "legendary" ? <div className="profile-bg-grain-layer" aria-hidden /> : null}
+          <div className="profile-bg-drift-layer" aria-hidden />
+          {motionTier === "legendary" ? (
+            <>
+              <div className="profile-bg-legendary-layer" aria-hidden />
+              <div className="profile-bg-legendary-shimmer" aria-hidden />
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

@@ -59,9 +59,16 @@ export function ProfileStyleBackground({
     >
       {isFrameStyle ? <div className="profile-style-rings" /> : null}
       {!hasCustomStyle ? <div className="season-profile-fx" aria-hidden /> : null}
-      {motionTier === "epic" ? <div className="profile-bg-drift-layer" /> : null}
+      {motionTier === "epic" ? (
+        <>
+          <div className="profile-bg-texture-layer" />
+          <div className="profile-bg-drift-layer" />
+        </>
+      ) : null}
       {motionTier === "legendary" ? (
         <>
+          <div className="profile-bg-texture-layer" />
+          <div className="profile-bg-grain-layer" />
           <div className="profile-bg-drift-layer" />
           <div className="profile-bg-legendary-layer" />
           <div className="profile-bg-legendary-shimmer" />

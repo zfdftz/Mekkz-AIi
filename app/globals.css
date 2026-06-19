@@ -691,6 +691,9 @@ body > * { position: relative; z-index: 1; }
   .profile-bg-legendary.profile-style-background,
   .profile-bg-epic .profile-bg-drift-layer,
   .profile-bg-legendary .profile-bg-drift-layer,
+  .profile-bg-epic .profile-bg-texture-layer,
+  .profile-bg-legendary .profile-bg-texture-layer,
+  .profile-bg-legendary .profile-bg-grain-layer,
   .profile-bg-legendary .profile-bg-legendary-layer,
   .profile-bg-legendary .profile-bg-legendary-shimmer {
     animation: none !important;
@@ -758,35 +761,64 @@ body > * { position: relative; z-index: 1; }
     radial-gradient(circle at 70% 60%, rgba(59, 130, 246, 0.35), transparent 50%);
 }
 .reward-bg-void {
-  background-color: #020617;
-  background-image: radial-gradient(circle at 50% 50%, rgba(30, 27, 75, 0.9), transparent 70%);
+  background-color: #020108;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 32%, rgba(139, 92, 246, 0.16) 33%, rgba(139, 92, 246, 0.16) 35%, transparent 36%),
+    radial-gradient(circle at 50% 50%, transparent 52%, rgba(99, 102, 241, 0.12) 53%, rgba(99, 102, 241, 0.12) 55%, transparent 56%),
+    radial-gradient(circle at 50% 50%, rgba(15, 10, 40, 0.95), transparent 68%),
+    radial-gradient(ellipse at 18% 22%, rgba(76, 29, 149, 0.45), transparent 52%),
+    radial-gradient(ellipse at 82% 78%, rgba(30, 27, 75, 0.55), transparent 48%),
+    linear-gradient(165deg, #020108 0%, #0a0618 45%, #120a2e 100%);
 }
 .reward-bg-neon {
   background-color: #0f172a;
   background-image: linear-gradient(180deg, rgba(236, 72, 153, 0.25), rgba(6, 182, 212, 0.2));
 }
 .reward-bg-rain {
-  background-color: #0f172a;
-  background-image: linear-gradient(180deg, #0f172a 0%, #022c22 100%);
+  background-color: #020617;
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0, transparent 3px, rgba(34, 211, 238, 0.07) 3px, rgba(34, 211, 238, 0.07) 4px),
+    repeating-linear-gradient(180deg, transparent 0, transparent 7px, rgba(16, 185, 129, 0.05) 7px, rgba(16, 185, 129, 0.05) 8px),
+    radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.18), transparent 55%),
+    linear-gradient(180deg, #020617 0%, #042f2e 55%, #011a14 100%);
 }
 .reward-bg-castle {
   background: linear-gradient(160deg, rgba(120, 53, 15, 0.35), rgba(30, 41, 59, 0.9));
 }
 .reward-bg-dragon {
-  background-color: #1e1b4b;
-  background-image: radial-gradient(circle at 60% 30%, rgba(220, 38, 38, 0.25), transparent 45%);
+  background-color: #1a0a0a;
+  background-image:
+    repeating-linear-gradient(135deg, transparent 0, transparent 14px, rgba(239, 68, 68, 0.06) 14px, rgba(239, 68, 68, 0.06) 16px),
+    radial-gradient(circle at 60% 28%, rgba(220, 38, 38, 0.35), transparent 42%),
+    radial-gradient(circle at 50% 50%, transparent 44%, rgba(251, 191, 36, 0.14) 45%, transparent 46%),
+    radial-gradient(ellipse at 25% 75%, rgba(127, 29, 29, 0.45), transparent 50%),
+    linear-gradient(135deg, #450a0a 0%, #1e1b4b 55%, #1c1917 100%);
 }
 .reward-bg-frozen {
   background: linear-gradient(180deg, rgba(186, 230, 253, 0.25), rgba(30, 58, 138, 0.35));
 }
 .reward-bg-blizzard {
-  background: linear-gradient(135deg, #e0f2fe, #1e3a8a);
+  background-color: #0c4a6e;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 34% 42%, rgba(224, 242, 254, 0.75), transparent),
+    radial-gradient(1px 1px at 58% 22%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(2px 2px at 76% 58%, rgba(186, 230, 253, 0.8), transparent),
+    radial-gradient(circle at 50% 50%, transparent 48%, rgba(186, 230, 253, 0.2) 49%, transparent 50%),
+    radial-gradient(ellipse at 30% 80%, rgba(125, 211, 252, 0.35), transparent 55%),
+    linear-gradient(135deg, #e0f2fe 0%, #38bdf8 28%, #1e3a8a 72%, #0f172a 100%);
 }
 .reward-bg-lava {
   background: linear-gradient(180deg, rgba(249, 115, 22, 0.45), rgba(127, 29, 29, 0.6));
 }
 .reward-bg-volcano {
-  background: radial-gradient(circle at 50% 80%, rgba(234, 88, 12, 0.55), #1c1917);
+  background-color: #1c1917;
+  background-image:
+    radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.55), transparent 52%),
+    radial-gradient(circle at 50% 50%, transparent 40%, rgba(234, 88, 12, 0.2) 41%, rgba(234, 88, 12, 0.2) 43%, transparent 44%),
+    radial-gradient(circle at 22% 18%, rgba(251, 146, 60, 0.28), transparent 40%),
+    repeating-radial-gradient(circle at 50% 85%, transparent 0, transparent 18px, rgba(249, 115, 22, 0.08) 18px, rgba(249, 115, 22, 0.08) 20px),
+    linear-gradient(180deg, #431407 0%, #7c2d12 45%, #1c1917 100%);
 }
 
 /* Badge & crate unlock backgrounds */
@@ -803,37 +835,63 @@ body > * { position: relative; z-index: 1; }
 }
 .reward-bg-starfield {
   background-color: #020617;
-  background-image: radial-gradient(1px 1px at 20% 30%, white, transparent),
-    radial-gradient(1px 1px at 60% 70%, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(1px 1px at 80% 20%, rgba(255, 255, 255, 0.6), transparent);
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 46%, rgba(167, 139, 250, 0.14) 47%, rgba(167, 139, 250, 0.14) 49%, transparent 50%),
+    radial-gradient(1px 1px at 8% 12%, rgba(255, 255, 255, 0.95), transparent),
+    radial-gradient(1px 1px at 22% 38%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 38% 72%, rgba(196, 181, 253, 0.9), transparent),
+    radial-gradient(1px 1px at 55% 18%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 68% 55%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(2px 2px at 82% 28%, rgba(167, 139, 250, 0.75), transparent),
+    radial-gradient(1px 1px at 91% 78%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(ellipse at 25% 85%, rgba(99, 102, 241, 0.35), transparent 50%),
+    linear-gradient(180deg, #020617 0%, #0f172a 60%, #1e1b4b 100%);
 }
 .reward-bg-loyalty-gold {
   background: linear-gradient(135deg, #422006 0%, #ca8a04 50%, #1c1917 100%);
 }
 .reward-bg-treasure-vault {
-  background: radial-gradient(circle at 50% 40%, rgba(251, 191, 36, 0.35), transparent 55%),
-    linear-gradient(180deg, #1c1917 0%, #422006 100%);
+  background-color: #1c1917;
+  background-image:
+    radial-gradient(circle at 50% 38%, transparent 34%, rgba(251, 191, 36, 0.22) 35%, rgba(251, 191, 36, 0.22) 37%, transparent 38%),
+    radial-gradient(circle at 50% 38%, transparent 54%, rgba(234, 179, 8, 0.16) 55%, transparent 56%),
+    radial-gradient(1px 1px at 20% 30%, rgba(253, 224, 71, 0.9), transparent),
+    radial-gradient(1px 1px at 72% 62%, rgba(251, 191, 36, 0.75), transparent),
+    radial-gradient(ellipse at 50% 40%, rgba(251, 191, 36, 0.38), transparent 58%),
+    linear-gradient(180deg, #292524 0%, #422006 48%, #1c1917 100%);
 }
 .reward-bg-midnight-blue {
   background: linear-gradient(180deg, #0c1445 0%, #1e1b4b 50%, #020617 100%);
 }
 .reward-bg-creative-burst {
-  background: linear-gradient(135deg, #be185d 0%, #7c3aed 50%, #0891b2 100%);
+  background-color: #1e1b4b;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(236, 72, 153, 0.45), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(6, 182, 212, 0.4), transparent 42%),
+    radial-gradient(circle at 50% 50%, transparent 38%, rgba(255, 255, 255, 0.08) 39%, transparent 40%),
+    repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 18deg, rgba(255, 255, 255, 0.04) 18deg 20deg),
+    linear-gradient(135deg, #be185d 0%, #7c3aed 42%, #0891b2 100%);
 }
 .reward-bg-circuit-mind {
   background-color: #0f172a;
-  background-image: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 19px,
-    rgba(34, 211, 238, 0.08) 19px,
-    rgba(34, 211, 238, 0.08) 20px
-  );
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 44%, rgba(34, 211, 238, 0.12) 45%, transparent 46%),
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.07) 0, rgba(34, 211, 238, 0.07) 1px, transparent 1px, transparent 28px),
+    repeating-linear-gradient(0deg, rgba(34, 211, 238, 0.05) 0, rgba(34, 211, 238, 0.05) 1px, transparent 1px, transparent 28px),
+    radial-gradient(circle at 25% 35%, rgba(34, 211, 238, 0.2), transparent 35%),
+    radial-gradient(circle at 75% 65%, rgba(139, 92, 246, 0.18), transparent 38%),
+    linear-gradient(180deg, #0f172a 0%, #0c1929 100%);
 }
 .reward-bg-genesis-bloom {
-  background: radial-gradient(circle at 30% 40%, rgba(168, 85, 247, 0.5), transparent 50%),
-    radial-gradient(circle at 70% 60%, rgba(99, 102, 241, 0.4), transparent 45%),
-    #0a0118;
+  background-color: #0a0118;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 36%, rgba(196, 181, 253, 0.2) 37%, rgba(196, 181, 253, 0.2) 39%, transparent 40%),
+    radial-gradient(circle at 30% 40%, rgba(168, 85, 247, 0.55), transparent 48%),
+    radial-gradient(circle at 70% 60%, rgba(99, 102, 241, 0.45), transparent 45%),
+    radial-gradient(ellipse at 50% 20%, rgba(244, 114, 182, 0.25), transparent 55%),
+    radial-gradient(1px 1px at 18% 55%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 64% 32%, rgba(196, 181, 253, 0.8), transparent),
+    linear-gradient(165deg, #0a0118 0%, #1e1b4b 50%, #312e81 100%);
 }
 .reward-bg-beta-pulse {
   background: linear-gradient(135deg, #14532d 0%, #06b6d4 50%, #1e1b4b 100%);
@@ -851,27 +909,59 @@ body > * { position: relative; z-index: 1; }
   background: linear-gradient(160deg, #14532d 0%, #365314 50%, #1c1917 100%);
 }
 .reward-bg-cherry-blossom {
-  background: linear-gradient(135deg, #fce7f3 0%, #f9a8d4 30%, #831843 100%);
+  background-color: #831843;
+  background-image:
+    radial-gradient(1.5px 1.5px at 15% 25%, rgba(252, 231, 243, 0.9), transparent),
+    radial-gradient(1px 1px at 32% 58%, rgba(249, 168, 212, 0.8), transparent),
+    radial-gradient(2px 2px at 48% 22%, rgba(253, 242, 248, 0.85), transparent),
+    radial-gradient(1px 1px at 68% 72%, rgba(244, 114, 182, 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 85% 38%, rgba(252, 231, 243, 0.7), transparent),
+    radial-gradient(circle at 50% 50%, transparent 42%, rgba(255, 255, 255, 0.12) 43%, transparent 44%),
+    linear-gradient(135deg, #fce7f3 0%, #f9a8d4 32%, #831843 100%);
 }
 .reward-bg-golden-hour {
   background: linear-gradient(180deg, #fef3c7 0%, #f59e0b 40%, #7c2d12 100%);
 }
 .reward-bg-storm-cloud {
-  background: linear-gradient(180deg, #334155 0%, #1e293b 50%, #0f172a 100%);
+  background-color: #0f172a;
+  background-image:
+    repeating-linear-gradient(-12deg, transparent 0, transparent 22px, rgba(148, 163, 184, 0.06) 22px, rgba(148, 163, 184, 0.06) 24px),
+    radial-gradient(ellipse at 30% 25%, rgba(100, 116, 139, 0.45), transparent 55%),
+    radial-gradient(ellipse at 72% 35%, rgba(71, 85, 105, 0.5), transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(30, 41, 59, 0.65), transparent 60%),
+    linear-gradient(180deg, #475569 0%, #334155 38%, #0f172a 100%);
 }
 .reward-bg-crystal-cave {
-  background: radial-gradient(circle at 50% 60%, rgba(125, 211, 252, 0.35), transparent 50%),
-    linear-gradient(180deg, #164e63 0%, #0f172a 100%);
+  background-color: #0f172a;
+  background-image:
+    repeating-linear-gradient(60deg, transparent 0, transparent 18px, rgba(125, 211, 252, 0.06) 18px, rgba(125, 211, 252, 0.06) 20px),
+    repeating-linear-gradient(-60deg, transparent 0, transparent 18px, rgba(34, 211, 238, 0.05) 18px, rgba(34, 211, 238, 0.05) 20px),
+    radial-gradient(circle at 50% 58%, rgba(125, 211, 252, 0.42), transparent 52%),
+    radial-gradient(circle at 50% 50%, transparent 40%, rgba(165, 243, 252, 0.14) 41%, transparent 42%),
+    linear-gradient(180deg, #164e63 0%, #0e7490 35%, #0f172a 100%);
 }
 .reward-bg-desert-dusk {
   background: linear-gradient(180deg, #c2410c 0%, #7c2d12 50%, #1c1917 100%);
 }
 .reward-bg-plasma-wave {
-  background: linear-gradient(135deg, #7c3aed 0%, #ec4899 50%, #06b6d4 100%);
+  background-color: #1e1b4b;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 34%, rgba(236, 72, 153, 0.2) 35%, rgba(236, 72, 153, 0.2) 37%, transparent 38%),
+    radial-gradient(circle at 50% 50%, transparent 54%, rgba(6, 182, 212, 0.18) 55%, rgba(6, 182, 212, 0.18) 57%, transparent 58%),
+    radial-gradient(circle at 50% 50%, transparent 72%, rgba(124, 58, 237, 0.14) 73%, transparent 74%),
+    radial-gradient(ellipse at 25% 30%, rgba(124, 58, 237, 0.45), transparent 50%),
+    radial-gradient(ellipse at 75% 70%, rgba(236, 72, 153, 0.4), transparent 48%),
+    linear-gradient(135deg, #7c3aed 0%, #ec4899 48%, #06b6d4 100%);
 }
 .reward-bg-shadow-realm {
-  background: radial-gradient(circle at 50% 50%, rgba(88, 28, 135, 0.4), transparent 60%),
-    #020617;
+  background-color: #020108;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 30%, rgba(88, 28, 135, 0.22) 31%, rgba(88, 28, 135, 0.22) 33%, transparent 34%),
+    radial-gradient(circle at 50% 50%, transparent 50%, rgba(59, 7, 100, 0.18) 51%, transparent 52%),
+    radial-gradient(ellipse at 20% 80%, rgba(30, 10, 50, 0.7), transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(76, 29, 149, 0.35), transparent 50%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 24px, rgba(139, 92, 246, 0.04) 24px, rgba(139, 92, 246, 0.04) 26px),
+    linear-gradient(180deg, #020108 0%, #0a0118 55%, #020617 100%);
 }
 .reward-bg-ember-glow {
   background: radial-gradient(circle at 50% 80%, rgba(251, 146, 60, 0.4), transparent 55%),
@@ -892,8 +982,12 @@ body > * { position: relative; z-index: 1; }
 .reward-bg-star-orbit {
   background-color: #0c0a09;
   background-image:
-    radial-gradient(circle at 50% 50%, rgba(253, 224, 71, 0.2), transparent 45%),
+    radial-gradient(circle at 50% 50%, transparent 36%, rgba(253, 224, 71, 0.22) 37%, rgba(253, 224, 71, 0.22) 39%, transparent 40%),
+    radial-gradient(circle at 50% 50%, transparent 56%, rgba(251, 191, 36, 0.16) 57%, rgba(251, 191, 36, 0.16) 59%, transparent 60%),
+    radial-gradient(circle at 50% 50%, rgba(253, 224, 71, 0.22), transparent 45%),
     repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 8px, rgba(253, 224, 71, 0.08) 8px, rgba(253, 224, 71, 0.08) 9px),
+    radial-gradient(1px 1px at 22% 28%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 78% 62%, rgba(253, 224, 71, 0.75), transparent),
     linear-gradient(180deg, #0c0a09 0%, #1c1917 100%);
 }
 .reward-bg-neon-ring {
@@ -1089,6 +1183,182 @@ body > * { position: relative; z-index: 1; }
   will-change: background-position;
 }
 
+/* Epic / legendary — animated texture overlays (galaxy-ring style, unique per bg) */
+.profile-bg-texture-layer {
+  pointer-events: none;
+  opacity: 0.82;
+  mix-blend-mode: soft-light;
+  background-size: cover;
+  background-position: center;
+  will-change: transform, opacity;
+}
+.profile-bg-epic .profile-bg-texture-layer {
+  animation: profile-bg-texture-drift 22s ease-in-out infinite alternate;
+}
+.profile-bg-legendary .profile-bg-texture-layer {
+  opacity: 0.92;
+  animation: profile-bg-texture-drift 13s ease-in-out infinite alternate;
+}
+.profile-bg-grain-layer {
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+.profile-bg-epic.reward-bg-starfield .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-starfield .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 58%, rgba(167, 139, 250, 0.16) 59%, transparent 60%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 12px, rgba(255, 255, 255, 0.05) 12px, rgba(255, 255, 255, 0.05) 13px);
+}
+.profile-bg-epic.reward-bg-treasure-vault .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-treasure-vault .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 40%, transparent 48%, rgba(251, 191, 36, 0.2) 49%, transparent 50%),
+    conic-gradient(from 0deg at 50% 40%, transparent 0deg, rgba(253, 224, 71, 0.1) 40deg, transparent 80deg, rgba(251, 191, 36, 0.08) 160deg, transparent 220deg);
+}
+.profile-bg-epic.reward-bg-creative-burst .profile-bg-texture-layer {
+  background-image:
+    repeating-conic-gradient(from 15deg at 50% 50%, transparent 0deg 22deg, rgba(255, 255, 255, 0.06) 22deg 24deg),
+    radial-gradient(circle at 35% 35%, rgba(236, 72, 153, 0.2), transparent 45%);
+}
+.profile-bg-epic.reward-bg-circuit-mind .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(34, 211, 238, 0.08) 0, rgba(34, 211, 238, 0.08) 1px, transparent 1px, transparent 32px),
+    radial-gradient(circle at 50% 50%, transparent 46%, rgba(34, 211, 238, 0.14) 47%, transparent 48%);
+}
+.profile-bg-epic.reward-bg-cherry-blossom .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgba(253, 242, 248, 0.55), transparent),
+    radial-gradient(2px 2px at 55% 65%, rgba(249, 168, 212, 0.45), transparent),
+    radial-gradient(1.5px 1.5px at 78% 28%, rgba(252, 231, 243, 0.5), transparent),
+    radial-gradient(circle at 50% 50%, transparent 44%, rgba(255, 255, 255, 0.1) 45%, transparent 46%);
+}
+.profile-bg-epic.reward-bg-storm-cloud .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(-18deg, transparent 0, transparent 28px, rgba(203, 213, 225, 0.07) 28px, rgba(203, 213, 225, 0.07) 30px),
+    radial-gradient(ellipse at 40% 30%, rgba(148, 163, 184, 0.25), transparent 55%);
+}
+.profile-bg-epic.reward-bg-crystal-cave .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(60deg, transparent 0, transparent 16px, rgba(165, 243, 252, 0.08) 16px, rgba(165, 243, 252, 0.08) 18px),
+    radial-gradient(circle at 50% 55%, transparent 42%, rgba(125, 211, 252, 0.18) 43%, transparent 44%);
+}
+.profile-bg-epic.reward-bg-star-orbit .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-star-orbit .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 62%, rgba(253, 224, 71, 0.18) 63%, transparent 64%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 14px, rgba(253, 224, 71, 0.06) 14px, rgba(253, 224, 71, 0.06) 15px);
+}
+
+.profile-bg-legendary.reward-bg-void .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 28%, rgba(167, 139, 250, 0.2) 29%, rgba(167, 139, 250, 0.2) 31%, transparent 32%),
+    radial-gradient(circle at 50% 50%, transparent 48%, rgba(139, 92, 246, 0.16) 49%, transparent 50%),
+    radial-gradient(circle at 50% 50%, transparent 66%, rgba(99, 102, 241, 0.12) 67%, transparent 68%);
+}
+.profile-bg-legendary.reward-bg-rain .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0, transparent 5px, rgba(34, 211, 238, 0.1) 5px, rgba(34, 211, 238, 0.1) 6px),
+    repeating-linear-gradient(182deg, transparent 0, transparent 9px, rgba(16, 185, 129, 0.07) 9px, rgba(16, 185, 129, 0.07) 10px);
+  animation: profile-bg-rain-fall 8s linear infinite;
+}
+.profile-bg-legendary.reward-bg-dragon .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(135deg, transparent 0, transparent 12px, rgba(239, 68, 68, 0.08) 12px, rgba(239, 68, 68, 0.08) 14px),
+    radial-gradient(circle at 50% 50%, transparent 46%, rgba(251, 191, 36, 0.14) 47%, transparent 48%);
+}
+.profile-bg-legendary.reward-bg-blizzard .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, white, transparent),
+    radial-gradient(1px 1px at 30% 50%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgba(224, 242, 254, 0.9), transparent),
+    radial-gradient(1px 1px at 75% 65%, white, transparent),
+    radial-gradient(circle at 50% 50%, transparent 52%, rgba(186, 230, 253, 0.18) 53%, transparent 54%);
+}
+.profile-bg-legendary.reward-bg-volcano .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.28), transparent 58%),
+    radial-gradient(circle at 50% 50%, transparent 38%, rgba(234, 88, 12, 0.16) 39%, transparent 40%),
+    repeating-radial-gradient(circle at 50% 88%, transparent 0, transparent 16px, rgba(249, 115, 22, 0.07) 16px, rgba(249, 115, 22, 0.07) 18px);
+}
+.profile-bg-legendary.reward-bg-genesis-bloom .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 32%, rgba(196, 181, 253, 0.22) 33%, rgba(196, 181, 253, 0.22) 35%, transparent 36%),
+    radial-gradient(circle at 50% 50%, transparent 52%, rgba(168, 85, 247, 0.16) 53%, transparent 54%),
+    radial-gradient(ellipse at 40% 35%, rgba(244, 114, 182, 0.2), transparent 50%);
+}
+.profile-bg-legendary.reward-bg-plasma-wave .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 30%, rgba(236, 72, 153, 0.2) 31%, transparent 32%),
+    radial-gradient(circle at 50% 50%, transparent 50%, rgba(6, 182, 212, 0.18) 51%, transparent 52%),
+    radial-gradient(circle at 50% 50%, transparent 68%, rgba(124, 58, 237, 0.14) 69%, transparent 70%);
+  animation: profile-bg-texture-pulse 10s ease-in-out infinite alternate;
+}
+.profile-bg-legendary.reward-bg-shadow-realm .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 26%, rgba(139, 92, 246, 0.2) 27%, transparent 28%),
+    radial-gradient(circle at 50% 50%, transparent 46%, rgba(88, 28, 135, 0.16) 47%, transparent 48%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 20px, rgba(76, 29, 149, 0.05) 20px, rgba(76, 29, 149, 0.05) 22px);
+}
+
+.profile-bg-epic.reward-bg-nebula .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-nebula .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 54%, rgba(168, 85, 247, 0.14) 55%, transparent 56%),
+    radial-gradient(ellipse at 28% 38%, rgba(168, 85, 247, 0.22), transparent 48%);
+}
+.profile-bg-epic.reward-bg-cyber-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-cyber-ring .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(236, 72, 153, 0.08) 0, rgba(236, 72, 153, 0.08) 1px, transparent 1px, transparent 20px),
+    radial-gradient(circle at 50% 50%, transparent 48%, rgba(236, 72, 153, 0.12) 49%, transparent 50%);
+}
+.profile-bg-epic.reward-bg-dragon-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-dragon-ring .profile-bg-texture-layer {
+  background-image:
+    repeating-linear-gradient(135deg, transparent 0, transparent 10px, rgba(239, 68, 68, 0.07) 10px, rgba(239, 68, 68, 0.07) 12px),
+    radial-gradient(circle at 50% 50%, transparent 44%, rgba(239, 68, 68, 0.14) 45%, transparent 46%);
+}
+.profile-bg-epic.reward-bg-inferno-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-inferno-ring .profile-bg-texture-layer,
+.profile-bg-epic.reward-bg-lava .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-lava .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 100%, rgba(249, 115, 22, 0.22), transparent 55%),
+    radial-gradient(circle at 50% 50%, transparent 42%, rgba(234, 88, 12, 0.14) 43%, transparent 44%);
+}
+.profile-bg-epic.reward-bg-ice-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-ice-ring .profile-bg-texture-layer,
+.profile-bg-epic.reward-bg-frozen .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-frozen .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 100%, transparent 48%, rgba(125, 211, 252, 0.18) 49%, transparent 50%),
+    radial-gradient(circle at 50% 50%, transparent 56%, rgba(186, 230, 253, 0.12) 57%, transparent 58%);
+}
+.profile-bg-epic.reward-bg-galaxy-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-galaxy-ring .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 36%, rgba(167, 139, 250, 0.18) 37%, transparent 38%),
+    radial-gradient(circle at 50% 50%, transparent 56%, rgba(139, 92, 246, 0.14) 57%, transparent 58%),
+    radial-gradient(circle at 50% 50%, transparent 72%, rgba(99, 102, 241, 0.1) 73%, transparent 74%);
+}
+.profile-bg-epic.reward-bg-snow-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-snow-ring .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(1px 1px at 25% 35%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 62% 58%, rgba(224, 242, 254, 0.65), transparent),
+    radial-gradient(circle at 50% 50%, transparent 50%, rgba(186, 230, 253, 0.14) 51%, transparent 52%);
+}
+.profile-bg-epic.reward-bg-neon-ring .profile-bg-texture-layer,
+.profile-bg-legendary.reward-bg-neon-ring .profile-bg-texture-layer {
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 46%, rgba(34, 211, 238, 0.16) 47%, transparent 48%),
+    linear-gradient(135deg, rgba(34, 211, 238, 0.12) 0%, transparent 50%, rgba(236, 72, 153, 0.1) 100%);
+}
+
 .profile-bg-epic.reward-bg-nebula .profile-bg-drift-layer,
 .profile-bg-legendary.reward-bg-nebula .profile-bg-drift-layer,
 .profile-bg-epic.reward-bg-void .profile-bg-drift-layer,
@@ -1192,6 +1462,18 @@ body > * { position: relative; z-index: 1; }
 @keyframes profile-bg-legendary-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -80% 0; }
+}
+@keyframes profile-bg-texture-drift {
+  0% { transform: translate(-2%, -1%) scale(1); opacity: 0.78; }
+  100% { transform: translate(2%, 1%) scale(1.04); opacity: 0.95; }
+}
+@keyframes profile-bg-texture-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.06); opacity: 1; }
+}
+@keyframes profile-bg-rain-fall {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 0 120px, 0 200px; }
 }
 
 @keyframes profile-bg-drift {

@@ -344,11 +344,15 @@ export function FeedTab() {
           <span className="text-sm">Medien werden per KI auf unangemessene Inhalte geprüft.</span>
         </div>
         {imagePreview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imagePreview} alt="" className="mt-2 max-h-40 rounded-xl object-cover" />
+          <div className="mt-2 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreview} alt="" className="max-h-48 max-w-full rounded-xl object-contain" />
+          </div>
         ) : null}
         {videoPreview ? (
-          <video src={videoPreview} controls className="mt-2 max-h-48 w-full rounded-xl" />
+          <div className="mt-2 flex justify-center">
+            <video src={videoPreview} controls className="max-h-48 max-w-full rounded-xl object-contain" />
+          </div>
         ) : null}
         <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <input
@@ -397,11 +401,24 @@ export function FeedTab() {
               </div>
               <p className="whitespace-pre-wrap text-[17px] leading-relaxed sm:text-lg">{post.content}</p>
               {post.imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={post.imageUrl} alt="" className="mt-2 max-h-80 w-full rounded-xl object-cover" />
+                <div className="mt-2 flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.imageUrl}
+                    alt=""
+                    className="max-h-[min(32rem,70vh)] max-w-full rounded-xl object-contain"
+                  />
+                </div>
               ) : null}
               {post.videoUrl ? (
-                <video src={post.videoUrl} controls className="mt-2 max-h-80 w-full rounded-xl" />
+                <div className="mt-2 flex justify-center">
+                  <video
+                    src={post.videoUrl}
+                    controls
+                    playsInline
+                    className="max-h-[min(32rem,70vh)] max-w-full rounded-xl object-contain"
+                  />
+                </div>
               ) : null}
               {post.tags.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1">

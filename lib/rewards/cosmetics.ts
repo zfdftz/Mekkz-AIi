@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  BADGE_BACKGROUND_REWARDS,
   COSMETICS,
   getCosmetic,
   getTitle,
@@ -52,14 +53,39 @@ export async function addToInventory(
   item: CosmeticDef,
   seasonIndex: number
 ) {
-  const { error } = await admin.from("user_inventory").upsert({
-    user_id: userId,
-    item_id: item.id,
-    item_type: item.type,
-    rarity: item.rarity,
-    season_index: seasonIndex
-  });
+  const { error } = await admin.from("user_inventory").upsert(
+    {
+      user_id: userId,
+      item_id: item.id,
+      item_type: item.type,
+      rarity: item.rarity,
+      season_index: seasonIndex
+    },
+    { onConflict: "user_id,item_id" }
+  );
   if (error && !missing(error.message)) throw new Error(error.message);
+
+  const { data: row, error: readError } = await admin
+    .from("user_inventory")
+    .select("item_id")
+    .eq("user_id", userId)
+    .eq("item_id", item.id)
+    .maybeSingle();
+  if (readError && !missing(readError.message)) throw new Error(readError.message);
+  if (!readError && !row) throw new Error("Inventar konnte nicht aktualisiert werden.");
+}
+
+export async function grantBadgeBackground(
+  admin: SupabaseClient,
+  userId: string,
+  badgeId: string
+) {
+  const itemId = BADGE_BACKGROUND_REWARDS[badgeId];
+  if (!itemId) return;
+  const item = getCosmetic(itemId);
+  if (!item) return;
+  const season = getCurrentSeasonInfo();
+  await addToInventory(admin, userId, item, item.seasonIndex >= 0 ? item.seasonIndex : season.index);
 }
 
 function pickRarity(): CosmeticRarity {
@@ -72,19 +98,33 @@ function pickRarity(): CosmeticRarity {
   return "common";
 }
 
-function pickCrateItem(seasonIndex: number, legacyIndices: number[]): CosmeticDef {
-  const season = getCurrentSeasonInfo();
-  const pool = COSMETICS.filter(
+function cratePoolForSeason(seasonIndex: number, legacyIndices: number[], owned: Set<string>) {
+  const seasonal = COSMETICS.filter(
     (c) =>
       c.rarity !== "common" &&
       (c.seasonIndex === seasonIndex ||
         legacyIndices.includes(c.seasonIndex) ||
-        c.seasonIndex === -1)
+        c.seasonIndex === -1) &&
+      !owned.has(c.id)
   );
+  if (seasonal.length > 0) return seasonal;
+  return COSMETICS.filter((c) => !owned.has(c.id));
+}
+
+function pickCrateItem(
+  seasonIndex: number,
+  legacyIndices: number[],
+  owned: Set<string>
+): CosmeticDef {
+  const pool = cratePoolForSeason(seasonIndex, legacyIndices, owned);
+  if (pool.length === 0) {
+    throw new Error("Du besitzt bereits alle Crate-Items.");
+  }
   const rarity = pickRarity();
   const candidates = pool.filter((c) => c.rarity === rarity);
   const pick = candidates[Math.floor(Math.random() * candidates.length)] ?? pool[0];
-  return pick ?? COSMETICS[0];
+  if (!pick) throw new Error("Kein Crate-Item verfügbar.");
+  return pick;
 }
 
 export async function getCrateState(admin: SupabaseClient, userId: string) {
@@ -112,16 +152,19 @@ export async function openDailyCrate(admin: SupabaseClient, userId: string) {
   }
 
   const season = getCurrentSeasonInfo();
-  const item = pickCrateItem(season.index, season.legacySeasonIndices);
+  const inventory = await listInventory(admin, userId);
+  const owned = new Set(inventory.map((entry) => entry.id));
+  const item = pickCrateItem(season.index, season.legacySeasonIndices, owned);
   await addToInventory(admin, userId, item, season.index);
 
-  await admin.from("user_crate_state").upsert({
+  const { error: crateError } = await admin.from("user_crate_state").upsert({
     user_id: userId,
     last_opened_at: new Date().toISOString(),
     total_opens: state.totalOpens + 1
   });
+  if (crateError && !missing(crateError.message)) throw new Error(crateError.message);
 
-  return { item, rarity: item.rarity, season: season.current.name };
+  return { item, rarity: item.rarity, season: season.current.name, alreadyOwned: false };
 }
 
 export type ProfileCosmetics = {

@@ -13,16 +13,19 @@ export async function addLimitedToInventory(
   const item = getLimitedItem(itemId);
   if (!item) throw new Error("Limited Item nicht gefunden.");
 
-  const { error } = await admin.from("user_inventory").upsert({
-    user_id: userId,
-    item_id: item.id,
-    item_type: item.type === "crown" ? "frame" : item.type === "decoration" ? "background" : item.type,
-    rarity: "legendary",
-    season_index: item.seasonIndex ?? -1,
-    is_limited: true,
-    limited_rarity: item.limitedRarity,
-    released_at: item.releasedAt
-  });
+  const { error } = await admin.from("user_inventory").upsert(
+    {
+      user_id: userId,
+      item_id: item.id,
+      item_type: item.type === "crown" ? "frame" : item.type === "decoration" ? "background" : item.type,
+      rarity: "legendary",
+      season_index: item.seasonIndex ?? -1,
+      is_limited: true,
+      limited_rarity: item.limitedRarity,
+      released_at: item.releasedAt
+    },
+    { onConflict: "user_id,item_id" }
+  );
   if (error && !missing(error.message)) throw new Error(error.message);
   return item;
 }

@@ -164,8 +164,48 @@ export const COSMETICS: CosmeticDef[] = [
   // Evergreen commons
   cosmetic("frame-classic", "Classic Frame", "frame", "common", -1, "reward-frame-classic"),
   cosmetic("bg-mekkz", "Mekkz Gradient", "background", "common", -1, "reward-bg-mekkz"),
-  cosmetic("theme-violet", "Violet Theme", "theme", "common", -1, "reward-theme-violet")
+  cosmetic("theme-violet", "Violet Theme", "theme", "common", -1, "reward-theme-violet"),
+  // Badge-unlock backgrounds
+  cosmetic("bg-chat-aurora", "Chat Aurora", "background", "rare", -1, "reward-bg-chat-aurora"),
+  cosmetic("bg-chat-deep", "Deep Space Chat", "background", "rare", -1, "reward-bg-chat-deep"),
+  cosmetic("bg-community-glow", "Community Glow", "background", "rare", -1, "reward-bg-community-glow"),
+  cosmetic("bg-starfield", "Starfield Social", "background", "epic", -1, "reward-bg-starfield"),
+  cosmetic("bg-loyalty-gold", "Loyalty Gold", "background", "rare", -1, "reward-bg-loyalty-gold"),
+  cosmetic("bg-treasure-vault", "Treasure Vault", "background", "epic", -1, "reward-bg-treasure-vault"),
+  cosmetic("bg-midnight-blue", "Midnight Owl", "background", "rare", -1, "reward-bg-midnight-blue"),
+  cosmetic("bg-creative-burst", "Creative Burst", "background", "epic", -1, "reward-bg-creative-burst"),
+  cosmetic("bg-circuit-mind", "Circuit Mind", "background", "epic", -1, "reward-bg-circuit-mind"),
+  cosmetic("bg-genesis-bloom", "Genesis Bloom", "background", "legendary", -1, "reward-bg-genesis-bloom"),
+  cosmetic("bg-beta-pulse", "Beta Pulse", "background", "rare", -1, "reward-bg-beta-pulse"),
+  // Extra crate backgrounds
+  cosmetic("bg-aurora-borealis", "Aurora Borealis", "background", "rare", -1, "reward-bg-aurora-borealis"),
+  cosmetic("bg-sunset-dream", "Sunset Dream", "background", "rare", -1, "reward-bg-sunset-dream"),
+  cosmetic("bg-ocean-depths", "Ocean Depths", "background", "rare", -1, "reward-bg-ocean-depths"),
+  cosmetic("bg-forest-mist", "Forest Mist", "background", "rare", -1, "reward-bg-forest-mist"),
+  cosmetic("bg-cherry-blossom", "Cherry Blossom", "background", "epic", -1, "reward-bg-cherry-blossom"),
+  cosmetic("bg-golden-hour", "Golden Hour", "background", "rare", -1, "reward-bg-golden-hour"),
+  cosmetic("bg-storm-cloud", "Storm Cloud", "background", "epic", -1, "reward-bg-storm-cloud"),
+  cosmetic("bg-crystal-cave", "Crystal Cave", "background", "epic", -1, "reward-bg-crystal-cave"),
+  cosmetic("bg-desert-dusk", "Desert Dusk", "background", "rare", -1, "reward-bg-desert-dusk"),
+  cosmetic("bg-plasma-wave", "Plasma Wave", "background", "legendary", -1, "reward-bg-plasma-wave"),
+  cosmetic("bg-shadow-realm", "Shadow Realm", "background", "legendary", -1, "reward-bg-shadow-realm"),
+  cosmetic("bg-ember-glow", "Ember Glow", "background", "rare", -1, "reward-bg-ember-glow")
 ];
+
+/** Profile backgrounds granted when a badge is earned (idempotent via inventory PK). */
+export const BADGE_BACKGROUND_REWARDS: Record<string, string> = {
+  first_chat: "bg-chat-aurora",
+  chats_100: "bg-chat-deep",
+  first_community_post: "bg-community-glow",
+  social_star: "bg-starfield",
+  loyal_member: "bg-loyalty-gold",
+  crate_hunter: "bg-treasure-vault",
+  night_owl: "bg-midnight-blue",
+  creative_mind: "bg-creative-burst",
+  ai_expert: "bg-circuit-mind",
+  cosmic_genesis: "bg-genesis-bloom",
+  beta_tester: "bg-beta-pulse"
+};
 
 export function getCosmetic(id: string) {
   return COSMETICS.find((c) => c.id === id);

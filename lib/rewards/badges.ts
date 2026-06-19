@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BADGES, getBadge, type BadgeDef } from "./catalog";
+import { grantBadgeBackground } from "./cosmetics";
 import { validateShowcaseBadgeIds, filterShowcaseBadges, stripIdentityBadgeIds } from "./showcase-rules";
 
 function missing(msg: string) {
@@ -45,6 +46,11 @@ export async function grantBadge(
     granted_at: new Date().toISOString()
   });
   if (error && !missing(error.message)) throw new Error(error.message);
+  try {
+    await grantBadgeBackground(admin, userId, badgeId);
+  } catch {
+    /* cosmetic grant is best-effort */
+  }
   return true;
 }
 

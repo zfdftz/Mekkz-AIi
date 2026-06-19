@@ -1,8 +1,10 @@
 "use client";
 
-import { Loader2, Lock, RefreshCw, Trophy } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Loader2, Lock, RefreshCw, Trophy, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GhostButton, Panel } from "@/components/community/shared";
+import { createPortal } from "react-dom";
+import { GhostButton } from "@/components/community/shared";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { TITLES } from "@/lib/rewards/catalog";
 
@@ -31,7 +33,7 @@ const CATEGORIES: { id: string; label: string }[] = [
   { id: "secret", label: "Secret" }
 ];
 
-export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
+function BadgesTitlesContent() {
   const [quests, setQuests] = useState<QuestRow[]>([]);
   const [titles, setTitles] = useState<TitleRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,27 +65,14 @@ export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
 
   if (loading) {
     return (
-      <Panel>
-        <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin text-primary" size={22} />
-        </div>
-      </Panel>
+      <div className="flex justify-center py-10">
+        <Loader2 className="animate-spin text-primary" size={22} />
+      </div>
     );
   }
 
   return (
-    <Panel className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-lg font-semibold">
-          <Trophy size={18} className="text-primary" /> Badges & Titles
-        </h3>
-        {onClose ? (
-          <button type="button" onClick={onClose} className="text-xs text-muted hover:text-fg">
-            Schließen
-          </button>
-        ) : null}
-      </div>
-
+    <div className="space-y-4">
       <div className="flex gap-1">
         <button
           type="button"
@@ -117,7 +106,7 @@ export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
               </button>
             ))}
           </div>
-          <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+          <div className="max-h-[min(50dvh,420px)] space-y-2 overflow-y-auto overscroll-contain pr-1">
             {filtered.map((q) => (
               <div
                 key={q.id}
@@ -150,7 +139,7 @@ export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
           </div>
         </>
       ) : (
-        <div className="space-y-2">
+        <div className="max-h-[min(50dvh,420px)] space-y-2 overflow-y-auto overscroll-contain">
           {titles.map((t) => (
             <div
               key={t.id}
@@ -172,6 +161,62 @@ export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
       <GhostButton className="w-full" onClick={() => void load()}>
         <RefreshCw size={14} className="mr-1 inline" /> Quests aktualisieren
       </GhostButton>
-    </Panel>
+    </div>
+  );
+}
+
+export function BadgesTitlesPanel({ onClose }: { onClose?: () => void }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[130] flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
+        onClick={() => onClose?.()}
+      >
+        <motion.div
+          initial={{ y: 24, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 24, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="flex max-h-[min(90dvh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-card shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+            <h3 className="flex items-center gap-2 text-lg font-semibold">
+              <Trophy size={18} className="text-primary" /> Badges & Titles
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1.5 hover:bg-white/10"
+              aria-label="Schließen"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+            <BadgesTitlesContent />
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body
   );
 }

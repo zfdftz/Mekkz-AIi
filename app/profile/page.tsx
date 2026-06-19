@@ -27,7 +27,7 @@ export default async function ProfilePage() {
     <WavyBackground accentColor={initialProfile?.accentColor}>
       <ProfileProvider>
         <RewardsAdminButton />
-        <div className="mx-auto min-h-screen max-w-2xl px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-2xl px-4 py-6 pb-10 sm:px-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold sm:text-2xl">Mein Profil</h1>

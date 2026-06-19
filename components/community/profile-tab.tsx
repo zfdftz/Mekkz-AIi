@@ -191,7 +191,7 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
   if (loading && !profile) return <LoadingState />;
 
   return (
-    <div className="mx-auto max-w-xl space-y-4">
+    <div className="mx-auto max-w-xl">
       <Panel className="overflow-hidden !bg-transparent p-0 shadow-none">
         <ProfileStyleShell
           styleId={rewardsForm.profileBackground}
@@ -267,17 +267,6 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
             />
           ) : null}
 
-          <div className="grid grid-cols-2 gap-2 text-center text-sm">
-            <div className="rounded-xl bg-black/20 px-2 py-3">
-              <p className="text-lg font-bold">{profile?.messagesSent ?? 0}</p>
-              <p className="text-xs text-muted">Nachrichten</p>
-            </div>
-            <div className="rounded-xl bg-black/20 px-2 py-3">
-              <p className="text-lg font-bold">{profile?.xp ?? 0}</p>
-              <p className="text-xs text-muted">XP</p>
-            </div>
-          </div>
-
           <ErrorBanner message={error} />
           {success ? (
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
@@ -285,22 +274,24 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
             </div>
           ) : null}
 
-          <div>
-            <FieldLabel>Benutzername</FieldLabel>
-            <TextInput
-              value={username}
-              minLength={USERNAME_MIN_LENGTH}
-              maxLength={USERNAME_MAX_LENGTH}
-              disabled={usernameLocked}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-            <p className={`mt-1 text-xs ${usernameLocked ? "text-amber-300" : "text-muted"}`}>
-              {usernameHint}
-            </p>
-          </div>
-          <div>
-            <FieldLabel>Bio</FieldLabel>
-            <TextArea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <FieldLabel>Benutzername</FieldLabel>
+              <TextInput
+                value={username}
+                minLength={USERNAME_MIN_LENGTH}
+                maxLength={USERNAME_MAX_LENGTH}
+                disabled={usernameLocked}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              <p className={`mt-1 text-xs ${usernameLocked ? "text-amber-300" : "text-muted"}`}>
+                {usernameHint}
+              </p>
+            </div>
+            <div>
+              <FieldLabel>Bio</FieldLabel>
+              <TextArea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
+            </div>
           </div>
           <div>
             <FieldLabel>Avatar (Upload / Fotomediathek, max. {AVATAR_MAX_MB} MB)</FieldLabel>
@@ -313,7 +304,6 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
                 className="hidden"
                 onChange={(e) => onAvatarFile(e.target.files?.[0] ?? null)}
               />
@@ -330,15 +320,17 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
 
           <button
             type="button"
-            onClick={() => setShowBadgesPanel((v) => !v)}
+            onClick={() => setShowBadgesPanel(true)}
             className="season-btn w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium"
           >
             Badges & Titles (Quests)
           </button>
 
-          <PrimaryButton loading={saving} type="submit" className="w-full">
-            Speichern
-          </PrimaryButton>
+          <div className="flex justify-center pt-2">
+            <PrimaryButton loading={saving} type="submit" className="min-w-[200px] px-8">
+              Speichern
+            </PrimaryButton>
+          </div>
         </form>
         </ProfileStyleShell>
       </Panel>

@@ -58,6 +58,7 @@ export function ProfileRewardsPanel({
   const [loading, setLoading] = useState(true);
   const [crateOpen, setCrateOpen] = useState(false);
   const [crateReward, setCrateReward] = useState<{ name: string; rarity: string } | null>(null);
+  const [crateError, setCrateError] = useState<string | null>(null);
   const [showcaseIds, setShowcaseIds] = useState<string[]>(profileSeed?.showcaseIds ?? []);
   const [profileBackground, setProfileBackground] = useState<string | null>(
     profileSeed?.profileBackground ?? null
@@ -137,17 +138,22 @@ export function ProfileRewardsPanel({
   async function openCrate() {
     setCrateOpen(true);
     setCrateReward(null);
-    const res = await fetch("/api/rewards", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "open-crate" })
-    });
-    const data = await readJsonResponse<{ item?: { name: string; rarity: string }; error?: string }>(res);
-    if (res.ok && data.item) {
-      setCrateReward(data.item);
-      await load();
-    } else {
-      setCrateOpen(false);
+    setCrateError(null);
+    try {
+      const res = await fetch("/api/rewards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "open-crate" })
+      });
+      const data = await readJsonResponse<{ item?: { name: string; rarity: string }; error?: string }>(res);
+      if (res.ok && data.item) {
+        setCrateReward(data.item);
+        await load();
+      } else {
+        setCrateError(data.error ?? "Crate konnte nicht geöffnet werden.");
+      }
+    } catch {
+      setCrateError("Crate konnte nicht geöffnet werden.");
     }
   }
 
@@ -330,7 +336,7 @@ export function ProfileRewardsPanel({
               }`}
               onClick={(e) => e.stopPropagation()}
             >
-              {!crateReward ? (
+              {!crateReward && !crateError ? (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
@@ -338,7 +344,18 @@ export function ProfileRewardsPanel({
                 >
                   🎁
                 </motion.div>
-              ) : (
+              ) : crateError ? (
+                <>
+                  <p className="mb-2 text-sm text-red-300">{crateError}</p>
+                  <button
+                    type="button"
+                    className="mt-2 rounded-xl bg-white/10 px-4 py-2 text-sm"
+                    onClick={() => setCrateOpen(false)}
+                  >
+                    Schließen
+                  </button>
+                </>
+              ) : crateReward ? (
                 <>
                   <p className="mb-2 text-xs uppercase text-primary">{crateReward.rarity}</p>
                   <p className="text-lg font-bold">{crateReward.name}</p>
@@ -350,7 +367,7 @@ export function ProfileRewardsPanel({
                     Nice!
                   </button>
                 </>
-              )}
+              ) : null}
             </motion.div>
           </motion.div>
         ) : null}

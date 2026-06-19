@@ -34,7 +34,7 @@ export function WavyBackground({
       <div className="season-page-glow" aria-hidden />
       <div className="season-page-fx" aria-hidden />
       <div className="season-page-vignette" aria-hidden />
-      <div className="relative z-10 min-h-[100dvh]">{children}</div>
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }

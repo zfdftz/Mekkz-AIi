@@ -1,15 +1,87 @@
 const LOOKUP_PATTERN =
   /\b(konusu|içeriği|icerigi|hakkında|hakkinda|nedir|ne zaman|kimdir|oyuncu|dizi|film|seri|bölüm|bolum|fragman|izle|yayın|yayin|hangi gün|hangi gun|season|episode|plot|cast|about|what is|who is|tell me about|wikipedia|news|güncel|guncel|neuer|neue|aktuell)\b/i;
 
+const SLANG_LOOKUP_PATTERN =
+  /\b(what does|what's|what is|meaning of|was bedeutet|was heisst|was heißt|define|stand for|short for|abbreviation|acronym|slang)\b/i;
+
 const REFUSAL_LIKELY =
-  /^(was ist|what is|tell me|konusu|icerigi|içeriği|nedir|hakkında)/i;
+  /^(was ist|what is|what does|tell me|konusu|icerigi|içeriği|nedir|hakkında)/i;
 
 export function needsWebLookup(text: string) {
   const trimmed = text.trim();
   if (trimmed.length < 8) return false;
+  if (needsSlangDefinitionLookup(trimmed)) return true;
   if (LOOKUP_PATTERN.test(trimmed)) return true;
   if (/\?\s*$/.test(trimmed) && trimmed.split(/\s+/).length >= 4) return true;
   return REFUSAL_LIKELY.test(trimmed);
+}
+
+export function needsSlangDefinitionLookup(text: string) {
+  const trimmed = text.trim();
+  if (trimmed.length < 4) return false;
+  if (!SLANG_LOOKUP_PATTERN.test(trimmed)) return false;
+  return /\b[A-Za-z0-9.]{2,20}\b/.test(trimmed);
+}
+
+type DuckDuckGoTopic = { Text?: string; Topics?: DuckDuckGoTopic[] };
+
+async function fetchDuckDuckGoContext(query: string) {
+  const url = new URL("https://api.duckduckgo.com/");
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("no_redirect", "1");
+  url.searchParams.set("skip_disambig", "1");
+
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as {
+    AbstractText?: string;
+    RelatedTopics?: DuckDuckGoTopic[];
+  };
+
+  const parts: string[] = [];
+  if (data.AbstractText?.trim()) parts.push(data.AbstractText.trim());
+
+  for (const topic of data.RelatedTopics ?? []) {
+    if (topic.Text?.trim()) parts.push(topic.Text.trim());
+    for (const sub of topic.Topics ?? []) {
+      if (sub.Text?.trim()) parts.push(sub.Text.trim());
+    }
+  }
+
+  const body = parts.join(" ").trim();
+  return body.length >= 20 ? body : null;
+}
+
+/** Best-effort web lookup for slang, abbreviations, and short terms. */
+export async function fetchSlangDefinitionContext(term: string, hintMeaning?: string) {
+  const cleanTerm = term.trim();
+  if (!cleanTerm) return null;
+
+  const queries = [
+    `${cleanTerm} slang meaning`,
+    `${cleanTerm} abbreviation meaning`,
+    hintMeaning ? `${cleanTerm} means ${hintMeaning}` : "",
+    `what does ${cleanTerm} mean text`,
+    `${cleanTerm} internet slang`
+  ].filter(Boolean);
+
+  const chunks: string[] = [];
+  for (const query of queries) {
+    try {
+      const ddg = await fetchDuckDuckGoContext(query);
+      if (ddg) chunks.push(ddg);
+      const wiki = await fetchWebContext(query);
+      if (wiki) chunks.push(wiki);
+    } catch {
+      // Best-effort lookup.
+    }
+    if (chunks.join(" ").length >= 240) break;
+  }
+
+  const combined = [...new Set(chunks)].join("\n").trim();
+  return combined.length >= 20 ? combined.slice(0, 1800) : null;
 }
 
 function extractSubject(text: string) {

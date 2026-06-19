@@ -36,13 +36,15 @@ import {
   buildImageAnalysisLanguagePrompt,
   buildLanguageSystemPrompt,
   buildReplyLanguageLock,
-  resolveReplyLanguage,
+  resolveReplyLanguageFromMessages,
   type LanguageCode
 } from "@/lib/languages";
 import { resolveUserLanguage } from "@/lib/user-language";
 import {
   buildWebContextPrompt,
   fetchWebContext,
+  fetchSlangDefinitionContext,
+  needsSlangDefinitionLookup,
   needsWebLookup
 } from "@/lib/web-search";
 import {
@@ -77,6 +79,10 @@ import {
   isDefaultConversationTitle
 } from "@/lib/i18n/conversation-title";
 import { formatGroqApiError, groqLeanChatEnabled, truncateForGroq } from "@/lib/groq-context";
+import {
+  extractTermFromDefinitionQuestion,
+  tryLearnVerifiedSlangCorrection
+} from "@/lib/slang-learning";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -295,7 +301,34 @@ export async function POST(req: Request) {
     planState.plan
   );
   const planRules = buildPlanSystemPrompt(planState, chatLimitState);
-  const replyLanguage = resolveReplyLanguage(userText, userLanguage);
+  const userTexts = messages.filter((message) => message.role === "user").map((message) => message.content);
+  const replyLanguage = resolveReplyLanguageFromMessages(userTexts, userLanguage);
+
+  let memoryForPrompt = memoryText;
+  let slangWebContext = "";
+  try {
+    const slangLearn = await tryLearnVerifiedSlangCorrection(
+      admin,
+      userId,
+      userText,
+      userTexts.slice(0, -1)
+    );
+    if (slangLearn.learned) {
+      memoryForPrompt = await getMemoriesForPrompt(admin, userId);
+    }
+    if (slangLearn.webContext) {
+      slangWebContext = slangLearn.webContext;
+    } else if (needsSlangDefinitionLookup(userText)) {
+      const term = extractTermFromDefinitionQuestion(userText);
+      if (term) {
+        const lookedUp = await fetchSlangDefinitionContext(term);
+        if (lookedUp) slangWebContext = lookedUp;
+      }
+    }
+  } catch {
+    // Slang learning must not block chat replies.
+  }
+
   const willGenerateImage =
     !lastUserMessage?.images?.length &&
     (detectImageRequest(userText) || clientGenerateImage === true);
@@ -312,7 +345,7 @@ export async function POST(req: Request) {
   }
 
   const groqLean = groqLeanChatEnabled(hasImageInLastMessage);
-  const compactMemoryText = groqLean ? truncateForGroq(memoryText, 500) : memoryText;
+  const compactMemoryText = groqLean ? truncateForGroq(memoryForPrompt, 500) : memoryForPrompt;
   const compactStylePrompt =
     groqLean && stylePrompt ? truncateForGroq(stylePrompt, 220) : stylePrompt;
   const compactCustomInstructions = groqLean
@@ -339,11 +372,18 @@ export async function POST(req: Request) {
       "If the user wants a new image, reply in one short sentence that real image generation happens in the app — do not describe the scene.";
   }
 
-  if (!willGenerateImage && !hasImageInLastMessage && !groqLean && needsWebLookup(userText)) {
+  if (!willGenerateImage && !hasImageInLastMessage && !groqLean) {
     try {
-      const webContext = await fetchWebContext(userText);
-      if (webContext) {
-        systemContent += buildWebContextPrompt(webContext) + " ";
+      if (slangWebContext) {
+        systemContent +=
+          "For slang, abbreviations, and internet shorthand: use the verified web facts below instead of guessing. " +
+          "If the user corrected your last answer, acknowledge it briefly and answer with the verified meaning. ";
+        systemContent += buildWebContextPrompt(slangWebContext) + " ";
+      } else if (needsWebLookup(userText)) {
+        const webContext = await fetchWebContext(userText);
+        if (webContext) {
+          systemContent += buildWebContextPrompt(webContext) + " ";
+        }
       }
     } catch {
       // Web lookup is best-effort.

@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   clearUserMemories,
   deleteUserMemory,
-  listUserMemories,
+  listVisibleUserMemories,
   saveUserMemory
 } from "@/lib/memory";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
   }
 
   const admin = createAdminClient();
-  const memories = await listUserMemories(admin, userId);
+  const memories = await listVisibleUserMemories(admin, userId);
 
   return NextResponse.json({ memories });
 }
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       source: "manual",
       importance: 3
     });
-    const memories = await listUserMemories(admin, userId);
+    const memories = await listVisibleUserMemories(admin, userId);
     return NextResponse.json({ id, memories });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Speichern fehlgeschlagen.";
@@ -111,7 +111,7 @@ export async function DELETE(req: Request) {
     }
 
     await deleteUserMemory(admin, userId, memoryId);
-    const memories = await listUserMemories(admin, userId);
+    const memories = await listVisibleUserMemories(admin, userId);
     return NextResponse.json({ memories });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Löschen fehlgeschlagen.";

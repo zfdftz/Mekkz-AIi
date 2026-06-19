@@ -277,7 +277,7 @@ export function getLanguageAiName(code: LanguageCode) {
 const LANGUAGE_HINTS: Partial<Record<LanguageCode, RegExp>> = {
   tr: /\b(bir|ve|için|icin|nedir|konusu|dizi|var|mı|mi|mu|mü|ile|bu|şu|su|nasıl|nasil|merhaba|teşekkür|tesekkur|görsel|gorsel|resim|hakkında|hakkinda|oyuncu|bölüm|bolum|adı|adi|yeni|daha|içeriği|icerigi|hangi|yayın|yayin|evet|hayır|hayir|naber|nasılsın|nasilsin|iyiyim|teşekkürler|tesekkurler|istersen|konuşabiliriz|konusabiliriz|yardımcı|yardimci)\b|[çğıöşüÇĞİÖŞÜ]/i,
   de: /\b(der|die|das|und|ist|nicht|ein|eine|ich|du|wir|für|fur|wie|was|kann|bitte|oder|auch|warum|wann|wo|habe|hast|sein|sind|dein|deine|melde|anmelden|guten|danke|hallo|dir|mir|uns)\b|[äöüßÄÖÜ]/i,
-  en: /\b(the|and|what|how|why|when|where|please|thanks|thank|hello|hi|hey|you|your|are|is|can|could|would|have|help|today|doing|well|good|morning|assist|question|discuss)\b/i,
+  en: /\b(the|and|what|how|why|when|where|please|thanks|thank|hello|hi|hey|you|your|are|is|can|could|would|have|help|today|doing|well|good|morning|assist|question|discuss|mean|means|wrong|right|actually|no|yes|yeah|nope|nah|bro|okay|alright|does|don't|doesn't|that's|it's|i'm|im)\b/i,
   fr: /\b(je|tu|vous|nous|ils|elles|le|la|les|un|une|des|est|pas|que|qui|comment|ça|ca|va|bien|merci|bonjour|salut|pourquoi|quoi|où|ou|avec|dans|sur|ce|cette|ne|peux|peut|très|tres|au|aux|mon|ma|mes|ton|ta|tes|chez|alors|oui|non)\b|[àâçéèêëîïôùûüÿœæÀÂÇÉÈÊËÎÏÔÙÛÜŸŒÆ]/i,
   es: /\b(hola|gracias|qué|que|como|cómo|por|para|está|esta|estoy|son|soy|tú|tu|usted|nosotros|ellos|bien|mal|dónde|donde|cuándo|cuando|porqué|porque|puedo|puede|muy|sí|si|no|día|dia)\b|[áéíóúñ¿¡]/i,
   it: /\b(ciao|grazie|come|stai|stai|sono|sei|lui|lei|noi|voi|loro|perché|perche|dove|quando|cosa|bene|male|questo|quella|molto|sì|si|no|buongiorno|aiuto)\b/i,
@@ -329,6 +329,8 @@ export function detectLanguageFromText(text: string): LanguageCode | null {
   const sample = text.trim().slice(0, 800);
   if (sample.length < 2) return null;
 
+  if (looksLikeEnglishShort(sample)) return "en";
+
   let best: LanguageCode | null = null;
   let bestScore = 0;
 
@@ -343,7 +345,33 @@ export function detectLanguageFromText(text: string): LanguageCode | null {
   return bestScore >= 4 ? best : null;
 }
 
-/** Message language wins when detectable; otherwise UI/settings language. */
+function looksLikeEnglishShort(text: string): boolean {
+  const sample = text.trim();
+  if (sample.length < 2) return false;
+  if (/[äöüßÄÖÜ]/.test(sample)) return false;
+  if (/[\u0600-\u06FF\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af\u0900-\u097F]/.test(sample)) {
+    return false;
+  }
+  if (
+    /\b(no|yes|wrong|right|means|mean|actually|alright|okay|ok|thanks|please|what|does|don't|doesn't|that's|it's|you're|i'm|nah|yeah|yep|nope|bro|bruh|idk|tbh|ngl|not|even|close|stupid|dumb)\b/i.test(
+      sample
+    )
+  ) {
+    return true;
+  }
+  if (/^[a-zA-Z0-9\s'".,!?\-:;()[\]/]+$/.test(sample) && sample.length >= 3) {
+    if (
+      !/\b(der|die|das|und|ist|nicht|ein|ich|du|wir|für|fur|wie|was|bitte|oder|auch|nein|stimmt|heisst|heißt|bedeutet|danke|hallo|mir|dir)\b/i.test(
+        sample
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Message language wins when detectable; otherwise scan recent user turns, then UI language. */
 export function resolveReplyLanguage(
   userText: string,
   settingsLanguage: LanguageCode = DEFAULT_LANGUAGE
@@ -353,12 +381,51 @@ export function resolveReplyLanguage(
   return settingsLanguage;
 }
 
+export function resolveReplyLanguageFromMessages(
+  userTexts: string[],
+  settingsLanguage: LanguageCode = DEFAULT_LANGUAGE
+): LanguageCode {
+  const texts = userTexts.map((t) => t.trim()).filter(Boolean).slice(-8);
+  if (texts.length === 0) return settingsLanguage;
+
+  const scores = new Map<LanguageCode, number>();
+  for (let i = 0; i < texts.length; i++) {
+    const text = texts[i];
+    const weight = i + 1;
+    for (const lang of SUPPORTED_LANGUAGES) {
+      const score = scoreLanguage(lang.code, text);
+      if (score > 0) scores.set(lang.code, (scores.get(lang.code) ?? 0) + score * weight);
+    }
+    if (looksLikeEnglishShort(text)) {
+      scores.set("en", (scores.get("en") ?? 0) + 6 * weight);
+    }
+  }
+
+  const latestDetected = detectLanguageFromText(texts[texts.length - 1] ?? "");
+  if (latestDetected) {
+    scores.set(latestDetected, (scores.get(latestDetected) ?? 0) + 10);
+  }
+
+  let best: LanguageCode = settingsLanguage;
+  let bestScore = 0;
+  for (const [code, score] of scores) {
+    if (score > bestScore) {
+      bestScore = score;
+      best = code;
+    }
+  }
+
+  if (bestScore > 0) return best;
+  return settingsLanguage;
+}
+
 export function buildReplyLanguageLock(language: LanguageCode) {
   const name = getLanguageAiName(language);
   return (
     `FINAL RULE (overrides everything above): Reply in ${name} only — one single answer, no duplicates. ` +
     `Write exactly ONE cohesive reply in ${name}. Never write the same answer twice in different languages. ` +
     `Never mix English with ${name} or any other language in one reply. ` +
+    `Match the language of the user's recent messages in this chat, not your internal notes. ` +
     `Internal notes above may be in another language — never quote them; translate facts into ${name} only.`
   );
 }

@@ -7,7 +7,7 @@ export type MemoryCategory =
   | "fact"
   | "conversation";
 
-export type MemorySource = "auto" | "manual";
+export type MemorySource = "auto" | "manual" | "learned";
 
 export type UserMemory = {
   id: string;
@@ -130,8 +130,10 @@ export function extractMemoriesFromText(text: string): ExtractedMemory[] {
 export async function listUserMemories(
   admin: SupabaseClient,
   userId: string,
-  limit = 50
+  limit = 50,
+  options?: { includeLearned?: boolean }
 ): Promise<UserMemory[]> {
+  const includeLearned = options?.includeLearned ?? true;
   const { data, error } = await admin
     .from("user_memory")
     .select("id, user_id, memory, category, source, importance, created_at")
@@ -162,7 +164,18 @@ export async function listUserMemories(
     throw new Error(error.message);
   }
 
-  return (data ?? []) as UserMemory[];
+  return (data ?? [])
+    .filter((row) => includeLearned || (row as UserMemory).source !== "learned")
+    .map((row) => row as UserMemory);
+}
+
+/** Memories shown in settings UI — hidden learned slang/facts stay internal only. */
+export async function listVisibleUserMemories(
+  admin: SupabaseClient,
+  userId: string,
+  limit = 50
+) {
+  return listUserMemories(admin, userId, limit, { includeLearned: false });
 }
 
 function formatMemoryDate(iso: string) {
@@ -281,8 +294,19 @@ export async function deleteUserMemory(
 }
 
 export async function clearUserMemories(admin: SupabaseClient, userId: string) {
-  const { error } = await admin.from("user_memory").delete().eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  const { error } = await admin
+    .from("user_memory")
+    .delete()
+    .eq("user_id", userId)
+    .neq("source", "learned");
+  if (error) {
+    if (isMissingColumnError(error.message)) {
+      const fallback = await admin.from("user_memory").delete().eq("user_id", userId);
+      if (fallback.error) throw new Error(fallback.error.message);
+      return;
+    }
+    throw new Error(error.message);
+  }
 }
 
 export function buildMemorySystemPrompt(memoryBlock: string) {

@@ -60,8 +60,11 @@ export const en: MessageTable = {
   "settings.customInstructionsHint":
     "Describe how mekkz AI should react — tone, length, style, topics. The AI follows this in every chat.",
   "settings.customInstructionsPlaceholder":
-    "e.g. I prefer shorter answers. Be direct and friendly. Use emojis sparingly.",
+    "e.g. Always call me boss. Keep answers short. Be direct and friendly.",
   "settings.customInstructionsLoginRequired": "Sign in to customize AI behavior.",
+  "settings.customInstructionsSave": "Save",
+  "settings.customInstructionsSaved": "Saved — the AI uses this in every chat.",
+  "settings.customInstructionsSaveError": "Could not save. Please try again.",
   "tutor.beginner": "Beginner",
   "tutor.intermediate": "Intermediate",
   "tutor.advanced": "Advanced",

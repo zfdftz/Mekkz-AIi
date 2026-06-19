@@ -78,9 +78,12 @@ const de: MessageTable = {
   "settings.customInstructionsHint":
     "Beschreibe, wie mekkz AI antworten soll — Ton, Länge, Stil, Themen. Die KI beachtet das in jedem Chat.",
   "settings.customInstructionsPlaceholder":
-    "z.B. Ich bevorzuge kürzere Antworten. Sei direkt und freundlich. Nutze wenig Emojis.",
+    "z.B. Nenn mich immer Abi. Antworte kurz und direkt. Sei freundlich.",
   "settings.customInstructionsLoginRequired":
     "Melde dich an, um das KI-Verhalten anzupassen.",
+  "settings.customInstructionsSave": "Speichern",
+  "settings.customInstructionsSaved": "Gespeichert — die KI nutzt das in jedem Chat.",
+  "settings.customInstructionsSaveError": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
   "tutor.beginner": "Anfänger",
   "tutor.intermediate": "Mittel",
   "tutor.advanced": "Fortgeschritten",

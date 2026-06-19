@@ -128,7 +128,7 @@ export function useAiPreferences(userId?: string) {
 
   const updatePreferences = useCallback(
     async (patch: Partial<UserAiPreferences>) => {
-      if (!userId) return;
+      if (!userId) return { ok: false as const, error: "Nicht angemeldet." };
 
       const optimistic = patchCachedAiPreferences(
         userId,
@@ -145,13 +145,35 @@ export function useAiPreferences(userId?: string) {
         });
         const data = await readJsonResponse<AiPreferencesResponse>(res);
 
-        if (res.ok && data.preferences) {
-          applyPreferences(data.preferences, {
-            cachedAt: data.preferences.updatedAt ?? new Date().toISOString()
-          });
+        if (!res.ok || !data.preferences) {
+          return {
+            ok: false as const,
+            error: data.error || "Speichern fehlgeschlagen."
+          };
         }
+
+        if (
+          typeof patch.customInstructions === "string" &&
+          patch.customInstructions.trim() &&
+          !data.preferences.customInstructions.trim()
+        ) {
+          applyPreferences(optimistic, {
+            cachedAt: new Date().toISOString()
+          });
+          return {
+            ok: false as const,
+            error:
+              data.error ||
+              "Eigene KI-Anweisungen konnten nicht gespeichert werden. Bitte erneut versuchen."
+          };
+        }
+
+        applyPreferences(data.preferences, {
+          cachedAt: data.preferences.updatedAt ?? new Date().toISOString()
+        });
+        return { ok: true as const };
       } catch {
-        // Optimistic cache already applied; failed saves retry on next edit.
+        return { ok: false as const, error: "Speichern fehlgeschlagen." };
       }
     },
     [userId, preferences, applyPreferences]

@@ -34,8 +34,10 @@ export function buildCustomInstructionsPrompt(instructions: string) {
   const clean = instructions.trim();
   if (!clean) return "";
   return (
-    `User-defined behavior preferences:\n${clean}\n` +
-    "Follow these preferences in every reply when compatible with safety and app rules."
+    `USER CUSTOM BEHAVIOR (apply in EVERY reply — high priority):\n${clean}\n` +
+    "Follow these preferences strictly when compatible with safety and app rules. " +
+    "If the user wants a specific address name (e.g. abi, boss, chef), use it naturally when talking to them. " +
+    "Do not ignore or override these preferences with generic assistant tone."
   );
 }
 
@@ -128,6 +130,11 @@ export async function setUserAiPreferences(
   });
 
   if (error && isMissingColumnError(error.message)) {
+    if (typeof patch.customInstructions === "string" && patch.customInstructions.trim()) {
+      throw new Error(
+        "Eigene KI-Anweisungen konnten nicht gespeichert werden. Bitte migration-ai-custom-instructions.sql in Supabase ausführen."
+      );
+    }
     const { custom_instructions: _removed, ...payloadWithoutCustom } = payload;
     ({ error } = await admin.from("user_ai_preferences").upsert(payloadWithoutCustom, {
       onConflict: "user_id"
@@ -137,6 +144,14 @@ export async function setUserAiPreferences(
   if (error) {
     if (isSchemaError(error.message)) return { ...next, updatedAt: payload.updated_at };
     throw new Error(error.message);
+  }
+
+  if (
+    typeof patch.customInstructions === "string" &&
+    patch.customInstructions.trim() &&
+    !next.customInstructions.trim()
+  ) {
+    throw new Error("Eigene KI-Anweisungen konnten nicht gespeichert werden.");
   }
 
   return { ...next, updatedAt: payload.updated_at };

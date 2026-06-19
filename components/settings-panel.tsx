@@ -48,7 +48,11 @@ export function SettingsPanel({
   const [styleLoading, setStyleLoading] = useState(false);
   const [languageSaving, setLanguageSaving] = useState(false);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState("");
+  const [customInstructionsSaving, setCustomInstructionsSaving] = useState(false);
+  const [customInstructionsSaved, setCustomInstructionsSaved] = useState(false);
+  const [customInstructionsError, setCustomInstructionsError] = useState<string | null>(null);
   const customInstructionsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const customInstructionsSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditingCustomInstructionsRef = useRef(false);
 
   const styleLearningEnabled = styleProfile?.enabled ?? true;
@@ -94,8 +98,36 @@ export function SettingsPanel({
   useEffect(() => {
     if (!open) {
       isEditingCustomInstructionsRef.current = false;
+      return;
     }
+    setCustomInstructionsSaved(false);
+    setCustomInstructionsError(null);
   }, [open]);
+
+  function showCustomInstructionsSaved() {
+    setCustomInstructionsSaved(true);
+    setCustomInstructionsError(null);
+    if (customInstructionsSavedTimer.current) {
+      clearTimeout(customInstructionsSavedTimer.current);
+    }
+    customInstructionsSavedTimer.current = setTimeout(() => {
+      setCustomInstructionsSaved(false);
+    }, 3000);
+  }
+
+  async function persistCustomInstructions(nextValue: string) {
+    if (!userId) return;
+    setCustomInstructionsSaving(true);
+    setCustomInstructionsError(null);
+    const result = await updatePreferences({ customInstructions: nextValue });
+    setCustomInstructionsSaving(false);
+    if (result?.ok) {
+      showCustomInstructionsSaved();
+      isEditingCustomInstructionsRef.current = false;
+      return;
+    }
+    setCustomInstructionsError(result?.error || t("settings.customInstructionsSaveError"));
+  }
 
   function scheduleCustomInstructionsSave(nextValue: string) {
     if (!userId) return;
@@ -103,12 +135,14 @@ export function SettingsPanel({
       clearTimeout(customInstructionsSaveTimer.current);
     }
     customInstructionsSaveTimer.current = setTimeout(() => {
-      void updatePreferences({ customInstructions: nextValue });
-    }, 700);
+      void persistCustomInstructions(nextValue);
+    }, 900);
   }
 
   function handleCustomInstructionsChange(nextValue: string) {
     isEditingCustomInstructionsRef.current = true;
+    setCustomInstructionsSaved(false);
+    setCustomInstructionsError(null);
     setCustomInstructionsDraft(nextValue);
     scheduleCustomInstructionsSave(nextValue);
   }
@@ -119,14 +153,26 @@ export function SettingsPanel({
       clearTimeout(customInstructionsSaveTimer.current);
       customInstructionsSaveTimer.current = null;
     }
-    await updatePreferences({ customInstructions: customInstructionsDraft });
-    isEditingCustomInstructionsRef.current = false;
+    if (customInstructionsDraft === (aiPreferences.customInstructions ?? "")) {
+      isEditingCustomInstructionsRef.current = false;
+      return;
+    }
+    await persistCustomInstructions(customInstructionsDraft);
   }
+
+  useEffect(() => {
+    if (open) return;
+    void flushCustomInstructionsSave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     return () => {
       if (customInstructionsSaveTimer.current) {
         clearTimeout(customInstructionsSaveTimer.current);
+      }
+      if (customInstructionsSavedTimer.current) {
+        clearTimeout(customInstructionsSavedTimer.current);
       }
     };
   }, []);
@@ -327,15 +373,37 @@ export function SettingsPanel({
                     {t("settings.customInstructionsLoginRequired")}
                   </p>
                 ) : (
-                  <textarea
-                    value={customInstructionsDraft}
-                    onChange={(event) => handleCustomInstructionsChange(event.target.value)}
-                    onBlur={() => void flushCustomInstructionsSave()}
-                    rows={5}
-                    maxLength={800}
-                    placeholder={t("settings.customInstructionsPlaceholder")}
-                    className="w-full resize-y rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-base leading-relaxed outline-none transition focus:border-primary/50 disabled:opacity-50"
-                  />
+                  <>
+                    <textarea
+                      value={customInstructionsDraft}
+                      onChange={(event) => handleCustomInstructionsChange(event.target.value)}
+                      onBlur={() => void flushCustomInstructionsSave()}
+                      rows={5}
+                      maxLength={800}
+                      placeholder={t("settings.customInstructionsPlaceholder")}
+                      className="w-full resize-y rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-base leading-relaxed outline-none transition focus:border-primary/50 disabled:opacity-50"
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={customInstructionsSaving || prefsLoading}
+                        onClick={() => void flushCustomInstructionsSave()}
+                        className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                      >
+                        {customInstructionsSaving
+                          ? t("settings.styleLoading")
+                          : t("settings.customInstructionsSave")}
+                      </button>
+                      {customInstructionsSaved ? (
+                        <span className="text-sm text-emerald-300">
+                          {t("settings.customInstructionsSaved")}
+                        </span>
+                      ) : null}
+                      {customInstructionsError ? (
+                        <span className="text-sm text-red-300">{customInstructionsError}</span>
+                      ) : null}
+                    </div>
+                  </>
                 )}
               </section>
 

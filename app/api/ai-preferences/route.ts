@@ -78,7 +78,9 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
-  const preferences = await setUserAiPreferences(admin, userId, {
+
+  try {
+    const preferences = await setUserAiPreferences(admin, userId, {
     ...(patch.personalityMode
       ? { personalityMode: normalizePersonalityMode(patch.personalityMode) }
       : {}),
@@ -94,7 +96,11 @@ export async function POST(req: Request) {
     ...(typeof patch.customInstructions === "string"
       ? { customInstructions: patch.customInstructions }
       : {})
-  });
+    });
 
-  return NextResponse.json({ preferences });
+    return NextResponse.json({ preferences });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Speichern fehlgeschlagen.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -349,8 +349,9 @@ export async function POST(req: Request) {
   const compactStylePrompt =
     groqLean && stylePrompt ? truncateForGroq(stylePrompt, 220) : stylePrompt;
   const compactCustomInstructions = groqLean
-    ? truncateForGroq(aiPreferences.customInstructions, 280)
+    ? truncateForGroq(aiPreferences.customInstructions, 500)
     : aiPreferences.customInstructions;
+  const customInstructionsPrompt = buildCustomInstructionsPrompt(compactCustomInstructions);
   const compactFollowUpPrompt = groqLean ? "" : followUpPrompt;
   const compactSongLyricsPrompt =
     groqLean && !songLyricsPrompt ? "" : songLyricsPrompt;
@@ -406,7 +407,6 @@ export async function POST(req: Request) {
         ? `${buildTutorSystemPrompt(aiPreferences.tutorLevel)}\n`
         : "") +
       (compactStylePrompt ? `${compactStylePrompt}\n` : "") +
-      `${buildCustomInstructionsPrompt(compactCustomInstructions)}\n` +
       `${buildMemorySystemPrompt(compactMemoryText)}\n` +
       `${chatContext.prompt}\n` +
       `${compactActivityContext}\n` +
@@ -414,6 +414,7 @@ export async function POST(req: Request) {
       `${compactSongLyricsPrompt ? `${compactSongLyricsPrompt}\n` : ""}` +
       `${compactFollowUpPrompt ? `${compactFollowUpPrompt}\n` : ""}` +
       `${personalityLock}\n` +
+      `${customInstructionsPrompt ? `${customInstructionsPrompt}\n` : ""}` +
       `\n${buildReplyLanguageLock(replyLanguage)}`
   };
 

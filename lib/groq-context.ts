@@ -71,10 +71,12 @@ export async function requestGroqChatCompletion(
   const stream = options?.stream ?? false;
   const timeoutMs = options?.timeoutMs ?? 12000;
   const models = options?.models?.length ? options.models : groqModels();
+  const openaiFallback = Boolean(process.env.OPENAI_API_KEY);
   let lastError = "";
 
   for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const maxAttempts = openaiFallback ? 1 : 2;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -89,8 +91,8 @@ export async function requestGroqChatCompletion(
 
       lastError = await res.text();
       if (res.status === 429) {
-        if (attempt === 0) {
-          await sleep(Math.min(parseGroqRetryMs(lastError), 9000));
+        if (!openaiFallback && attempt === 0) {
+          await sleep(Math.min(parseGroqRetryMs(lastError), 4000));
           continue;
         }
         break;
@@ -100,7 +102,11 @@ export async function requestGroqChatCompletion(
     }
   }
 
-  throw new Error(formatGroqApiError(lastError));
+  throw new Error(
+    openaiFallback
+      ? `Groq rate limit: ${lastError.slice(0, 160)}`
+      : formatGroqApiError(lastError)
+  );
 }
 
 export function shouldFallbackFromGroqToOpenAI(error: unknown) {
@@ -113,10 +119,9 @@ export function shouldFallbackFromGroqToOpenAI(error: unknown) {
 
 export function groqLeanChatEnabled(hasImageInLastMessage: boolean) {
   if (hasImageInLastMessage) return false;
-  const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
-  if (provider === "groq") return Boolean(process.env.GROQ_API_KEY);
-  if (provider === "openai" && !process.env.OPENAI_API_KEY && process.env.GROQ_API_KEY) {
-    return true;
-  }
+  if (!process.env.GROQ_API_KEY) return false;
+  const provider = (process.env.AI_PROVIDER || "").toLowerCase();
+  if (!provider || provider === "groq") return true;
+  if (provider === "openai" && !process.env.OPENAI_API_KEY) return true;
   return false;
 }

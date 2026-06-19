@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, MessageCircle, Repeat2, TrendingUp } from "lucide-react";
+import { Heart, MessageCircle, Plus, Search, TrendingUp, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, Fragment } from "react";
 import {
   ChatComposer,
@@ -28,6 +28,8 @@ export function FeedTab() {
   const [error, setError] = useState<string | null>(null);
   const [trending, setTrending] = useState(false);
   const [tag, setTag] = useState("");
+  const [search, setSearch] = useState("");
+  const [showComposer, setShowComposer] = useState(false);
   const [content, setContent] = useState("");
   const [postType, setPostType] = useState<FeedPost["postType"]>("text");
   const [tagsInput, setTagsInput] = useState("");
@@ -49,6 +51,7 @@ export function FeedTab() {
       const params = new URLSearchParams();
       if (trending) params.set("trending", "1");
       if (tag.trim()) params.set("tag", tag.trim());
+      if (search.trim()) params.set("q", search.trim());
       if (append && posts.length > 0) params.set("cursor", posts[posts.length - 1].createdAt);
       const res = await fetch(`/api/community/feed?${params}`);
       const data = await readJsonResponse<{ posts?: FeedPost[]; error?: string }>(res);
@@ -59,12 +62,12 @@ export function FeedTab() {
     } finally {
       setLoading(false);
     }
-  }, [trending, tag, posts]);
+  }, [trending, tag, search, posts]);
 
   useEffect(() => {
     void load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trending, tag]);
+  }, [trending, tag, search]);
 
   async function createPost() {
     if (!content.trim() && !imagePreview && !videoPreview) return;
@@ -95,6 +98,7 @@ export function FeedTab() {
       setImagePreview(null);
       setVideoPreview(null);
       setVideoPoster(null);
+      setShowComposer(false);
       await load(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler.");
@@ -181,25 +185,42 @@ export function FeedTab() {
     }
   }
 
-  async function repostPost(postId: string) {
-    const key = `repost:${postId}`;
+  async function toggleCommentLike(commentId: string, postId: string) {
+    const key = `clike:${commentId}`;
     if (!lockAction(key)) return;
     try {
       const res = await fetch("/api/community/feed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "repost", postId })
+        body: JSON.stringify({ action: "like-comment", commentId })
       });
-      const data = await readJsonResponse<{ repostsCount?: number; error?: string }>(res);
+      const data = await readJsonResponse<{ liked?: boolean; likesCount?: number }>(res);
       if (!res.ok) return;
-      if (typeof data.repostsCount === "number") {
-        setPosts((prev) =>
-          prev.map((p) => (p.id === postId ? { ...p, repostsCount: data.repostsCount! } : p))
-        );
-      }
+      setComments((prev) => ({
+        ...prev,
+        [postId]: (prev[postId] ?? []).map((c) =>
+          c.id === commentId
+            ? {
+                ...c,
+                likedByMe: data.liked ?? c.likedByMe,
+                likesCount: data.likesCount ?? c.likesCount
+              }
+            : c
+        )
+      }));
     } finally {
       unlockAction(key);
     }
+  }
+
+  function applySearchFilter() {
+    const raw = search.trim();
+    if (raw.startsWith("#")) {
+      setTag(raw.slice(1));
+      setSearch("");
+      return;
+    }
+    void load(false);
   }
 
   async function loadComments(postId: string) {
@@ -258,16 +279,46 @@ export function FeedTab() {
         onChange={(id) => setTrending(id === "trending")}
       />
 
-      <Panel>
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <TextInput
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            placeholder="Nach Tag filtern…"
-            className="sm:max-w-xs"
-          />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-md">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <TextInput
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applySearchFilter()}
+              placeholder="Suchen… Text, #tag"
+              className="pl-9"
+            />
+          </div>
+          {tag ? (
+            <GhostButton onClick={() => setTag("")} className="text-xs">
+              Tag: #{tag} <X size={14} className="ml-1 inline" />
+            </GhostButton>
+          ) : null}
+          <GhostButton onClick={() => applySearchFilter()}>Suchen</GhostButton>
         </div>
-        <FieldLabel>Neuer Post</FieldLabel>
+        {!showComposer ? (
+          <PrimaryButton onClick={() => setShowComposer(true)} className="shrink-0">
+            <Plus size={18} className="mr-1.5 inline" />
+            Neuer Post
+          </PrimaryButton>
+        ) : null}
+      </div>
+
+      {showComposer ? (
+        <Panel>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <FieldLabel>Neuer Post</FieldLabel>
+            <button
+              type="button"
+              onClick={() => setShowComposer(false)}
+              className="rounded-lg p-1.5 text-muted hover:bg-white/10"
+              aria-label="Schließen"
+            >
+              <X size={18} />
+            </button>
+          </div>
         <div className="mb-3 flex flex-wrap gap-2">
           {(["text", "prompt", "story", "ai_output", "result"] as const).map((type) => (
             <GhostButton
@@ -310,7 +361,8 @@ export function FeedTab() {
             Posten
           </PrimaryButton>
         </div>
-      </Panel>
+        </Panel>
+      ) : null}
 
       <ErrorBanner message={error} />
 
@@ -377,29 +429,35 @@ export function FeedTab() {
                   <MessageCircle size={16} className="mr-1.5 inline" />
                   {post.commentsCount}
                 </GhostButton>
-                <GhostButton
-                  disabled={actionBusy[`repost:${post.id}`]}
-                  onClick={() => void repostPost(post.id)}
-                >
-                  <Repeat2 size={16} className="mr-1.5 inline" />
-                  {post.repostsCount}
-                </GhostButton>
               </div>
               {expanded === post.id ? (
                 <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
                   {(comments[post.id] ?? []).map((c) => (
                     <div key={c.id} className="rounded-lg bg-black/20 px-4 py-3.5 text-[17px] sm:text-lg">
-                      <ProfileLink userId={c.userId} className="mb-1 block">
-                        <ProfileIdentity
-                          compact
-                          username={c.authorName ?? "user"}
-                          title={c.authorTitle}
-                          isVerified={c.authorVerified}
-                          isCreator={c.authorCreator}
-                          isChosen={c.authorChosen}
-                          isUltraCreator={c.authorUltraCreator}
-                        />
-                      </ProfileLink>
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <ProfileLink userId={c.userId} className="min-w-0">
+                          <ProfileIdentity
+                            compact
+                            username={c.authorName ?? "user"}
+                            title={c.authorTitle}
+                            isVerified={c.authorVerified}
+                            isCreator={c.authorCreator}
+                            isChosen={c.authorChosen}
+                            isUltraCreator={c.authorUltraCreator}
+                          />
+                        </ProfileLink>
+                        <GhostButton
+                          className="shrink-0 text-xs"
+                          disabled={actionBusy[`clike:${c.id}`]}
+                          onClick={() => void toggleCommentLike(c.id, post.id)}
+                        >
+                          <Heart
+                            size={14}
+                            className={`mr-1 inline ${c.likedByMe ? "fill-red-400 text-red-400" : ""}`}
+                          />
+                          {c.likesCount ?? 0}
+                        </GhostButton>
+                      </div>
                       <p className="text-muted">{c.content}</p>
                     </div>
                   ))}

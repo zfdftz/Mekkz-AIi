@@ -136,7 +136,6 @@ export function useAiPreferences(userId?: string) {
         preferences ?? readCachedAiPreferences(userId) ?? DEFAULT_AI_PREFERENCES
       );
       applyPreferences(optimistic);
-      setLoading(true);
 
       try {
         const res = await fetch("/api/ai-preferences", {
@@ -151,8 +150,8 @@ export function useAiPreferences(userId?: string) {
             cachedAt: data.preferences.updatedAt ?? new Date().toISOString()
           });
         }
-      } finally {
-        setLoading(false);
+      } catch {
+        // Optimistic cache already applied; failed saves retry on next edit.
       }
     },
     [userId, preferences, applyPreferences]

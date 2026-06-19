@@ -35,6 +35,17 @@ import type { UserProfile } from "@/lib/community/types";
 
 const AVATAR_MAX_MB = Math.round(AVATAR_MAX_BYTES / (1024 * 1024));
 
+const NAME_COLOR_PRESETS = [
+  "#8b5cf6",
+  "#22d3ee",
+  "#f472b6",
+  "#fbbf24",
+  "#34d399",
+  "#f87171",
+  "#a78bfa",
+  "#ffffff"
+] as const;
+
 function profileToRewardsForm(profile: UserProfile | null): RewardsFormState {
   const showcasedBadges = filterShowcaseBadges(profile?.showcasedBadges ?? []);
   return {
@@ -60,6 +71,7 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
   const [showFollowList, setShowFollowList] = useState(false);
   const [followTab, setFollowTab] = useState<"followers" | "following">("followers");
   const [showBadgesPanel, setShowBadgesPanel] = useState(false);
+  const [showNameColors, setShowNameColors] = useState(false);
   const [rewardsForm, setRewardsForm] = useState<RewardsFormState>(() =>
     profileToRewardsForm(initialProfile ?? null)
   );
@@ -90,7 +102,12 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
       ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
       : profile?.plan === "pro"
         ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
-        : "border-white/20 bg-white/10 text-muted";
+        : profile?.plan === "plus"
+          ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
+          : "border-white/20 bg-white/10 text-muted";
+
+  const canCustomizeNameColor =
+    profile?.plan === "plus" || profile?.plan === "pro" || profile?.plan === "ultra";
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -211,7 +228,7 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
             </div>
             <div className="min-w-0 flex-1 pb-1">
               <ProfileIdentity
-                username={profile?.username ?? "user"}
+                username={(username.trim() || profile?.username) ?? "user"}
                 title={previewTitle}
                 isVerified={profile?.isVerified}
                 isCreator={profile?.isCreator}
@@ -220,7 +237,43 @@ export function ProfileTab({ initialProfile }: { initialProfile?: UserProfile | 
                 isFounder={profile?.isFounder}
                 badges={previewBadges}
                 profileView
+                nameColor={rewardsForm.accentColor}
+                onNameClick={
+                  canCustomizeNameColor ? () => setShowNameColors((v) => !v) : undefined
+                }
               />
+              {canCustomizeNameColor && showNameColors ? (
+                <div className="mt-2 flex flex-wrap gap-2 rounded-xl border border-white/10 bg-black/30 p-2">
+                  {NAME_COLOR_PRESETS.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={color}
+                      onClick={() => {
+                        setRewardsForm((prev) => ({ ...prev, accentColor: color }));
+                        storeAccent(color);
+                      }}
+                      className={`h-8 w-8 rounded-full border-2 transition hover:scale-110 ${
+                        rewardsForm.accentColor === color ? "border-white" : "border-white/20"
+                      }`}
+                      style={{ background: color }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={rewardsForm.accentColor}
+                    onChange={(e) => {
+                      setRewardsForm((prev) => ({ ...prev, accentColor: e.target.value }));
+                      storeAccent(e.target.value);
+                    }}
+                    className="h-8 w-10 cursor-pointer rounded border border-white/20 bg-transparent"
+                    title="Eigene Farbe"
+                  />
+                </div>
+              ) : null}
+              {canCustomizeNameColor ? (
+                <p className="mt-1 text-[11px] text-muted">Tippe auf deinen Namen für Farbe</p>
+              ) : null}
               <p className="mt-1 text-sm font-medium text-primary">
                 {formatCount(profile?.followersCount ?? 0)} Follower
               </p>

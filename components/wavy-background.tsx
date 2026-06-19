@@ -3,7 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { onAccentChange, readStoredAccent } from "@/lib/accent-color";
-import { getSeasonAccent, getSeasonUiClass } from "@/lib/rewards/season-theme";
+import { getSeasonAccent } from "@/lib/rewards/season-theme";
 
 export function WavyBackground({
   children,
@@ -12,7 +12,6 @@ export function WavyBackground({
   children: ReactNode;
   accentColor?: string | null;
 }) {
-  const seasonClass = getSeasonUiClass();
   const [accent, setAccent] = useState(
     () => accentColor ?? readStoredAccent() ?? getSeasonAccent()
   );
@@ -25,12 +24,14 @@ export function WavyBackground({
 
   return (
     <div
-      className={`wavy-page season-page-bg ${seasonClass} relative min-h-[100dvh] overflow-hidden`}
+      className="wavy-page season-page-bg season-ui-0 relative min-h-[100dvh] overflow-hidden"
       style={{ "--season-accent": accent, "--user-accent": accent } as CSSProperties}
     >
       <div className="season-page-base" aria-hidden />
       <div className="season-page-stars" aria-hidden />
+      <div className="season-page-stars season-page-stars-deep" aria-hidden />
       <div className="season-page-nebula" aria-hidden />
+      <div className="season-page-galaxy" aria-hidden />
       <div className="season-page-glow" aria-hidden />
       <div className="season-page-fx" aria-hidden />
       <div className="season-page-vignette" aria-hidden />

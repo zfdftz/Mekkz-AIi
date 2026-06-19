@@ -16,11 +16,13 @@ import { readJsonResponse } from "@/lib/fetch-json";
 
 type BadgeDef = { id: string; name: string; description: string };
 type TitleDef = { id: string; label: string };
+type CosmeticDef = { id: string; name: string; type: string; rarity: string };
 type SearchHit = { userId: string; username: string | null };
 type TargetUser = {
   userId: string;
   username: string | null;
   badges: string[];
+  inventory: string[];
   titles: string[];
   isChosen: boolean;
   isVerified: boolean;
@@ -30,6 +32,8 @@ type TargetUser = {
   adminTitles: string[];
   moderationWarning: string | null;
   bannedUntil: string | null;
+  plan: string;
+  planPeriodEnd: string | null;
 };
 
 type AdminAction =
@@ -37,6 +41,10 @@ type AdminAction =
   | "revoke-badge"
   | "grant-title"
   | "revoke-title"
+  | "grant-cosmetic"
+  | "revoke-cosmetic"
+  | "grant-plan"
+  | "revoke-plan"
   | "set-chosen"
   | "set-identity"
   | "grant-all"
@@ -106,6 +114,7 @@ function RewardsAdminPanel({
   const [mounted, setMounted] = useState(false);
   const [badges, setBadges] = useState<BadgeDef[]>([]);
   const [titles, setTitles] = useState<TitleDef[]>([]);
+  const [cosmetics, setCosmetics] = useState<CosmeticDef[]>([]);
   const [username, setUsername] = useState("");
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [target, setTarget] = useState<TargetUser | null>(null);
@@ -113,7 +122,10 @@ function RewardsAdminPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [tab, setTab] = useState<"badges" | "titles" | "identity" | "moderation">("badges");
+  const [tab, setTab] = useState<
+    "badges" | "titles" | "backgrounds" | "plans" | "identity" | "moderation"
+  >("badges");
+  const [planDuration, setPlanDuration] = useState<"3d" | "7d" | "30d" | "365d" | "lifetime">("30d");
   const [warningText, setWarningText] = useState("");
   const [banDays, setBanDays] = useState(7);
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,10 +143,17 @@ function RewardsAdminPanel({
 
   useEffect(() => {
     void fetch("/api/rewards/admin")
-      .then((r) => readJsonResponse<{ badges?: BadgeDef[]; titles?: TitleDef[] }>(r))
+      .then((r) =>
+        readJsonResponse<{
+          badges?: BadgeDef[];
+          titles?: TitleDef[];
+          cosmetics?: CosmeticDef[];
+        }>(r)
+      )
       .then((d) => {
         setBadges(d.badges ?? []);
         setTitles(d.titles ?? []);
+        setCosmetics(d.cosmetics ?? []);
       });
   }, []);
 
@@ -368,7 +387,8 @@ function RewardsAdminPanel({
               ) : null}
 
               <div className="mb-3 flex flex-wrap gap-1 border-b border-white/10 pb-2">
-                {(["badges", "titles", "identity", "moderation"] as const).map((t) => (
+                {(["badges", "titles", "backgrounds", "plans", "identity", "moderation"] as const).map(
+                  (t) => (
                   <button
                     key={t}
                     type="button"
@@ -378,9 +398,18 @@ function RewardsAdminPanel({
                       tab === t ? "bg-primary text-white" : "bg-white/10 text-muted"
                     }`}
                   >
-                    {t === "identity" ? "Identity" : t === "moderation" ? "Moderation" : t}
+                    {t === "identity"
+                      ? "Identity"
+                      : t === "moderation"
+                        ? "Moderation"
+                        : t === "backgrounds"
+                          ? "Hintergründe"
+                          : t === "plans"
+                            ? "Abos"
+                            : t}
                   </button>
-                ))}
+                )
+                )}
               </div>
 
               {tab === "badges" ? (
@@ -443,6 +472,96 @@ function RewardsAdminPanel({
                       />
                     );
                   })}
+                </div>
+              ) : null}
+
+              {tab === "backgrounds" ? (
+                <div className="max-h-72 space-y-2 overflow-y-auto overscroll-contain pr-1">
+                  <p className="px-1 text-[10px] text-muted">
+                    Profil-Hintergründe vergeben oder entfernen (unabhängig von Badges).
+                  </p>
+                  {cosmetics.map((cosmetic) => {
+                    const owned = (target.inventory ?? []).includes(cosmetic.id);
+                    const busyId = owned
+                      ? actionBusyId("revoke-cosmetic", { cosmeticId: cosmetic.id })
+                      : actionBusyId("grant-cosmetic", { cosmeticId: cosmetic.id });
+                    return (
+                      <AdminRow
+                        key={cosmetic.id}
+                        title={cosmetic.name}
+                        subtitle={`${cosmetic.id} · ${cosmetic.rarity}`}
+                        owned={owned}
+                        busy={busy}
+                        busyId={busyId}
+                        onGrant={() =>
+                          void adminAction("grant-cosmetic", { cosmeticId: cosmetic.id })
+                        }
+                        onRevoke={() =>
+                          void adminAction("revoke-cosmetic", { cosmeticId: cosmetic.id })
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {tab === "plans" ? (
+                <div className="space-y-3">
+                  <p className="text-sm">
+                    Aktuell: <strong className="uppercase">{target.plan}</strong>
+                    {target.planPeriodEnd ? (
+                      <span className="text-muted">
+                        {" "}
+                        bis {new Date(target.planPeriodEnd).toLocaleDateString("de-DE")}
+                      </span>
+                    ) : null}
+                  </p>
+                  <FieldLabel>Laufzeit</FieldLabel>
+                  <select
+                    value={planDuration}
+                    disabled={Boolean(busy)}
+                    onChange={(e) =>
+                      setPlanDuration(e.target.value as typeof planDuration)
+                    }
+                    className="w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-sm"
+                  >
+                    <option value="3d">3 Tage</option>
+                    <option value="7d">7 Tage</option>
+                    <option value="30d">1 Monat</option>
+                    <option value="365d">1 Jahr</option>
+                    <option value="lifetime">Lifetime</option>
+                  </select>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["plus", "pro", "ultra"] as const).map((planId) => (
+                      <PrimaryButton
+                        key={planId}
+                        disabled={busy !== null}
+                        className="text-xs uppercase"
+                        onClick={() =>
+                          void adminAction("grant-plan", { plan: planId, duration: planDuration })
+                        }
+                      >
+                        {busy === actionBusyId("grant-plan", { plan: planId, duration: planDuration }) ? (
+                          <Loader2 className="animate-spin" size={14} />
+                        ) : (
+                          planId
+                        )}
+                      </PrimaryButton>
+                    ))}
+                  </div>
+                  {target.plan !== "free" ? (
+                    <GhostButton
+                      className="w-full text-red-300"
+                      disabled={busy !== null}
+                      onClick={() => void adminAction("revoke-plan")}
+                    >
+                      {busy === "revoke-plan" ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        "Abo entfernen (Free)"
+                      )}
+                    </GhostButton>
+                  ) : null}
                 </div>
               ) : null}
 

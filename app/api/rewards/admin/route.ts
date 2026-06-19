@@ -12,13 +12,23 @@ import { adminGrantAllBadges, grantBadge, listUserBadges, revokeBadge } from "@/
 import {
   adminGrantAllStyleItems,
   adminGrantAllTitles,
+  adminGrantCosmetic,
   adminGrantTitle,
+  adminRevokeCosmetic,
   adminRevokeTitle,
-  getUnlockedTitles
+  getUnlockedTitles,
+  listInventory
 } from "@/lib/rewards/cosmetics";
-import { BADGES, TITLES } from "@/lib/rewards/catalog";
+import { BADGES, COSMETICS, TITLES } from "@/lib/rewards/catalog";
 import { normalizeUsername } from "@/lib/community/profile-rules";
 import { adminSetIdentityFlags, getVerificationFlags, setChosenStatus } from "@/lib/rewards/verification";
+import {
+  adminGrantPlan,
+  adminRevokePlan,
+  resolveEntitledPlan,
+  type AdminPlanDuration
+} from "@/lib/user-plans";
+import type { PlanId } from "@/lib/plans";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function escapeLikePattern(raw: string) {
@@ -32,6 +42,10 @@ const schema = z.object({
     "revoke-badge",
     "grant-title",
     "revoke-title",
+    "grant-cosmetic",
+    "revoke-cosmetic",
+    "grant-plan",
+    "revoke-plan",
     "set-chosen",
     "set-identity",
     "grant-all",
@@ -42,6 +56,9 @@ const schema = z.object({
   ]),
   badgeId: z.string().optional(),
   titleId: z.string().optional(),
+  cosmeticId: z.string().optional(),
+  plan: z.enum(["plus", "pro", "ultra"]).optional(),
+  duration: z.enum(["3d", "7d", "30d", "365d", "lifetime"]).optional(),
   chosen: z.boolean().optional(),
   isVerified: z.boolean().optional(),
   isCreator: z.boolean().optional(),
@@ -63,17 +80,36 @@ async function buildUserPayload(admin: ReturnType<typeof createAdminClient>, use
   if (!profile) return null;
 
   const badges = await listUserBadges(admin, userId);
+  const inventory = await listInventory(admin, userId);
   const { data: authUser } = await admin.auth.admin.getUserById(userId);
   const registeredAt = authUser?.user?.created_at
     ? new Date(authUser.user.created_at)
     : new Date();
   const titles = await getUnlockedTitles(admin, userId, registeredAt);
   const flags = await getVerificationFlags(admin, userId);
+  const { data: planRow } = await admin
+    .from("user_plans")
+    .select("plan, stripe_period_end, stripe_subscription_status")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const entitledPlan = resolveEntitledPlan(
+    planRow
+      ? {
+          user_id: userId,
+          plan: planRow.plan as string,
+          images_today: 0,
+          usage_day: "",
+          stripe_period_end: planRow.stripe_period_end as string | null,
+          stripe_subscription_status: planRow.stripe_subscription_status as string | null
+        }
+      : null
+  );
 
   return {
     userId,
     username: profile.username as string | null,
     badges: badges.map((b) => b.id),
+    inventory: inventory.map((item) => item.id),
     titles,
     isChosen: flags.isChosen,
     isVerified: flags.isVerified,
@@ -82,7 +118,9 @@ async function buildUserPayload(admin: ReturnType<typeof createAdminClient>, use
     isFounder: flags.isFounder,
     adminTitles: (profile.admin_granted_titles as string[] | null) ?? [],
     moderationWarning: (profile.moderation_warning as string | null) ?? null,
-    bannedUntil: (profile.banned_until as string | null) ?? null
+    bannedUntil: (profile.banned_until as string | null) ?? null,
+    plan: entitledPlan,
+    planPeriodEnd: (planRow?.stripe_period_end as string | null) ?? null
   };
 }
 
@@ -107,6 +145,9 @@ export async function POST(req: Request) {
     action,
     badgeId,
     titleId,
+    cosmeticId,
+    plan,
+    duration,
     chosen,
     isVerified,
     isCreator,
@@ -141,6 +182,29 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "Unbekannter Titel." }, { status: 400 });
         }
         await adminRevokeTitle(admin, userId, titleId);
+        break;
+      case "grant-cosmetic":
+        if (!cosmeticId || !COSMETICS.find((c) => c.id === cosmeticId)) {
+          return NextResponse.json({ error: "Unbekannter Hintergrund." }, { status: 400 });
+        }
+        await adminGrantCosmetic(admin, userId, cosmeticId);
+        break;
+      case "revoke-cosmetic":
+        if (!cosmeticId || !COSMETICS.find((c) => c.id === cosmeticId)) {
+          return NextResponse.json({ error: "Unbekannter Hintergrund." }, { status: 400 });
+        }
+        await adminRevokeCosmetic(admin, userId, cosmeticId);
+        break;
+      case "grant-plan": {
+        if (!plan) {
+          return NextResponse.json({ error: "Plan fehlt." }, { status: 400 });
+        }
+        const grantDuration = (duration ?? "30d") as AdminPlanDuration;
+        await adminGrantPlan(admin, userId, plan as PlanId, grantDuration);
+        break;
+      }
+      case "revoke-plan":
+        await adminRevokePlan(admin, userId);
         break;
       case "set-chosen":
         if (typeof chosen !== "boolean") {
@@ -274,6 +338,12 @@ export async function GET(req: Request) {
     titles: Object.values(TITLES).map((t) => ({
       id: t.id,
       label: t.label
+    })),
+    cosmetics: COSMETICS.filter((c) => c.type === "background" || c.type === "frame").map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      rarity: c.rarity
     }))
   });
 }

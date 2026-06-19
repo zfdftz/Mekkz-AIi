@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BADGES, getBadge, type BadgeDef } from "./catalog";
-import { grantBadgeBackground } from "./cosmetics";
+import { BADGE_BACKGROUND_REWARDS } from "./catalog";
+import { clearEquippedCosmeticIfMatches, grantBadgeBackground, removeFromInventory } from "./cosmetics";
 import { validateShowcaseBadgeIds, filterShowcaseBadges, stripIdentityBadgeIds } from "./showcase-rules";
 
 function missing(msg: string) {
@@ -72,6 +73,12 @@ export async function revokeBadge(admin: SupabaseClient, userId: string, badgeId
     .eq("user_id", userId)
     .eq("badge_id", badgeId);
   if (error && !missing(error.message)) throw new Error(error.message);
+
+  const linkedBackground = BADGE_BACKGROUND_REWARDS[badgeId];
+  if (linkedBackground) {
+    await removeFromInventory(admin, userId, linkedBackground);
+    await clearEquippedCosmeticIfMatches(admin, userId, linkedBackground);
+  }
 }
 
 export async function updateShowcasedBadges(

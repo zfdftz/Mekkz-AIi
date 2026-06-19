@@ -203,7 +203,6 @@ export const BADGE_BACKGROUND_REWARDS: Record<string, string> = {
   night_owl: "bg-midnight-blue",
   creative_mind: "bg-creative-burst",
   ai_expert: "bg-circuit-mind",
-  cosmic_genesis: "bg-genesis-bloom",
   beta_tester: "bg-beta-pulse"
 };
 

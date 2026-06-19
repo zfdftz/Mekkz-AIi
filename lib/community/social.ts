@@ -608,7 +608,7 @@ async function mapGroupMessageRow(
 export async function listFeed(
   admin: SupabaseClient,
   userId: string,
-  opts: { cursor?: string; tag?: string; trending?: boolean } = {}
+  opts: { cursor?: string; tag?: string; search?: string; trending?: boolean } = {}
 ): Promise<FeedPost[]> {
   let query = admin
     .from("feed_posts")
@@ -617,6 +617,10 @@ export async function listFeed(
     .limit(20);
   if (opts.cursor) query = query.lt("created_at", opts.cursor);
   if (opts.tag) query = query.contains("tags", [opts.tag]);
+  if (opts.search?.trim()) {
+    const term = opts.search.trim().replace(/[%_]/g, "");
+    if (term) query = query.ilike("content", `%${term}%`);
+  }
   const { data, error } = await query;
   if (error) {
     if (missing(error.message)) return [];
@@ -730,26 +734,41 @@ export async function toggleLike(admin: SupabaseClient, userId: string, postId: 
 
 export async function listComments(
   admin: SupabaseClient,
-  postId: string
+  postId: string,
+  viewerUserId?: string
 ): Promise<FeedComment[]> {
   const { data, error } = await admin
     .from("feed_comments")
-    .select("id, post_id, user_id, content, created_at")
+    .select("id, post_id, user_id, content, created_at, likes_count")
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
   if (error) {
     if (missing(error.message)) return [];
     throw new Error(error.message);
   }
+  const commentIds = (data ?? []).map((r) => r.id as string);
   const ids = [...new Set((data ?? []).map((r) => r.user_id))];
   const names = await usernamesByIds(admin, ids);
+  let liked = new Set<string>();
+  if (viewerUserId && commentIds.length) {
+    const { data: likes, error: likesError } = await admin
+      .from("feed_comment_likes")
+      .select("comment_id")
+      .eq("user_id", viewerUserId)
+      .in("comment_id", commentIds);
+    if (!likesError) {
+      liked = new Set((likes ?? []).map((row) => row.comment_id as string));
+    }
+  }
   return (data ?? []).map((row) => ({
     id: row.id,
     postId: row.post_id,
     userId: row.user_id,
     content: row.content,
     createdAt: row.created_at,
-    authorName: names.get(row.user_id) ?? null
+    authorName: names.get(row.user_id) ?? null,
+    likesCount: (row.likes_count as number | undefined) ?? 0,
+    likedByMe: liked.has(row.id as string)
   }));
 }
 
@@ -774,10 +793,68 @@ export async function addComment(
       userId: data.user_id,
       content: data.content,
       createdAt: data.created_at,
-      authorName: names.get(userId) ?? null
+      authorName: names.get(userId) ?? null,
+      likesCount: 0,
+      likedByMe: false
     },
     commentsCount
   };
+}
+
+async function syncCommentLikesCount(admin: SupabaseClient, commentId: string) {
+  const { count, error } = await admin
+    .from("feed_comment_likes")
+    .select("*", { count: "exact", head: true })
+    .eq("comment_id", commentId);
+  if (error) {
+    if (missing(error.message)) return 0;
+    throw new Error(error.message);
+  }
+  const value = count ?? 0;
+  const { error: updateError } = await admin
+    .from("feed_comments")
+    .update({ likes_count: value })
+    .eq("id", commentId);
+  if (updateError && !missing(updateError.message)) throw new Error(updateError.message);
+  return value;
+}
+
+export async function toggleCommentLike(
+  admin: SupabaseClient,
+  userId: string,
+  commentId: string
+) {
+  const { data: existing } = await admin
+    .from("feed_comment_likes")
+    .select("comment_id")
+    .eq("comment_id", commentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existing) {
+    await admin
+      .from("feed_comment_likes")
+      .delete()
+      .eq("comment_id", commentId)
+      .eq("user_id", userId);
+  } else {
+    const { error } = await admin
+      .from("feed_comment_likes")
+      .insert({ comment_id: commentId, user_id: userId });
+    if (error && !/duplicate|unique/i.test(error.message) && !missing(error.message)) {
+      throw new Error(error.message);
+    }
+  }
+
+  const likesCount = await syncCommentLikesCount(admin, commentId);
+  const { data: likedRow } = await admin
+    .from("feed_comment_likes")
+    .select("comment_id")
+    .eq("comment_id", commentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return { liked: Boolean(likedRow), likesCount };
 }
 
 export async function repost(admin: SupabaseClient, userId: string, postId: string) {

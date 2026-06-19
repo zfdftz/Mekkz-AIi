@@ -12,7 +12,7 @@ import {
   createFeedPost,
   listComments,
   listFeed,
-  repost,
+  toggleCommentLike,
   toggleLike
 } from "@/lib/community/social";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   const admin = createAdminClient();
   const postId = searchParams.get("postId");
   if (postId) {
-    const comments = await listComments(admin, postId);
+    const comments = await listComments(admin, postId, auth.user!.id);
     const ids = comments.map((c) => c.userId);
     const map = await getAuthorIdentityMap(admin, ids);
     return NextResponse.json({
@@ -43,6 +43,7 @@ export async function GET(req: Request) {
   const posts = await listFeed(admin, auth.user!.id, {
     cursor: searchParams.get("cursor") ?? undefined,
     tag: searchParams.get("tag") ?? undefined,
+    search: searchParams.get("q") ?? undefined,
     trending: searchParams.get("trending") === "1"
   });
   const ids = posts.map((p) => p.userId);
@@ -69,8 +70,8 @@ const postSchema = z.discriminatedUnion("action", [
     videoPosterUrl: z.string().nullable().optional()
   }),
   z.object({ action: z.literal("like"), postId: z.string().uuid() }),
-  z.object({ action: z.literal("comment"), postId: z.string().uuid(), content: z.string().min(1) }),
-  z.object({ action: z.literal("repost"), postId: z.string().uuid() })
+  z.object({ action: z.literal("like-comment"), commentId: z.string().uuid() }),
+  z.object({ action: z.literal("comment"), postId: z.string().uuid(), content: z.string().min(1) })
 ]);
 
 export async function POST(req: Request) {
@@ -133,6 +134,10 @@ export async function POST(req: Request) {
     const result = await toggleLike(admin, userId, parsed.data.postId);
     return NextResponse.json(result);
   }
+  if (parsed.data.action === "like-comment") {
+    const result = await toggleCommentLike(admin, userId, parsed.data.commentId);
+    return NextResponse.json(result);
+  }
   if (parsed.data.action === "comment") {
     const { comment, commentsCount } = await addComment(
       admin,
@@ -150,6 +155,5 @@ export async function POST(req: Request) {
       commentsCount
     });
   }
-  const result = await repost(admin, userId, parsed.data.postId);
-  return NextResponse.json(result);
+  return NextResponse.json({ error: "Unbekannte Aktion." }, { status: 400 });
 }

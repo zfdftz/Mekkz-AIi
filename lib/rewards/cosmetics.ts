@@ -88,6 +88,58 @@ export async function grantBadgeBackground(
   await addToInventory(admin, userId, item, item.seasonIndex >= 0 ? item.seasonIndex : season.index);
 }
 
+export async function removeFromInventory(admin: SupabaseClient, userId: string, itemId: string) {
+  const { error } = await admin
+    .from("user_inventory")
+    .delete()
+    .eq("user_id", userId)
+    .eq("item_id", itemId);
+  if (error && !missing(error.message)) throw new Error(error.message);
+}
+
+export async function clearEquippedCosmeticIfMatches(
+  admin: SupabaseClient,
+  userId: string,
+  itemId: string
+) {
+  const { data } = await admin
+    .from("user_profiles")
+    .select("profile_background, profile_frame")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data) return;
+
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (data.profile_background === itemId) payload.profile_background = null;
+  if (data.profile_frame === itemId) payload.profile_frame = null;
+  if (Object.keys(payload).length === 1) return;
+
+  const { error } = await admin.from("user_profiles").update(payload).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function revokeCosmeticBackground(admin: SupabaseClient, userId: string, itemId: string) {
+  const item = getCosmetic(itemId);
+  if (!item || (item.type !== "background" && item.type !== "frame")) {
+    throw new Error("Unbekannter Profil-Hintergrund.");
+  }
+  await removeFromInventory(admin, userId, itemId);
+  await clearEquippedCosmeticIfMatches(admin, userId, itemId);
+}
+
+export async function adminGrantCosmetic(admin: SupabaseClient, userId: string, cosmeticId: string) {
+  const item = getCosmetic(cosmeticId);
+  if (!item || (item.type !== "background" && item.type !== "frame")) {
+    throw new Error("Unbekannter Profil-Hintergrund.");
+  }
+  const season = getCurrentSeasonInfo();
+  await addToInventory(admin, userId, item, item.seasonIndex >= 0 ? item.seasonIndex : season.index);
+}
+
+export async function adminRevokeCosmetic(admin: SupabaseClient, userId: string, cosmeticId: string) {
+  await revokeCosmeticBackground(admin, userId, cosmeticId);
+}
+
 function pickRarity(): CosmeticRarity {
   const roll = Math.random() * 100;
   let acc = 0;
@@ -98,17 +150,27 @@ function pickRarity(): CosmeticRarity {
   return "common";
 }
 
+const BADGE_LINKED_BACKGROUND_IDS = new Set(Object.values(BADGE_BACKGROUND_REWARDS));
+
+function isCrateEligible(c: CosmeticDef, seasonIndex: number, legacyIndices: number[]) {
+  if (BADGE_LINKED_BACKGROUND_IDS.has(c.id)) return false;
+  if (c.type !== "background" && c.type !== "frame") return false;
+  if (c.seasonIndex === seasonIndex || legacyIndices.includes(c.seasonIndex)) return true;
+  if (c.seasonIndex === -1) return true;
+  return false;
+}
+
 function cratePoolForSeason(seasonIndex: number, legacyIndices: number[], owned: Set<string>) {
   const seasonal = COSMETICS.filter(
-    (c) =>
-      c.rarity !== "common" &&
-      (c.seasonIndex === seasonIndex ||
-        legacyIndices.includes(c.seasonIndex) ||
-        c.seasonIndex === -1) &&
-      !owned.has(c.id)
+    (c) => c.rarity !== "common" && isCrateEligible(c, seasonIndex, legacyIndices) && !owned.has(c.id)
   );
   if (seasonal.length > 0) return seasonal;
-  return COSMETICS.filter((c) => !owned.has(c.id));
+  return COSMETICS.filter(
+    (c) =>
+      (c.type === "background" || c.type === "frame") &&
+      !BADGE_LINKED_BACKGROUND_IDS.has(c.id) &&
+      !owned.has(c.id)
+  );
 }
 
 function pickCrateItem(
@@ -194,13 +256,37 @@ export async function getProfileCosmetics(
   let profileFrame: string | null = (data?.profile_frame as string) ?? null;
   let profileBackgroundRaw: string | null = (data?.profile_background as string) ?? null;
 
-  if (profileFrame && !profileBackgroundRaw) {
+  const inventory = await listInventory(admin, userId);
+  const owned = new Set(inventory.map((entry) => entry.id));
+
+  if (profileFrame && !profileBackgroundRaw && owned.has(profileFrame)) {
     profileBackgroundRaw = profileFrame;
     profileFrame = null;
     await admin
       .from("user_profiles")
       .update({
         profile_background: profileBackgroundRaw,
+        profile_frame: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("user_id", userId);
+  }
+
+  if (profileBackgroundRaw && !owned.has(profileBackgroundRaw)) {
+    profileBackgroundRaw = null;
+    await admin
+      .from("user_profiles")
+      .update({
+        profile_background: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("user_id", userId);
+  }
+  if (profileFrame && !owned.has(profileFrame)) {
+    profileFrame = null;
+    await admin
+      .from("user_profiles")
+      .update({
         profile_frame: null,
         updated_at: new Date().toISOString()
       })

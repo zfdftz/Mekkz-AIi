@@ -142,7 +142,9 @@ export function ProfileIdentity({
   isFounder,
   badges,
   compact,
-  profileView
+  profileView,
+  nameColor,
+  onNameClick
 }: {
   username: string;
   title?: string | null;
@@ -153,8 +155,9 @@ export function ProfileIdentity({
   isFounder?: boolean;
   badges?: BadgeChip[];
   compact?: boolean;
-  /** Profile header: larger name, no @ prefix (TikTok-style). */
   profileView?: boolean;
+  nameColor?: string | null;
+  onNameClick?: () => void;
 }) {
   const markSize = profileView ? 18 : compact ? 14 : 16;
   const showcaseBadges = badges ? filterShowcaseBadges(badges) : [];
@@ -164,15 +167,32 @@ export function ProfileIdentity({
       ? "truncate text-sm font-semibold leading-none"
       : "truncate font-semibold leading-none";
 
+  const nameStyle = nameColor ? ({ color: nameColor } as CSSProperties) : undefined;
+  const NameTag = onNameClick ? "button" : "span";
+
   return (
     <span className={`inline-flex min-w-0 max-w-full flex-col ${profileView ? "gap-1" : "gap-0.5"}`}>
       {/* TikTok / YouTube: name + status icons on one tight row */}
       <span className="inline-flex min-w-0 max-w-full items-center gap-1">
         <span className={`inline-flex min-w-0 items-center gap-1 ${profileView ? "" : ""}`}>
           {!profileView ? (
-            <span className={`${nameClass} text-foreground`}>@{username}</span>
+            <NameTag
+              type={onNameClick ? "button" : undefined}
+              onClick={onNameClick}
+              className={`${nameClass} text-foreground ${onNameClick ? "cursor-pointer rounded-md hover:bg-white/10 px-0.5 -mx-0.5" : ""}`}
+              style={nameStyle}
+            >
+              @{username}
+            </NameTag>
           ) : (
-            <span className={`${nameClass} text-foreground`}>{username}</span>
+            <NameTag
+              type={onNameClick ? "button" : undefined}
+              onClick={onNameClick}
+              className={`${nameClass} text-foreground ${onNameClick ? "cursor-pointer rounded-md hover:bg-white/10 px-1 -mx-1" : ""}`}
+              style={nameStyle}
+            >
+              {username}
+            </NameTag>
           )}
           <IdentityMarks
             isChosen={isChosen}

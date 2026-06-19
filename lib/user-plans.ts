@@ -713,6 +713,63 @@ export async function setUserPlan(admin: SupabaseClient, userId: string, plan: P
   return getUserPlanState(admin, userId);
 }
 
+export type AdminPlanDuration = "3d" | "7d" | "30d" | "365d" | "lifetime";
+
+function adminPlanPeriodEnd(duration: AdminPlanDuration): string | null {
+  if (duration === "lifetime") return new Date("2099-12-31T23:59:59.000Z").toISOString();
+  const days = { "3d": 3, "7d": 7, "30d": 30, "365d": 365 }[duration];
+  return new Date(Date.now() + days * 86400000).toISOString();
+}
+
+export async function adminGrantPlan(
+  admin: SupabaseClient,
+  userId: string,
+  plan: PlanId,
+  duration: AdminPlanDuration
+) {
+  if (!isPaidPlanId(plan)) {
+    throw new Error("Nur Plus, Pro oder Ultra können vergeben werden.");
+  }
+  const today = todayKey();
+  const current = await getUserPlanState(admin, userId);
+  const periodEnd = adminPlanPeriodEnd(duration);
+
+  await admin.from("user_plans").upsert({
+    user_id: userId,
+    plan,
+    images_today: current.imagesToday,
+    uploads_today: current.uploadsToday,
+    usage_day: today,
+    stripe_subscription_status: "active",
+    stripe_period_end: periodEnd,
+    scheduled_plan: null,
+    scheduled_plan_at: null,
+    updated_at: new Date().toISOString()
+  });
+
+  return getUserPlanState(admin, userId);
+}
+
+export async function adminRevokePlan(admin: SupabaseClient, userId: string) {
+  const today = todayKey();
+  const current = await getUserPlanState(admin, userId);
+
+  await admin.from("user_plans").upsert({
+    user_id: userId,
+    plan: "free",
+    images_today: current.imagesToday,
+    uploads_today: current.uploadsToday,
+    usage_day: today,
+    stripe_subscription_status: null,
+    stripe_period_end: null,
+    scheduled_plan: null,
+    scheduled_plan_at: null,
+    updated_at: new Date().toISOString()
+  });
+
+  return getUserPlanState(admin, userId);
+}
+
 export async function setUserPlanFromStripe(
   admin: SupabaseClient,
   userId: string,

@@ -189,6 +189,8 @@ export type FeedComment = {
   authorCreator?: boolean;
   authorChosen?: boolean;
   authorUltraCreator?: boolean;
+  likesCount?: number;
+  likedByMe?: boolean;
 };
 
 export type TaskItem = {

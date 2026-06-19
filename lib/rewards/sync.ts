@@ -198,9 +198,6 @@ export async function syncUserRewards(
       await grantBadge(admin, userId, "secret_all_tools", "system");
     }
 
-    const hour = new Date().getHours();
-    if (hour >= 0 && hour < 5) await grantBadge(admin, userId, "night_owl", "system");
-
     const { count: invCount } = await admin
       .from("user_inventory")
       .select("*", { count: "exact", head: true })

@@ -48,6 +48,7 @@ export function SettingsPanel({
   const [languageSaving, setLanguageSaving] = useState(false);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState("");
   const customInstructionsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditingCustomInstructionsRef = useRef(false);
 
   const styleLearningEnabled = styleProfile?.enabled ?? true;
 
@@ -75,8 +76,15 @@ export function SettingsPanel({
   }, [open, userId]);
 
   useEffect(() => {
+    if (isEditingCustomInstructionsRef.current) return;
     setCustomInstructionsDraft(aiPreferences.customInstructions ?? "");
   }, [aiPreferences.customInstructions]);
+
+  useEffect(() => {
+    if (!open) {
+      isEditingCustomInstructionsRef.current = false;
+    }
+  }, [open]);
 
   function scheduleCustomInstructionsSave(nextValue: string) {
     if (!userId) return;
@@ -89,8 +97,19 @@ export function SettingsPanel({
   }
 
   function handleCustomInstructionsChange(nextValue: string) {
+    isEditingCustomInstructionsRef.current = true;
     setCustomInstructionsDraft(nextValue);
     scheduleCustomInstructionsSave(nextValue);
+  }
+
+  async function flushCustomInstructionsSave() {
+    if (!userId) return;
+    if (customInstructionsSaveTimer.current) {
+      clearTimeout(customInstructionsSaveTimer.current);
+      customInstructionsSaveTimer.current = null;
+    }
+    await updatePreferences({ customInstructions: customInstructionsDraft });
+    isEditingCustomInstructionsRef.current = false;
   }
 
   useEffect(() => {
@@ -300,10 +319,7 @@ export function SettingsPanel({
                   <textarea
                     value={customInstructionsDraft}
                     onChange={(event) => handleCustomInstructionsChange(event.target.value)}
-                    onBlur={() =>
-                      void updatePreferences({ customInstructions: customInstructionsDraft })
-                    }
-                    disabled={prefsLoading}
+                    onBlur={() => void flushCustomInstructionsSave()}
                     rows={5}
                     maxLength={800}
                     placeholder={t("settings.customInstructionsPlaceholder")}

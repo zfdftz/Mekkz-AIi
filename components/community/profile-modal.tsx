@@ -204,6 +204,7 @@ export function ProfileModal({
                   isFounder={profile.isFounder}
                   badges={profile.showcasedBadges}
                   profileView
+                  nameColor={profile.accentColor}
                 />
                 <p className="text-xs text-muted">{formatCount(profile.followersCount)} Follower</p>
                 {typeof profile.totalLikes === "number" ? (

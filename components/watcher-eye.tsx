@@ -14,7 +14,6 @@ import {
 import { playWatcherSound } from "@/lib/watcher/sounds";
 import type { WatcherContext } from "@/lib/watcher/types";
 
-const CLICK_COOLDOWN_MS = 2500;
 const BUBBLE_VISIBLE_MS = 7000;
 const UNPROMPTED_COOLDOWN_MS = 10 * 60 * 1000;
 const UNPROMPTED_CHANCE = 0.0035;
@@ -30,10 +29,18 @@ export function WatcherEye({ context, activitySignal = 0 }: WatcherEyeProps) {
   const [message, setMessage] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const clickSalt = useRef(0);
-  const lastClickAt = useRef(0);
   const lastUnpromptedAt = useRef(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reopenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hideBubble = useCallback(() => {
+    setVisible(false);
+    setMessage("");
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  }, []);
 
   const syncDismissState = useCallback(() => {
     setDismissed(clearWatcherDismissIfExpired());
@@ -58,14 +65,13 @@ export function WatcherEye({ context, activitySignal = 0 }: WatcherEyeProps) {
 
     reopenTimer.current = setTimeout(() => {
       syncDismissState();
-      setVisible(false);
-      setMessage("");
+      hideBubble();
     }, ms + 50);
 
     return () => {
       if (reopenTimer.current) clearTimeout(reopenTimer.current);
     };
-  }, [dismissed, syncDismissState]);
+  }, [dismissed, syncDismissState, hideBubble]);
 
   const showMessage = useCallback(
     (ctx: WatcherContext, salt: number, withSound = true) => {
@@ -83,18 +89,19 @@ export function WatcherEye({ context, activitySignal = 0 }: WatcherEyeProps) {
 
   const onEyeClick = useCallback(() => {
     if (dismissed) return;
-    const now = Date.now();
-    if (now - lastClickAt.current < CLICK_COOLDOWN_MS) return;
-    lastClickAt.current = now;
+    if (visible) {
+      hideBubble();
+      return;
+    }
     clickSalt.current += 1;
     showMessage(context, clickSalt.current);
-  }, [context, dismissed, showMessage]);
+  }, [context, dismissed, hideBubble, showMessage, visible]);
 
   const onDismiss = useCallback(() => {
     dismissWatcher();
     setDismissed(true);
-    setVisible(false);
-  }, []);
+    hideBubble();
+  }, [hideBubble]);
 
   useEffect(() => {
     return () => {

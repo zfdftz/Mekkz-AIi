@@ -18,9 +18,11 @@ import { compressImageToBase64, isImageFile } from "@/lib/image-utils";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { formatChatErrorForUser } from "@/lib/groq-context";
 import { isChatStreamResponse, readChatStream } from "@/lib/chat-stream";
+import { createStreamReveal } from "@/lib/stream-reveal";
 import type { TranslationKey } from "@/lib/i18n/messages";
 import { createClient } from "@/lib/supabase/client";
 import { ChatMarkdown } from "./chat-markdown";
+import { ChatTypingIndicator } from "./chat-typing-indicator";
 import { WavyBackground } from "./wavy-background";
 import { AuthRequiredModal } from "./auth-required-modal";
 import { MekkzLogo } from "./mekkz-logo";
@@ -133,8 +135,7 @@ function ChatUIInner({
   const fileRef = useRef<HTMLInputElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const streamScrollRef = useRef<number | null>(null);
-  const streamRenderRef = useRef<number | null>(null);
-  const pendingStreamTextRef = useRef("");
+  const streamRevealRef = useRef<ReturnType<typeof createStreamReveal> | null>(null);
   const voiceModeRef = useRef(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -159,6 +160,12 @@ function ChatUIInner({
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
+
+  useEffect(() => {
+    return () => {
+      streamRevealRef.current?.dispose();
+    };
+  }, []);
 
   const refreshChatLimit = useCallback(
     async (conversationId: string) => {
@@ -222,11 +229,8 @@ function ChatUIInner({
     streamAbortRef.current?.abort();
     streamAbortRef.current = null;
     streamTargetConversationIdRef.current = null;
-    pendingStreamTextRef.current = "";
-    if (streamRenderRef.current != null) {
-      window.cancelAnimationFrame(streamRenderRef.current);
-      streamRenderRef.current = null;
-    }
+    streamRevealRef.current?.dispose();
+    streamRevealRef.current = null;
     setIsStreaming(false);
     setIsLoading(false);
     voiceRef.current.setProcessing(false);
@@ -235,11 +239,9 @@ function ChatUIInner({
   const stopGeneration = useCallback(() => {
     streamAbortRef.current?.abort();
     streamAbortRef.current = null;
-    pendingStreamTextRef.current = "";
-    if (streamRenderRef.current != null) {
-      window.cancelAnimationFrame(streamRenderRef.current);
-      streamRenderRef.current = null;
-    }
+    streamRevealRef.current?.flush();
+    streamRevealRef.current?.dispose();
+    streamRevealRef.current = null;
     setIsStreaming(false);
     setIsLoading(false);
     voiceRef.current.setProcessing(false);
@@ -520,7 +522,7 @@ function ChatUIInner({
     options?: { wordByWord?: boolean; onPartial?: (text: string) => void }
   ) {
     if (!fullText && !generatedImage) return;
-    const wordByWord = options?.wordByWord ?? false;
+    const wordByWord = options?.wordByWord ?? true;
 
     setMessages((prev) => [
       ...prev,
@@ -711,8 +713,26 @@ function ChatUIInner({
       if (useStream && res.ok && isChatStreamResponse(res.headers.get("content-type"))) {
         setIsStreaming(true);
         voice.resetSpeech();
-        let gotFirstDelta = false;
-        pendingStreamTextRef.current = "";
+        streamRevealRef.current?.dispose();
+        streamRevealRef.current = createStreamReveal({
+          onUpdate: (visibleText) => {
+            if (visibleText.length > 0) {
+              setIsLoading(false);
+            }
+            applyStreamMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last?.role === "assistant") {
+                const copy = [...prev];
+                copy[copy.length - 1] = { ...last, content: visibleText };
+                return copy;
+              }
+              return [...prev, { role: "assistant", content: visibleText }];
+            });
+            if (voiceModeRef.current) {
+              voiceRef.current.feedAssistantText(visibleText.trim());
+            }
+          }
+        });
 
         await readChatStream(
           res,
@@ -733,29 +753,7 @@ function ChatUIInner({
             }
           },
           onDelta: (_chunk, fullText) => {
-            if (!gotFirstDelta) {
-              gotFirstDelta = true;
-              setIsLoading(false);
-            }
-            pendingStreamTextRef.current = fullText;
-            if (streamRenderRef.current != null) return;
-
-            streamRenderRef.current = window.requestAnimationFrame(() => {
-              const nextText = pendingStreamTextRef.current;
-              streamRenderRef.current = null;
-              applyStreamMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  const copy = [...prev];
-                  copy[copy.length - 1] = { ...last, content: nextText };
-                  return copy;
-                }
-                return [...prev, { role: "assistant", content: nextText }];
-              });
-              if (voiceModeRef.current) {
-                voiceRef.current.feedAssistantText(nextText.trim());
-              }
-            });
+            streamRevealRef.current?.setTarget(fullText);
           },
           onDone: (event) => {
             if (
@@ -764,17 +762,13 @@ function ChatUIInner({
             ) {
               setChatLimit(event.conversationLimit);
             }
+            if (event.reply) {
+              streamRevealRef.current?.setTarget(event.reply);
+            }
             applyStreamMessages((prev) => {
               const copy = [...prev];
               const assistantIndex = copy.length - 1;
               const userIndex = copy.length - 2;
-
-              if (copy[assistantIndex]?.role === "assistant") {
-                copy[assistantIndex] = {
-                  ...copy[assistantIndex],
-                  content: event.reply || copy[assistantIndex].content
-                };
-              }
 
               if (event.userImage && copy[userIndex]?.role === "user") {
                 copy[userIndex] = {
@@ -804,9 +798,9 @@ function ChatUIInner({
           { signal: streamController.signal }
         );
 
-        if (!gotFirstDelta) {
-          setIsLoading(false);
-        }
+        await streamRevealRef.current?.waitUntilCaughtUp();
+        streamRevealRef.current?.dispose();
+        streamRevealRef.current = null;
         return;
       }
 
@@ -1158,10 +1152,12 @@ function ChatUIInner({
             ) : null}
             {messages.map((m, i) => {
                 const showContent = Boolean(m.content.trim());
-                const isLiveAssistant =
-                  isStreaming &&
-                  i === messages.length - 1 &&
-                  m.role === "assistant";
+                const isLastAssistant = i === messages.length - 1 && m.role === "assistant";
+                const isLiveAssistant = isStreaming && isLastAssistant;
+                const isWaitingForStream =
+                  isLastAssistant &&
+                  (isLoading || isStreaming) &&
+                  !showContent;
                 const assistantPlain = stripAssistantChatPrefix(m.content);
 
                 return (
@@ -1169,7 +1165,7 @@ function ChatUIInner({
                   key={`${i}-${m.role}`}
                   className={`group relative max-w-[min(92%,52rem)] rounded-xl border border-transparent p-2.5 text-sm sm:max-w-[min(88%,52rem)] sm:rounded-2xl sm:p-3 sm:text-base lg:max-w-[min(100%,52rem)] lg:p-4 ${
                     m.role === "user" ? "chat-bubble-user ml-auto" : "chat-bubble-ai"
-                  }`}
+                  } ${isLastAssistant && (isWaitingForStream || isLiveAssistant) ? "chat-bubble-ai-streaming" : ""}`}
                 >
                   {m.role === "assistant" && showContent && !isLiveAssistant ? (
                     <div className="absolute -top-2 left-1 z-10 flex opacity-100 transition-opacity sm:-top-3 sm:opacity-0 sm:group-hover:opacity-100">
@@ -1193,12 +1189,16 @@ function ChatUIInner({
                       }`}
                     />
                   ) : null}
-                  {showContent || isLiveAssistant ? (
+                  {isWaitingForStream ? (
+                    <ChatTypingIndicator label={loadingHint || t("chat.aiWriting")} />
+                  ) : showContent || isLiveAssistant ? (
                     m.role === "assistant" ? (
                       <div>
                         <ChatMarkdown content={assistantPlain} />
                         {isLiveAssistant ? (
-                          <span className="ml-0.5 inline-block animate-pulse text-primary">▍</span>
+                          <span className="chat-stream-cursor" aria-hidden>
+                            ▍
+                          </span>
                         ) : null}
                       </div>
                     ) : (
@@ -1216,9 +1216,6 @@ function ChatUIInner({
           </div>
 
           <footer className="shrink-0 border-t border-white/10 p-2.5 sm:p-4 lg:p-5">
-            {isLoading || isStreaming ? (
-              <p className="mb-2 text-sm text-muted">{loadingHint}</p>
-            ) : null}
             {hasFiniteChatLimit(chatLimit) ? (
               <p
                 className={`mb-3 text-xs ${

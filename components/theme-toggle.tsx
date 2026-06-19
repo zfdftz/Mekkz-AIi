@@ -17,10 +17,10 @@ export function ThemeToggle() {
   }, []);
 
   const toggle = () => {
-    const saved = loadAppearance();
-    const next: ThemeMode = saved.mode === "dark" ? "light" : "dark";
+    const next: ThemeMode = mode === "dark" ? "light" : "dark";
+    const { color } = loadAppearance();
     setMode(next);
-    applyAppearance(next, saved.color);
+    applyAppearance(next, color);
   };
 
   return (
@@ -29,7 +29,7 @@ export function ThemeToggle() {
       aria-label="Theme wechseln"
       className="glass rounded-xl p-2 transition hover:scale-105"
     >
-      {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+      {mode === "dark" ? <Moon size={18} /> : <Sun size={18} />}
     </button>
   );
 }

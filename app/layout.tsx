@@ -89,7 +89,7 @@ export default function RootLayout({
     <html lang="en" data-color="violet" className="dark" suppressHydrationWarning>
       <body>
         <Script id="theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem("theme")||"dark";var c=localStorage.getItem("color-theme")||"violet";var l=localStorage.getItem("mekkz_lang");var r=document.documentElement;r.classList.remove("light","dark");r.classList.add(t==="light"?"light":"dark");r.setAttribute("data-color",c);r.style.colorScheme=t==="light"?"light":"dark";if(l){r.lang=l;}}catch(e){}})();`}
+          {`(function(){try{var t=localStorage.getItem("theme");var m=t==="light"?"light":"dark";var c=localStorage.getItem("color-theme")||"violet";var l=localStorage.getItem("mekkz_lang");var r=document.documentElement;r.classList.toggle("light",m==="light");r.classList.toggle("dark",m==="dark");r.setAttribute("data-color",c);r.style.colorScheme=m;if(l){r.lang=l;}}catch(e){}})();`}
         </Script>
         <AdSenseScript />
         <AppearanceBootstrap />

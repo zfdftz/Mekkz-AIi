@@ -31,17 +31,22 @@ const VALID_COLORS: ColorTheme[] = [
 
 export const APPEARANCE_CHANGE_EVENT = "mekkz-appearance-change";
 
+function normalizeThemeMode(value: string | null): ThemeMode {
+  return value === "light" ? "light" : "dark";
+}
+
 export function applyAppearance(mode: ThemeMode, color: ColorTheme) {
+  const normalizedMode = normalizeThemeMode(mode);
   const root = document.documentElement;
-  root.classList.remove("light", "dark");
-  root.classList.add(mode);
+  root.classList.toggle("light", normalizedMode === "light");
+  root.classList.toggle("dark", normalizedMode === "dark");
   root.setAttribute("data-color", color);
-  root.style.colorScheme = mode;
-  localStorage.setItem("theme", mode);
+  root.style.colorScheme = normalizedMode;
+  localStorage.setItem("theme", normalizedMode);
   localStorage.setItem("color-theme", color);
   if (typeof window !== "undefined") {
     window.dispatchEvent(
-      new CustomEvent(APPEARANCE_CHANGE_EVENT, { detail: { mode, color } })
+      new CustomEvent(APPEARANCE_CHANGE_EVENT, { detail: { mode: normalizedMode, color } })
     );
   }
 }
@@ -59,7 +64,7 @@ export function subscribeAppearance(
 }
 
 export function loadAppearance(): { mode: ThemeMode; color: ColorTheme } {
-  const mode = (localStorage.getItem("theme") as ThemeMode) || "dark";
+  const mode = normalizeThemeMode(localStorage.getItem("theme"));
   const saved = localStorage.getItem("color-theme") as ColorTheme;
   const color = VALID_COLORS.includes(saved) ? saved : "violet";
   return { mode, color };

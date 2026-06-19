@@ -20,7 +20,13 @@ function useEquippedStyle({ styleId, profileFrame }: StyleProps) {
   const hasCustomStyle = Boolean(equipped);
   const cosmetic = equipped ? getCosmetic(equipped) : null;
   const isFrameStyle = cosmetic?.type === "frame";
-  return { equipped, bgClass, hasCustomStyle, isFrameStyle };
+  const motionTier =
+    cosmetic?.rarity === "legendary"
+      ? "legendary"
+      : cosmetic?.rarity === "epic"
+        ? "epic"
+        : null;
+  return { equipped, bgClass, hasCustomStyle, isFrameStyle, motionTier };
 }
 
 /** Full-bleed animated background layer (fixed, no filter animations). */
@@ -31,18 +37,36 @@ export function ProfileStyleBackground({
   seasonClass,
   className = ""
 }: StyleProps & { className?: string }) {
-  const { bgClass, hasCustomStyle, isFrameStyle } = useEquippedStyle({ styleId, profileFrame });
+  const { bgClass, hasCustomStyle, isFrameStyle, motionTier } = useEquippedStyle({
+    styleId,
+    profileFrame
+  });
 
   return (
     <div
       className={`profile-style-background ${bgClass} ${className} ${
-        hasCustomStyle ? "profile-bg-animated" : seasonClass ? `${seasonClass}-banner` : ""
+        motionTier === "legendary"
+          ? "profile-bg-legendary"
+          : motionTier === "epic"
+            ? "profile-bg-epic"
+            : hasCustomStyle
+              ? ""
+              : seasonClass
+                ? `${seasonClass}-banner`
+                : ""
       }`}
       aria-hidden
     >
       {isFrameStyle ? <div className="profile-style-rings" /> : null}
       {!hasCustomStyle ? <div className="season-profile-fx" aria-hidden /> : null}
-      {hasCustomStyle ? <div className="profile-bg-drift-layer" /> : null}
+      {motionTier === "epic" ? <div className="profile-bg-drift-layer" /> : null}
+      {motionTier === "legendary" ? (
+        <>
+          <div className="profile-bg-drift-layer" />
+          <div className="profile-bg-legendary-layer" />
+          <div className="profile-bg-legendary-shimmer" />
+        </>
+      ) : null}
     </div>
   );
 }

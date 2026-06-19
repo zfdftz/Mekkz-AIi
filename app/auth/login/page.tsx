@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import { FormEvent, Suspense, useState } from "react";
 import { GuestEntryButton } from "@/components/guest-entry-button";
 import { useLanguage } from "@/components/language-provider";
 import { MekkzLogo } from "@/components/mekkz-logo";
 import { OAuthSignInButtons } from "@/components/oauth-sign-in-buttons";
+import { formatOtpResendError } from "@/lib/auth/otp";
+import { readJsonResponse } from "@/lib/fetch-json";
 import { createClient } from "@/lib/supabase/client";
 import { WavyBackground } from "@/components/wavy-background";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -19,6 +22,7 @@ function LoginForm() {
   const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
   const verified = searchParams.get("verified") === "1";
   const checkoutSuccess = searchParams.get("checkout") === "success";
   const purchasedPlan = searchParams.get("plan");
@@ -32,14 +36,59 @@ function LoginForm() {
     }
   }
 
+  async function redirectAfterAuth() {
+    await syncPlanAfterLogin();
+
+    const onboardingRes = await fetch("/api/auth/onboarding");
+    const onboardingData = await readJsonResponse<{ needsOnboarding?: boolean }>(onboardingRes);
+
+    if (onboardingData.needsOnboarding) {
+      router.push("/auth/onboarding");
+    } else {
+      router.push("/chat");
+    }
+    router.refresh();
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return setError(error.message);
-    await syncPlanAfterLogin();
-    router.push("/chat");
-    router.refresh();
+    await redirectAfterAuth();
+  }
+
+  async function sendOtpLogin() {
+    if (!email) {
+      setError("Bitte gib deine E-Mail ein.");
+      return;
+    }
+
+    setError("");
+    setOtpLoading(true);
+
+    try {
+      const otpRes = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false }
+      });
+
+      if (otpRes.error) {
+        const formatted = formatOtpResendError(otpRes.error);
+        if (formatted.type === "rate_limit") {
+          setError(`Bitte warte ${formatted.seconds} Sekunden und versuche es erneut.`);
+          return;
+        }
+        setError(formatted.message);
+        return;
+      }
+
+      router.push(
+        `/auth/verify?email=${encodeURIComponent(email)}&mode=login` as Route
+      );
+    } finally {
+      setOtpLoading(false);
+    }
   }
 
   return (
@@ -91,6 +140,14 @@ function LoginForm() {
       />
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
       <button className="w-full rounded-xl bg-primary p-3 font-medium">{t("auth.login.submit")}</button>
+      <button
+        type="button"
+        onClick={() => void sendOtpLogin()}
+        disabled={otpLoading || !email}
+        className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm transition hover:bg-white/10 disabled:opacity-50"
+      >
+        {otpLoading ? "Sende Code..." : "Mit E-Mail-Code anmelden"}
+      </button>
       <p className="text-sm text-muted">
         {t("auth.login.registerPrompt")}{" "}
         <Link href="/auth/register" className="underline">

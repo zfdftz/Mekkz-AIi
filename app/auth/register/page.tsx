@@ -7,6 +7,7 @@ import { FormEvent, useState } from "react";
 import { GuestEntryButton } from "@/components/guest-entry-button";
 import { MekkzLogo } from "@/components/mekkz-logo";
 import { OAuthSignInButtons } from "@/components/oauth-sign-in-buttons";
+import { formatOtpResendError } from "@/lib/auth/otp";
 import { readJsonResponse } from "@/lib/fetch-json";
 import { createClient } from "@/lib/supabase/client";
 import { WavyBackground } from "@/components/wavy-background";
@@ -46,7 +47,12 @@ export default function RegisterPage() {
       });
 
       if (otpRes.error) {
-        setError(otpRes.error.message);
+        const formatted = formatOtpResendError(otpRes.error);
+        if (formatted.type === "rate_limit") {
+          setError(`Bitte warte ${formatted.seconds} Sekunden und versuche es erneut.`);
+          return;
+        }
+        setError(formatted.message);
         return;
       }
 

@@ -98,7 +98,7 @@ export const en: MessageTable = {
   "auth.login.registerPrompt": "No account yet?",
   "auth.login.registerLink": "Register",
   "auth.login.loading": "Loading...",
-  "auth.login.verified": "Account confirmed. Please sign in with your password.",
+  "auth.login.verified": "Account confirmed. You are signed in.",
   "auth.login.checkoutSuccess":
     "Payment successful. After sign-in your plan will sync automatically.",
   "auth.login.oauthCancelled": "Sign-in cancelled. Please try again.",

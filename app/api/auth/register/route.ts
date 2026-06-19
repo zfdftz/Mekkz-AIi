@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       email,
       expiresInMinutes: registrationExpiryMinutes(),
       message:
-        "Passwort gespeichert. Supabase sendet dir jetzt den kostenlosen 6-stelligen Code per E-Mail."
+        "Passwort gespeichert. Du erhältst jetzt einen 6-stelligen Code per E-Mail."
     });
   } catch (error) {
     const message =

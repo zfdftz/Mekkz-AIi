@@ -116,7 +116,7 @@ const de: MessageTable = {
   "auth.login.registerPrompt": "Noch kein Konto?",
   "auth.login.registerLink": "Registrieren",
   "auth.login.loading": "Lade...",
-  "auth.login.verified": "Konto bestätigt. Bitte jetzt mit deinem Passwort einloggen.",
+  "auth.login.verified": "Konto bestätigt. Du bist eingeloggt.",
   "auth.login.checkoutSuccess":
     "Zahlung erfolgreich. Nach dem Login wird dein Plan automatisch synchronisiert.",
   "auth.login.oauthCancelled": "Anmeldung abgebrochen. Bitte erneut versuchen.",

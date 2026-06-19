@@ -2,7 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { applyAppearance, loadAppearance, type ThemeMode } from "@/lib/theme-config";
+import { applyAppearance, loadAppearance, subscribeAppearance, type ThemeMode } from "@/lib/theme-config";
 
 export function ThemeToggle() {
   const [mode, setMode] = useState<ThemeMode>("dark");
@@ -10,6 +10,10 @@ export function ThemeToggle() {
   useEffect(() => {
     const saved = loadAppearance();
     setMode(saved.mode);
+
+    return subscribeAppearance(({ mode: nextMode }) => {
+      setMode(nextMode);
+    });
   }, []);
 
   const toggle = () => {

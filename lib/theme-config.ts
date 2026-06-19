@@ -29,13 +29,33 @@ const VALID_COLORS: ColorTheme[] = [
   "rose"
 ];
 
+export const APPEARANCE_CHANGE_EVENT = "mekkz-appearance-change";
+
 export function applyAppearance(mode: ThemeMode, color: ColorTheme) {
   const root = document.documentElement;
-  root.classList.toggle("light", mode === "light");
-  root.classList.toggle("dark", mode === "dark");
+  root.classList.remove("light", "dark");
+  root.classList.add(mode);
   root.setAttribute("data-color", color);
+  root.style.colorScheme = mode;
   localStorage.setItem("theme", mode);
   localStorage.setItem("color-theme", color);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(APPEARANCE_CHANGE_EVENT, { detail: { mode, color } })
+    );
+  }
+}
+
+export function subscribeAppearance(
+  listener: (appearance: { mode: ThemeMode; color: ColorTheme }) => void
+) {
+  if (typeof window === "undefined") return () => undefined;
+  const handler = (event: Event) => {
+    const detail = (event as CustomEvent<{ mode: ThemeMode; color: ColorTheme }>).detail;
+    if (detail?.mode && detail?.color) listener(detail);
+  };
+  window.addEventListener(APPEARANCE_CHANGE_EVENT, handler);
+  return () => window.removeEventListener(APPEARANCE_CHANGE_EVENT, handler);
 }
 
 export function loadAppearance(): { mode: ThemeMode; color: ColorTheme } {

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { LanguageProvider } from "@/components/language-provider";
 import { AuthSessionBootstrap } from "@/components/auth-session-bootstrap";
+import { AppearanceBootstrap } from "@/components/appearance-bootstrap";
 import { AchievementProvider } from "@/components/rewards/achievement-provider";
 import { AdSenseScript } from "@/components/adsense-script";
 
@@ -85,12 +86,13 @@ export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" data-color="violet" suppressHydrationWarning>
+    <html lang="en" data-color="violet" className="dark" suppressHydrationWarning>
       <body>
         <Script id="theme-init" strategy="beforeInteractive">
-          {`(function(){try{var t=localStorage.getItem("theme")||"dark";var c=localStorage.getItem("color-theme")||"violet";var l=localStorage.getItem("mekkz_lang");var r=document.documentElement;r.classList.toggle("light",t==="light");r.classList.toggle("dark",t==="dark");r.setAttribute("data-color",c);if(l){r.lang=l;}}catch(e){}})();`}
+          {`(function(){try{var t=localStorage.getItem("theme")||"dark";var c=localStorage.getItem("color-theme")||"violet";var l=localStorage.getItem("mekkz_lang");var r=document.documentElement;r.classList.remove("light","dark");r.classList.add(t==="light"?"light":"dark");r.setAttribute("data-color",c);r.style.colorScheme=t==="light"?"light":"dark";if(l){r.lang=l;}}catch(e){}})();`}
         </Script>
         <AdSenseScript />
+        <AppearanceBootstrap />
         <LanguageProvider>
           <AuthSessionBootstrap />
           <AchievementProvider>{children}</AchievementProvider>

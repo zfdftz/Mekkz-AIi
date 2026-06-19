@@ -1272,6 +1272,85 @@ body > * { position: relative; z-index: 1; }
   }
 }
 
+/* Light mode — cosmic sky stays visible but UI colors match */
+.light .season-page-bg.season-ui-0 .season-page-base {
+  background:
+    radial-gradient(ellipse 120% 85% at 72% 12%, rgba(196, 181, 253, 0.55), transparent 58%),
+    radial-gradient(ellipse 95% 70% at 18% 88%, rgba(167, 139, 250, 0.28), transparent 52%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(224, 231, 255, 0.7), transparent 55%),
+    linear-gradient(165deg, #faf8ff 0%, #f3eeff 30%, #e9e4ff 58%, #e0e7ff 82%, #ddd6fe 100%);
+}
+.light .season-page-bg.season-ui-0 .season-page-stars {
+  opacity: 0.42;
+  background-image:
+    radial-gradient(1px 1px at 8% 15%, rgba(91, 33, 182, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 22% 42%, rgba(109, 40, 217, 0.45), transparent),
+    radial-gradient(1px 1px at 38% 8%, rgba(124, 58, 237, 0.4), transparent),
+    radial-gradient(2px 2px at 55% 65%, rgba(139, 92, 246, 0.5), transparent),
+    radial-gradient(1px 1px at 68% 28%, rgba(91, 33, 182, 0.42), transparent),
+    radial-gradient(1.5px 1.5px at 82% 72%, rgba(109, 40, 217, 0.38), transparent),
+    radial-gradient(1px 1px at 92% 18%, rgba(124, 58, 237, 0.35), transparent),
+    radial-gradient(1px 1px at 15% 88%, rgba(139, 92, 246, 0.4), transparent);
+}
+.light .season-page-bg.season-ui-0 .season-page-stars-deep {
+  opacity: 0.28;
+}
+.light .season-page-bg.season-ui-0 .season-page-nebula {
+  opacity: 0.38;
+  background:
+    radial-gradient(ellipse 50% 40% at 22% 28%, rgba(167, 139, 250, 0.35), transparent 70%),
+    radial-gradient(ellipse 55% 45% at 78% 62%, rgba(129, 140, 248, 0.28), transparent 65%),
+    radial-gradient(ellipse 40% 30% at 52% 12%, rgba(196, 181, 253, 0.25), transparent 60%);
+}
+.light .season-page-bg.season-ui-0 .season-page-galaxy {
+  opacity: 0.32;
+}
+.light .season-page-bg.season-ui-0 .season-page-fx {
+  opacity: 0.45;
+}
+.light .season-page-bg.season-ui-0 .season-page-glow {
+  opacity: 0.5;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--season-accent) 28%, transparent), transparent 58%),
+    radial-gradient(ellipse 40% 30% at 72% 28%, rgba(167, 139, 250, 0.18), transparent 70%);
+}
+.light .season-page-bg.season-ui-0 .season-page-vignette {
+  background: radial-gradient(ellipse 92% 85% at 50% 50%, transparent 45%, rgba(255, 255, 255, 0.42) 100%);
+}
+
+.light .bg-black\/20 {
+  background-color: rgba(255, 255, 255, 0.58) !important;
+}
+
+.light .bg-black\/30 {
+  background-color: rgba(255, 255, 255, 0.68) !important;
+}
+
+.light .bg-white\/5 {
+  background-color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.light .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.light .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.light .border-white\/15 {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.light .text-muted {
+  color: hsl(var(--muted)) !important;
+}
+
+.light .community-nav-active {
+  background: rgba(139, 92, 246, 0.16) !important;
+  color: hsl(var(--primary)) !important;
+}
+
 /* Season 1 — Cyber Future: neon grid + holographic scan */
 .season-page-bg.season-ui-1 .season-page-base {
   background:

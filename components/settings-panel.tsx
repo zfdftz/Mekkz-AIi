@@ -9,6 +9,7 @@ import {
   applyAppearance,
   COLOR_THEMES,
   loadAppearance,
+  subscribeAppearance,
   type ColorTheme,
   type ThemeMode
 } from "@/lib/theme-config";
@@ -51,6 +52,16 @@ export function SettingsPanel({
   const isEditingCustomInstructionsRef = useRef(false);
 
   const styleLearningEnabled = styleProfile?.enabled ?? true;
+
+  useEffect(() => {
+    const saved = loadAppearance();
+    setMode(saved.mode);
+    setColor(saved.color);
+    return subscribeAppearance(({ mode: nextMode, color: nextColor }) => {
+      setMode(nextMode);
+      setColor(nextColor);
+    });
+  }, []);
 
   useEffect(() => {
     if (!open) return;
